@@ -18,6 +18,7 @@ from xr_toolz.core import Operator
 from xr_toolz.interpolate._src import (
     binning as _binning,
     coord_remap as _coord_remap,
+    downscale as _downscale,
     gap_fill as _gap_fill,
     grid_to_grid as _grid_to_grid,
     points_to_grid as _points_to_grid,
@@ -535,9 +536,18 @@ class ToPhase(Operator):
         }
 
 
+# ---------- learned resolution change --------------------------------------
+
+# Re-export Downscale / Upscale from _src.downscale so all Layer-1 Operators
+# are reachable from xr_toolz.interpolate.operators.
+Downscale = _downscale.Downscale
+Upscale = _downscale.Upscale
+
+
 __all__ = [
     "Bin2D",
     "Coarsen",
+    "Downscale",
     "FillNaNRBF",
     "FillNaNSpatial",
     "FillNaNTemporal",
@@ -555,4 +565,5 @@ __all__ = [
     "ToPhase",
     "ToPressureLevels",
     "ToSigma",
+    "Upscale",
 ]
