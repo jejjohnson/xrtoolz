@@ -305,7 +305,7 @@ xr_toolz/interpolate/
         gap_fill.py        # FillNaN, FillNaNRBF, FillNaNKriging
         coord_remap.py     # generic RemapAxis + vertical presets (ToSigma, ToIsopycnal, ToPressureLevels, …) and temporal preset (ToPhase)
         resample.py        # Resample (down), Upsample
-        smooth.py          # MovingAverage, GaussianSmooth, LowpassFilter, KalmanSmoother
+        smooth.py          # MovingAverage, GaussianSmooth, LowpassFilter (KalmanSmoother → future assimilate.smooth, see resolution 3 below)
         downscale.py       # Downscale, Upscale (both wrap a ModelOp)
 ```
 
@@ -322,7 +322,7 @@ Modules outside `interpolate` that handle adjacent concerns: `crs.Reproject` (CR
 
 1. **Super-resolution patch tiling — resolved.** `Downscale` is a pure `ModelOp` wrapper with no `patch_size` / `overlap` constructor args. Tiling is delegated to `xrpatcher` upstream of the operator. Rationale: keeps `Downscale` orthogonal to tiling strategy and avoids duplicating xrpatcher's API surface.
 2. **Data fusion home — deferred.** No fusion code lands in F3; revisit when the first fusion operator is proposed. `interpolate.fusion` remains the working assumption for deterministic-only fusion, but no commitment until `assimilate` exists.
-3. **`KalmanSmoother` home — resolved.** `KalmanSmoother` is **out of scope for `interpolate.smooth`**. It lives under future `assimilate.smooth` because it requires a state-space model. `interpolate.smooth` is restricted to deterministic, parameter-free smoothers (`MovingAverage`, `GaussianSmooth`, `LowpassFilter`).
+3. **`KalmanSmoother` home — resolved.** `KalmanSmoother` is **out of scope for `interpolate.smooth`**. It lives under future `assimilate.smooth` because it requires a state-space model. `interpolate.smooth` is restricted to deterministic, non–state-space smoothers (`MovingAverage`, `GaussianSmooth`, `LowpassFilter`); these still take parameters (window, sigma, cutoff), but none requires fitting a model from data.
 4. **`coord_remap` preset scope — resolved.** Ship vertical (`ToSigma`, `FromSigma`, `ToIsopycnal`, `ToPressureLevels`, `ToHeight`) + temporal (`ToPhase`) only. `ToTropopauseRelative`, `ToBoundaryLayerCoord`, and other domain-specific presets are deferred — add them on demand as new issues, each as a thin subclass over the generic `RemapAxis`.
 
 **Consequences:**
