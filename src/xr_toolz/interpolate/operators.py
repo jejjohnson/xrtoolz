@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from typing import Any
 
+import numpy as np
+
 from xr_toolz.core import Operator
 from xr_toolz.interpolate._src import (
     binning as _binning,
@@ -248,10 +250,18 @@ class MovingAverage(Operator):
         center: bool = True,
         min_periods: int | None = None,
     ):
+        if not isinstance(window, int) or isinstance(window, bool):
+            raise TypeError(f"window must be an int, got {type(window).__name__}")
         if window < 1:
             raise ValueError(f"window must be >= 1, got {window}")
+        if min_periods is not None and (
+            not isinstance(min_periods, int) or min_periods < 0
+        ):
+            raise ValueError(
+                f"min_periods must be a non-negative int or None, got {min_periods!r}"
+            )
         self.dim = dim
-        self.window = int(window)
+        self.window = window
         self.center = bool(center)
         self.min_periods = min_periods
 
@@ -293,19 +303,33 @@ class GaussianSmooth(Operator):
 
 
 class LowpassFilter(Operator):
-    """Wrap :func:`xr_toolz.interpolate._src.smooth.lowpass_filter`."""
+    """Wrap :func:`xr_toolz.interpolate._src.smooth.lowpass_filter`.
+
+    For ``btype`` in ``{"low", "high", "lowpass", "highpass"}`` ``cutoff``
+    is a scalar in ``(0, 1)``. For ``btype`` in
+    ``{"bandpass", "bandstop"}`` it is a length-2 sequence. Validation
+    is delegated to the Tier A kernel.
+    """
 
     def __init__(
         self,
         dim: str,
-        cutoff: float,
+        cutoff: Any,
         *,
         order: int = 4,
         btype: str = "low",
     ):
+        if not isinstance(order, int) or isinstance(order, bool):
+            raise TypeError(f"order must be an int, got {type(order).__name__}")
         self.dim = dim
-        self.cutoff = float(cutoff)
-        self.order = int(order)
+        if np.isscalar(cutoff):
+            self.cutoff: Any = float(cutoff)
+        else:
+            pair = tuple(float(v) for v in cutoff)
+            if len(pair) != 2:
+                raise ValueError(f"cutoff sequence must have length 2, got {len(pair)}")
+            self.cutoff = pair
+        self.order = order
         self.btype = btype
 
     def _apply(self, ds):
@@ -320,7 +344,9 @@ class LowpassFilter(Operator):
     def get_config(self) -> dict[str, Any]:
         return {
             "dim": self.dim,
-            "cutoff": self.cutoff,
+            "cutoff": (
+                list(self.cutoff) if isinstance(self.cutoff, tuple) else self.cutoff
+            ),
             "order": self.order,
             "btype": self.btype,
         }

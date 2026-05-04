@@ -190,3 +190,61 @@ def test_tier_c_get_config_is_serializable():
         "order": 6,
         "btype": "high",
     }
+
+
+# ---------------------------------------------------------------------------
+# Validation + dtype preservation (review feedback)
+# ---------------------------------------------------------------------------
+
+
+def test_array_smoothers_preserve_complex_dtype():
+    """Complex inputs must not be silently coerced to float."""
+    n = 64
+    t = np.arange(n)
+    z = np.exp(1j * 2 * np.pi * t / n)
+    assert np.iscomplexobj(ia.gaussian_smooth(z, axis=-1, sigma=1.0))
+    assert np.iscomplexobj(ia.lowpass_filter(z, axis=-1, cutoff=0.1))
+
+
+def test_array_lowpass_band_requires_pair_cutoff():
+    rng = np.random.default_rng(0)
+    x = rng.standard_normal(256)
+    out = ia.lowpass_filter(x, axis=-1, cutoff=(0.05, 0.4), btype="bandpass")
+    assert out.shape == x.shape
+    with pytest.raises(ValueError):
+        ia.lowpass_filter(x, axis=-1, cutoff=0.1, btype="bandpass")
+    with pytest.raises(ValueError):
+        ia.lowpass_filter(x, axis=-1, cutoff=(0.4, 0.05), btype="bandpass")
+
+
+def test_array_lowpass_unknown_btype_raises():
+    with pytest.raises(ValueError):
+        ia.lowpass_filter(np.zeros(16), axis=-1, cutoff=0.2, btype="bogus")
+
+
+def test_array_lowpass_invalid_cutoff_raises():
+    with pytest.raises(ValueError):
+        ia.lowpass_filter(np.zeros(16), axis=-1, cutoff=1.5)
+    with pytest.raises(ValueError):
+        ia.lowpass_filter(np.zeros(16), axis=-1, cutoff=0.0)
+
+
+def test_array_moving_average_rejects_non_integer_window():
+    with pytest.raises(TypeError):
+        ia.moving_average(np.zeros(8), axis=-1, window=1.9)  # type: ignore[arg-type]
+
+
+def test_tier_c_moving_average_rejects_non_integer_window():
+    with pytest.raises(TypeError):
+        MovingAverage("time", window=1.9)  # type: ignore[arg-type]
+
+
+def test_tier_c_lowpass_band_filter_passes_band():
+    n = 1024
+    t = np.arange(n)
+    # Period 16 → 0.0625 cycles/sample → 0.125 in normalized (Nyquist=1) units.
+    band_signal = np.sin(2 * np.pi * t / 16)
+    ds = xr.Dataset({"x": (("time",), band_signal)}, coords={"time": t})
+    op = LowpassFilter("time", cutoff=(0.08, 0.20), order=4, btype="bandpass")
+    out = op(ds)
+    assert out["x"].values[100:-100].std() > 0.9 * band_signal.std()

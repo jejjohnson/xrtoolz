@@ -35,11 +35,11 @@ def _apply_along_dim(
     out_vars: dict[str, xr.DataArray] = {}
     for name, da in ds.data_vars.items():
         if dim not in da.dims or not np.issubdtype(da.dtype, np.number):
-            out_vars[name] = da
+            out_vars[str(name)] = da
             continue
         axis = da.get_axis_num(dim)
         smoothed = fn(da.values, axis=axis)
-        out_vars[name] = xr.DataArray(
+        out_vars[str(name)] = xr.DataArray(
             smoothed,
             dims=da.dims,
             coords=da.coords,
@@ -94,14 +94,16 @@ def lowpass_filter(
     ds: xr.Dataset,
     *,
     dim: str,
-    cutoff: float,
+    cutoff: float | tuple[float, float] | list[float] | np.ndarray,
     order: int = 4,
     btype: str = "low",
 ) -> xr.Dataset:
     """Zero-phase Butterworth filter along ``dim``.
 
     ``cutoff`` is the normalized critical frequency (fraction of the
-    Nyquist rate). See :func:`xr_toolz.interpolate.array.lowpass_filter`.
+    Nyquist rate). For ``btype`` in ``{"bandpass", "bandstop"}`` pass a
+    length-2 ``(low, high)`` sequence. See
+    :func:`xr_toolz.interpolate.array.lowpass_filter`.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
