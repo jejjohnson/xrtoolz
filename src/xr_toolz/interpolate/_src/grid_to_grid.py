@@ -61,10 +61,19 @@ def regrid_like(
     in ``dims`` must exist on both ``ds`` and ``target``; values along
     other dims pass through.
     """
-    target_coords = {d: target[d] for d in dims if d in target.coords}
-    if not target_coords:
+    dim_list = list(dims)
+    missing_target = [d for d in dim_list if d not in target.coords]
+    if missing_target:
         raise ValueError(
-            f"target has none of the requested dims {tuple(dims)} as coords; "
-            f"got coords {tuple(target.coords)}."
+            f"target is missing requested dims {missing_target!r} as coords; "
+            f"got coords {tuple(target.coords)}. Pass `dims=` explicitly to "
+            "regrid only the dims that are actually shared."
         )
+    missing_source = [d for d in dim_list if d not in ds.coords]
+    if missing_source:
+        raise ValueError(
+            f"input is missing requested dims {missing_source!r} as coords; "
+            f"got coords {tuple(ds.coords)}."
+        )
+    target_coords = {d: target[d] for d in dim_list}
     return ds.interp(target_coords, method=method)

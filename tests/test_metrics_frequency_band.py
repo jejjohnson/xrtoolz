@@ -222,6 +222,85 @@ def test_invalid_band_raises() -> None:
         FrequencyBandSkill("phi", ("x",), {})
 
 
+def test_default_metric_is_serialised_in_get_config() -> None:
+    op = FrequencyBandSkill("phi", ("x",), {"a": (0.0, 0.1)})
+    cfg = op.get_config()
+    assert cfg["metric"]["class"] == "RMSE"
+    assert json.loads(json.dumps(cfg))["metric"]["class"] == "RMSE"
+
+
+def test_irregular_coord_raises(two_tone) -> None:
+    ds_pred, ds_ref = two_tone
+    # Stretch the x-coord so np.diff is non-uniform.
+    bad_x = np.cumsum(np.linspace(0.5, 1.5, ds_pred.sizes["x"]))
+    ds_pred = ds_pred.assign_coords(x=("x", bad_x))
+    ds_ref = ds_ref.assign_coords(x=("x", bad_x))
+    ds_pred["x"].attrs["units"] = "m"
+    ds_ref["x"].attrs["units"] = "m"
+    with pytest.raises(ValueError, match="not uniformly spaced"):
+        band_limited_rmse(
+            ds_pred,
+            ds_ref,
+            variable="phi",
+            bands={"a": (0.0, 0.1)},
+            dims=("x",),
+        )
+
+
+def test_pred_ref_must_share_dim_coords(two_tone) -> None:
+    ds_pred, ds_ref = two_tone
+    # Shift reference x by 0.5 so the coord arrays disagree.
+    ds_ref = ds_ref.assign_coords(x=("x", ds_ref["x"].values + 0.5))
+    ds_ref["x"].attrs["units"] = "m"
+    with pytest.raises(ValueError, match="prediction and reference disagree"):
+        band_limited_rmse(
+            ds_pred,
+            ds_ref,
+            variable="phi",
+            bands={"a": (0.0, 0.1)},
+            dims=("x",),
+        )
+
+
+def test_bandpass_axis_order_independent_of_dims_order() -> None:
+    # Data is stored as (lon, lat); caller passes dims=('lat','lon') —
+    # i.e. the non-data axis order. The mask reshape must still align
+    # with the data's actual axis positions or the band-pass produces
+    # numerically wrong scores without raising.
+    n = 64
+    rng = np.random.default_rng(0)
+    arr = rng.standard_normal((n, n))
+    coords = {
+        "lon": xr.DataArray(
+            np.arange(n, dtype=float), dims=("lon",), attrs={"units": "m"}
+        ),
+        "lat": xr.DataArray(
+            np.arange(n, dtype=float), dims=("lat",), attrs={"units": "m"}
+        ),
+    }
+    ds_lonfirst = xr.Dataset({"phi": (("lon", "lat"), arr)}, coords=coords)
+    ds_latfirst = xr.Dataset({"phi": (("lat", "lon"), arr.T)}, coords=coords)
+
+    bands = {"low": (0.0, 0.05), "high": (0.05, 0.5)}
+    out_lonfirst = band_limited_rmse(
+        ds_lonfirst.copy(deep=True),
+        ds_lonfirst,
+        variable="phi",
+        bands=bands,
+        dims=("lat", "lon"),
+    )
+    out_latfirst = band_limited_rmse(
+        ds_latfirst.copy(deep=True),
+        ds_latfirst,
+        variable="phi",
+        bands=bands,
+        dims=("lat", "lon"),
+    )
+    # pred==ref in both cases → both must be all-zero RMSE per band.
+    np.testing.assert_allclose(out_lonfirst["phi"].values, 0.0, atol=1e-12)
+    np.testing.assert_allclose(out_latfirst["phi"].values, 0.0, atol=1e-12)
+
+
 def test_evaluate_by_frequency_band_passes_through_extra_metric(two_tone) -> None:
     ds_pred, ds_ref = two_tone
     out = evaluate_by_frequency_band(

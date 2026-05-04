@@ -123,8 +123,28 @@ def test_regrid_like_raises_when_target_has_no_matching_coord(
     latlon_ds: xr.Dataset,
 ) -> None:
     target = xr.Dataset(coords={"depth": [0, 10, 20]})
-    with pytest.raises(ValueError, match="none of the requested dims"):
+    with pytest.raises(ValueError, match="target is missing requested dims"):
         regrid_like(latlon_ds.rename({"latitude": "lat", "longitude": "lon"}), target)
+
+
+def test_regrid_like_raises_on_partial_target_coords(
+    latlon_ds: xr.Dataset,
+) -> None:
+    # Target has lat but not lon → must error rather than silently
+    # regridding only one axis.
+    target = xr.Dataset(coords={"lat": np.linspace(30.0, 45.0, 5)})
+    src = latlon_ds.rename({"latitude": "lat", "longitude": "lon"})
+    with pytest.raises(ValueError, match=r"missing requested dims \['lon'\]"):
+        regrid_like(src, target)
+
+
+def test_regrid_like_raises_when_source_lacks_dim(latlon_ds: xr.Dataset) -> None:
+    src = latlon_ds.rename({"latitude": "lat"})  # no "lon"
+    target = xr.Dataset(
+        coords={"lat": np.linspace(30.0, 45.0, 5), "lon": np.linspace(-70.0, -50.0, 6)}
+    )
+    with pytest.raises(ValueError, match=r"input is missing requested dims \['lon'\]"):
+        regrid_like(src, target)
 
 
 def test_regrid_like_op_round_trip() -> None:

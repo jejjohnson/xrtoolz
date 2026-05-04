@@ -281,13 +281,24 @@ def _physical_spacing(
         if not units and (coord_spacing is None or d not in coord_spacing):
             raise ValueError(
                 f"coord {d!r} is missing a `units` attribute; bands must be "
-                "in physical coord units, so attach one (e.g. via "
-                "xr_toolz.geo.validation) or pass coord_spacing= per dim."
+                "in physical coord units, so attach one (e.g. with "
+                "`xr_toolz.geo.ValidateCoords()`) or pass `coord_spacing=` "
+                "per dim."
             )
         vals = np.asarray(coord.values, dtype=float)
         if vals.size < 2:
             raise ValueError(f"dim {d!r} has < 2 coord samples; cannot fft")
-        raw = float(np.abs(np.mean(np.diff(vals))))
+        diffs = np.diff(vals)
+        # FFT assumes uniform sampling; raise instead of silently using the
+        # mean spacing on a stretched grid.
+        if not np.allclose(diffs, diffs[0], rtol=1e-6, atol=1e-9):
+            raise ValueError(
+                f"coord {d!r} is not uniformly spaced (FFT-based banding "
+                "requires regular sampling). Either resample onto a regular "
+                "grid first, or pass `coord_spacing=` to declare the "
+                "intended spacing."
+            )
+        raw = float(np.abs(np.mean(diffs)))
         if units in _LAT_UNITS:
             out[d] = raw * _KM_PER_DEGREE
         elif units in _LON_UNITS:
@@ -318,20 +329,34 @@ def _bandpass(
     field's nan-mean before the FFT so they do not propagate through
     the inverse transform; the original NaN mask is reapplied to the
     output so downstream metrics still skip masked cells.
+
+    .. note::
+       This implementation eagerly materialises ``da.values`` and uses
+       ``numpy.fft``; it is **not lazy** under dask. For very large
+       gridded inputs, slice down to a manageable region before scoring
+       (a follow-up will route through ``xrft.fft`` for chunked arrays).
     """
     arr = np.asarray(da.values, dtype=float)
     nan_mask = np.isnan(arr)
     if nan_mask.any():
         fill = float(np.nanmean(arr)) if not np.all(nan_mask) else 0.0
         arr = np.where(nan_mask, fill, arr)
-    axes = tuple(da.get_axis_num(d) for d in dims)
-    freqs = [np.fft.fftfreq(arr.shape[da.get_axis_num(d)], d=spacing[d]) for d in dims]
+    # Build the radial-frequency mask in *axis-position* order (not the
+    # caller-supplied `dims` order) so the broadcast against `arr` is
+    # always correct, even when `dims=("lat", "lon")` but the data is
+    # stored as `(time, lon, lat)`.
+    sorted_dims = sorted(dims, key=da.get_axis_num)
+    axes = tuple(da.get_axis_num(d) for d in sorted_dims)
+    freqs = [
+        np.fft.fftfreq(arr.shape[a], d=spacing[d])
+        for d, a in zip(sorted_dims, axes, strict=True)
+    ]
     grid = np.meshgrid(*freqs, indexing="ij")
     kmag = np.sqrt(sum(g**2 for g in grid))
     mask = (kmag >= lo) & (kmag < hi)
     shape = [1] * arr.ndim
-    for d in dims:
-        shape[da.get_axis_num(d)] = arr.shape[da.get_axis_num(d)]
+    for a in axes:
+        shape[a] = arr.shape[a]
     mask_b = mask.reshape(shape)
     fft_arr = np.fft.fftn(arr, axes=axes)
     out = np.fft.ifftn(fft_arr * mask_b, axes=axes).real
@@ -396,6 +421,21 @@ def evaluate_by_frequency_band(
     for d in dim_list:
         if d not in prediction.dims:
             raise ValueError(f"prediction is missing dim {d!r}")
+        if d not in reference.dims:
+            raise ValueError(f"reference is missing dim {d!r}")
+    # Bands are physical-frequency, so prediction and reference must
+    # share the dim coordinates — otherwise a single ``spacing`` derived
+    # from one of them would band-pass the other with the wrong cutoff.
+    for d in dim_list:
+        if d in prediction.coords and d in reference.coords:
+            p = np.asarray(prediction[d].values)
+            r = np.asarray(reference[d].values)
+            if p.shape != r.shape or not np.allclose(p, r):
+                raise ValueError(
+                    f"prediction and reference disagree on coord {d!r}; "
+                    "regrid one onto the other (e.g. with "
+                    "`xr_toolz.interpolate.RegridLike`) before scoring."
+                )
     _validate_bands(bands)
 
     if metric is None:
@@ -497,7 +537,11 @@ class FrequencyBandSkill(Operator):
         metric: Operator | None = None,
         coord_spacing: Mapping[str, float] | None = None,
     ) -> None:
-        if metric is not None and not isinstance(metric, Operator):
+        if metric is None:
+            from xr_toolz.metrics._src.pixel import RMSE
+
+            metric = RMSE(variable, dims=tuple(dims))
+        elif not isinstance(metric, Operator):
             raise TypeError(
                 "metric must be an Operator instance (e.g. RMSE(...)) so its "
                 "configuration is introspectable."
@@ -529,12 +573,11 @@ class FrequencyBandSkill(Operator):
             "variable": self.variable,
             "dims": list(self.dims),
             "bands": {k: list(v) for k, v in self.bands.items()},
-        }
-        if self.metric is not None:
-            cfg["metric"] = {
+            "metric": {
                 "class": type(self.metric).__name__,
                 "config": self.metric.get_config(),
-            }
+            },
+        }
         if self.coord_spacing is not None:
             cfg["coord_spacing"] = dict(self.coord_spacing)
         return cfg
