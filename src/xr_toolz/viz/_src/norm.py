@@ -2,8 +2,35 @@
 
 from __future__ import annotations
 
-import numpy as np
 import xarray as xr
+
+
+_FLAT_DIM = "_shared_norm_flat"
+
+
+def _coerce_to_dataarray(a: xr.DataArray | xr.Dataset) -> xr.DataArray:
+    if isinstance(a, xr.Dataset):
+        if len(a.data_vars) != 1:
+            raise ValueError(
+                "shared_norm: Dataset inputs must have exactly one "
+                f"data variable; got {list(a.data_vars)}."
+            )
+        (var,) = a.data_vars
+        return a[var]
+    return a
+
+
+def _flatten(da: xr.DataArray) -> xr.DataArray:
+    """Reshape ``da`` to a single 1-D dim ``_FLAT_DIM`` so a list of inputs
+    with disparate shapes can be combined via :func:`xarray.concat` while
+    keeping a dask backend lazy."""
+    if not da.dims:
+        return da.expand_dims(_FLAT_DIM)
+    stacked = da.stack({_FLAT_DIM: da.dims})
+    # Drop the multi-index that ``stack`` builds — concat needs a plain
+    # dim, and we don't care about provenance once we're computing a
+    # scalar quantile.
+    return stacked.reset_index(_FLAT_DIM, drop=True)
 
 
 def shared_norm(
@@ -16,6 +43,11 @@ def shared_norm(
     Useful for multi-panel comparison grids where the eye should not
     pick up colour-scale stretch artefacts as if they were structural
     differences in the data.
+
+    Reductions go through xarray (``.quantile`` / ``.min`` /
+    ``.max``) rather than ``np.quantile`` on a materialised
+    ``np.concatenate``, so dask-backed inputs stay lazy: only the
+    final scalar result is realised.
 
     Args:
         *arrays: One or more :class:`xr.DataArray` or
@@ -37,28 +69,20 @@ def shared_norm(
     if q is not None and not (0.0 <= q[0] <= q[1] <= 1.0):
         raise ValueError(f"q must satisfy 0 <= q[0] <= q[1] <= 1, got {q!r}.")
 
-    flats: list[np.ndarray] = []
-    for a in arrays:
-        if isinstance(a, xr.Dataset):
-            if len(a.data_vars) != 1:
-                raise ValueError(
-                    "shared_norm: Dataset inputs must have exactly one "
-                    f"data variable; got {list(a.data_vars)}."
-                )
-            (var,) = a.data_vars
-            arr = a[var].values
-        else:
-            arr = a.values
-        flats.append(np.asarray(arr).ravel())
-    flat = np.concatenate(flats)
-    finite = flat[np.isfinite(flat)]
-    if finite.size == 0:
+    pieces = [_flatten(_coerce_to_dataarray(a)) for a in arrays]
+    combined = xr.concat(pieces, dim=_FLAT_DIM)
+    # Bail out early when every value is NaN — the quantile / min / max
+    # below would otherwise return NaN in a less obvious way.
+    if int(combined.count().values) == 0:
         return (float("nan"), float("nan"))
 
     if q is None:
-        lo, hi = float(finite.min()), float(finite.max())
+        lo = float(combined.min(skipna=True).values)
+        hi = float(combined.max(skipna=True).values)
     else:
-        lo, hi = (float(x) for x in np.quantile(finite, q))
+        qs = combined.quantile(list(q), skipna=True)
+        lo = float(qs.isel(quantile=0).values)
+        hi = float(qs.isel(quantile=1).values)
 
     if symmetric:
         m = max(abs(lo), abs(hi))

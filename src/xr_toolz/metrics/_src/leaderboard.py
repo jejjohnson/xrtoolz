@@ -70,8 +70,19 @@ def rank_methods(
         )
     else:
         if df.index.nlevels > 1:
-            # Squeeze any singleton non-method levels.
             extra = [n for n in df.index.names if n != method_dim]
+            # Only squeeze *singleton* extra levels — silently dropping
+            # multi-valued levels (e.g. forgetting region_dim on a
+            # ``(region, method)`` dataset) would mix rows from
+            # different groups into one global leaderboard and produce
+            # duplicated method entries with misleading ranks.
+            non_singleton = [n for n in extra if df.index.unique(level=n).size > 1]
+            if non_singleton:
+                raise ValueError(
+                    f"scores has multi-valued extra index level(s) {non_singleton!r} "
+                    f"besides {method_dim!r}; pass region_dim=... (or pre-reduce) so "
+                    "the leaderboard isn't built across mixed groups."
+                )
             df = df.reset_index(extra, drop=True)
         sort_cols = [by, *[c for c in keep if c != by]]
         df = df.sort_values(sort_cols, ascending=ascending, kind="stable")

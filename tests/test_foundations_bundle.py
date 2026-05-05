@@ -89,6 +89,17 @@ def test_shared_norm_no_inputs_raises():
         shared_norm()
 
 
+def test_shared_norm_accepts_dask_backed_arrays():
+    """Dask-backed inputs should work (laziness preserved up to the
+    final scalar quantile)."""
+    da_module = pytest.importorskip("dask.array")
+    a = xr.DataArray(da_module.from_array(np.linspace(0.0, 1.0, 100), chunks=25))
+    b = xr.DataArray(da_module.from_array(np.linspace(0.0, 2.0, 100), chunks=25))
+    vmin, vmax = shared_norm(a, b, q=None)
+    assert vmin == pytest.approx(0.0)
+    assert vmax == pytest.approx(2.0)
+
+
 # ---------- #124 clip toggle on score panels -----------------------------
 
 
@@ -118,6 +129,16 @@ def test_iso_score_panel_explicit_ylim_overrides():
     ax = fig.axes[0]
     np.testing.assert_allclose(ax.get_ylim(), (-2.0, 1.5))
     plt.close(fig)
+
+
+def test_iso_score_panel_ylim_wrong_length_raises():
+    with pytest.raises(ValueError, match="2-tuple"):
+        PSDIsotropicScorePanel(ylim=(0.0, 0.5, 1.0))
+
+
+def test_iso_score_panel_ylim_inverted_raises():
+    with pytest.raises(ValueError, match="ymin <= ymax"):
+        PSDIsotropicScorePanel(ylim=(1.0, 0.0))
 
 
 def test_space_time_score_panel_clip_toggle_returns_figure():
@@ -171,6 +192,33 @@ def test_rank_methods_include_subsets_columns():
 def test_rank_methods_unknown_metric_raises():
     with pytest.raises(ValueError, match="not in data_vars"):
         rank_methods(_scores_ds(), by="bogus")
+
+
+def test_rank_methods_rejects_forgotten_region_dim():
+    """If the dataset has a (region, method) layout but the caller forgets
+    ``region_dim``, we must not silently mix rows across regions."""
+    ds = xr.Dataset(
+        {
+            "rmse": (
+                ("region", "method"),
+                [[0.1, 0.3, 0.2], [0.4, 0.2, 0.3]],
+            ),
+        },
+        coords={"region": ["NA", "GS"], "method": ["A", "B", "C"]},
+    )
+    with pytest.raises(ValueError, match="multi-valued extra index"):
+        rank_methods(ds, by="rmse")  # forgot region_dim
+
+
+def test_rank_methods_squeezes_singleton_extra_dim():
+    """Singleton extras (e.g. one region) are still allowed without
+    region_dim — they're silently squeezed out."""
+    ds = xr.Dataset(
+        {"rmse": (("region", "method"), [[0.1, 0.3, 0.2]])},
+        coords={"region": ["NA"], "method": ["A", "B", "C"]},
+    )
+    df = rank_methods(ds, by="rmse")
+    assert list(df.index) == ["A", "C", "B"]
 
 
 def test_rank_methods_per_region():

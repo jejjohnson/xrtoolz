@@ -286,7 +286,17 @@ class PSDIsotropicScorePanel(_PSDPanelBase):
         # ``"Wavelength [km]"`` → ``"km"``); falls back to empty.
         self.resolved_units = resolved_units
         self.clip = bool(clip)
-        self.ylim = tuple(ylim) if ylim is not None else None
+        if ylim is not None:
+            ylim_t = tuple(ylim)
+            if len(ylim_t) != 2:
+                raise ValueError(
+                    f"ylim must be a (ymin, ymax) 2-tuple; got length {len(ylim_t)}."
+                )
+            if ylim_t[0] > ylim_t[1]:
+                raise ValueError(f"ylim must satisfy ymin <= ymax; got {ylim_t!r}.")
+            self.ylim = ylim_t
+        else:
+            self.ylim = None
 
     def _default_title(self) -> str:
         return "Isotropic PSD Score"
