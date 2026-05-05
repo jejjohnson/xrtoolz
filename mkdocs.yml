@@ -67,6 +67,10 @@ nav:
           - V2 — Data Representation: notebooks/validation_v2_data_representation.ipynb
           - V4 — Process Evaluation: notebooks/validation_v4_process.ipynb
           - V6 — Capstone: notebooks/validation_v6_capstone.ipynb
+      - Ocean:
+          - Kinematics — GLORYS vs DUACS: notebooks/ocean_kinematics_glorys_duacs.ipynb
+          - Along-track SSH: notebooks/ocean_alongtrack_ssh.ipynb
+          - Stratification — GLORYS 3D: notebooks/ocean_stratification_glorys.ipynb
       - Data — CMEMS:
           - SST Products: notebooks/cmems_sst_products.ipynb
           - SSS Products: notebooks/cmems_sss_products.ipynb
@@ -81,6 +85,7 @@ nav:
           - National Climatology: notebooks/aemet_national.ipynb
   - API Reference:
       - Overview: api/reference.md
+      - Core: api/core.md
       - Metrics: api/metrics.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
