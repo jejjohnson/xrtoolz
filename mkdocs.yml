@@ -80,6 +80,7 @@ nav:
           - National Climatology: notebooks/aemet_national.ipynb
   - API Reference:
       - Overview: api/reference.md
+      - Core: api/core.md
       - Metrics: api/metrics.md
   - Contributing: contributing.md
   - Changelog: CHANGELOG.md
