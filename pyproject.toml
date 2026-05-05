@@ -36,6 +36,7 @@ dependencies = [
     "finitediffx>=0.1.0",
     "scikit-image>=0.22",
     "matplotlib>=3.8",
+    "cartopy>=0.22",
 ]
 
 [project.optional-dependencies]
