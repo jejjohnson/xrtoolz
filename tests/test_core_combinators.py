@@ -77,11 +77,26 @@ def test_augment_rejects_non_dataset_inner_output(ds: xr.Dataset) -> None:
         Augment(_ReturnsDataArray())(ds)
 
 
-def test_augment_get_config_round_trips() -> None:
+def test_augment_get_config_is_json_safe_introspection() -> None:
+    """get_config() emits a JSON-safe introspection record.
+
+    Augment's config is *not* constructor-replayable — the record
+    holds a serialized ``{"class", "config"}`` dict where the
+    constructor expects a live Operator instance. We assert only the
+    shape needed for printing/logging/diffing pipeline structure.
+    """
     op = Augment(_AddDoubled("x"))
     cfg = op.get_config()
     payload = json.loads(json.dumps(cfg))
     assert payload == {"inner": {"class": "_AddDoubled", "config": {"variable": "x"}}}
+
+
+def test_augment_config_is_not_constructor_replayable() -> None:
+    """Document the known limitation: Augment(**get_config()) fails."""
+    op = Augment(_AddDoubled("x"))
+    cfg = op.get_config()
+    with pytest.raises(TypeError):
+        Augment(**cfg)  # type: ignore[arg-type]
 
 
 # ---------- Tap ------------------------------------------------------------
@@ -168,13 +183,42 @@ def test_apply_to_each_rejects_non_dataset_inner_output(ds: xr.Dataset) -> None:
         op(ds)
 
 
-def test_apply_to_each_get_config_round_trips() -> None:
+def test_apply_to_each_rejects_composite_prototype() -> None:
+    """Composite prototypes (Sequential, etc.) fail the leaf-config contract."""
+    inner = Sequential([_AddDoubled("x")])
+    with pytest.raises(TypeError, match="cannot be reconstructed"):
+        ApplyToEach(inner, kwarg="operators", values=[[_AddDoubled("y")]])
+
+
+def test_apply_to_each_rejects_augment_prototype() -> None:
+    """Augment is also a combinator with a serialized inner record."""
+    inner = Augment(_AddDoubled("x"))
+    with pytest.raises(TypeError, match="cannot be reconstructed"):
+        ApplyToEach(inner, kwarg="inner", values=[_AddDoubled("y")])
+
+
+def test_apply_to_each_get_config_is_json_safe_introspection() -> None:
+    """get_config() emits a JSON-safe introspection record.
+
+    Like Augment, the prototype's nested config is a serialized
+    ``{"class", "config"}`` dict, not a live Operator. The config is
+    suitable for printing/logging but not for ``ApplyToEach(**cfg)``
+    reconstruction.
+    """
     op = ApplyToEach(_AddDoubled("x"), kwarg="variable", values=["x", "y"])
     cfg = op.get_config()
     payload = json.loads(json.dumps(cfg))
     assert payload["prototype"]["class"] == "_AddDoubled"
     assert payload["kwarg"] == "variable"
     assert payload["values"] == ["x", "y"]
+
+
+def test_apply_to_each_config_is_not_constructor_replayable() -> None:
+    """Document the known limitation: ApplyToEach(**get_config()) fails."""
+    op = ApplyToEach(_AddDoubled("x"), kwarg="variable", values=["x", "y"])
+    cfg = op.get_config()
+    with pytest.raises(TypeError):
+        ApplyToEach(**cfg)  # type: ignore[arg-type]
 
 
 def test_apply_to_each_inside_sequential(ds: xr.Dataset) -> None:
@@ -185,3 +229,31 @@ def test_apply_to_each_inside_sequential(ds: xr.Dataset) -> None:
     )
     out = pipe(ds)
     assert {"x_doubled", "y_doubled"} <= set(out.data_vars)
+
+
+def test_apply_to_each_threads_results_through_sweep(ds: xr.Dataset) -> None:
+    """Regression: each rebuilt op must run against the threaded result.
+
+    A later ``values`` entry can consume a variable produced by an
+    earlier one — this is what makes ``ApplyToEach`` equivalent to
+    ``Sequential([Augment(prototype.__class__(...)) for v in values])``.
+    Sweeping ``values=["x", "x_doubled"]`` over ``_AddDoubled`` only
+    works if the second pass sees the first pass's ``x_doubled``
+    output; otherwise it raises ``KeyError`` because the original
+    input has no ``x_doubled``.
+    """
+    op = ApplyToEach(_AddDoubled("x"), kwarg="variable", values=["x", "x_doubled"])
+    out = op(ds)
+    assert "x_doubled" in out.data_vars
+    assert "x_doubled_doubled" in out.data_vars
+    np.testing.assert_array_equal(out["x_doubled_doubled"].values, ds["x"].values * 4)
+
+    # Equivalence check: building the same fan-out manually with
+    # ``Sequential([Augment(...)])`` produces the same dataset.
+    manual = Sequential(
+        [
+            Augment(_AddDoubled("x")),
+            Augment(_AddDoubled("x_doubled")),
+        ]
+    )(ds)
+    xr.testing.assert_identical(out, manual)

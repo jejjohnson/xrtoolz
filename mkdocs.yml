@@ -66,6 +66,10 @@ nav:
           - V1 — Scales of Evaluation: notebooks/validation_v1_scales.ipynb
           - V4 — Process Evaluation: notebooks/validation_v4_process.ipynb
           - V6 — Capstone: notebooks/validation_v6_capstone.ipynb
+      - Ocean:
+          - Kinematics — GLORYS vs DUACS: notebooks/ocean_kinematics_glorys_duacs.ipynb
+          - Along-track SSH: notebooks/ocean_alongtrack_ssh.ipynb
+          - Stratification — GLORYS 3D: notebooks/ocean_stratification_glorys.ipynb
       - Data — CMEMS:
           - SST Products: notebooks/cmems_sst_products.ipynb
           - SSS Products: notebooks/cmems_sss_products.ipynb

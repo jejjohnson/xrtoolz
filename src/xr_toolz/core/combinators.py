@@ -11,8 +11,18 @@ pipelines:
   value of a chosen kwarg and merge all results together.
 
 Each combinator is itself an :class:`Operator`, so it composes inside
-``Sequential`` chains and ``Graph`` DAGs and (for the JSON-serializable
-ones) is round-trippable through :meth:`Operator.get_config`.
+``Sequential`` chains and ``Graph`` DAGs.
+
+**Serialization caveat.** ``Augment`` and ``ApplyToEach`` carry nested
+``Operator`` state. Their :meth:`Operator.get_config` outputs are
+JSON-safe (no live instances inside) for *introspection* — printing,
+logging, diffing pipeline structure — but the configs are **not**
+constructor-replayable: a literal ``Augment(**cfg)`` /
+``ApplyToEach(**cfg)`` round-trip fails, because the constructor
+expects live ``Operator`` instances rather than serialized
+``{"class", "config"}`` records. A future deserializer with a class
+registry would close that gap; until then, the configs are
+introspection-only.
 
 The combinators address a structural mismatch between the Layer 1
 contract — a single-input operator returns a Dataset, *replacing* the
@@ -55,8 +65,12 @@ class Augment(Operator):
     Args:
         inner: The inner :class:`Operator`. Must accept a single
             ``xr.Dataset`` and return an ``xr.Dataset``. Standard
-            Layer 1 operators (e.g. ``RelativeVorticity``, ``RMSE``,
-            ``GeostrophicVelocities``) all satisfy this contract.
+            single-input ``xr_toolz.ocn`` diagnostics
+            (``RelativeVorticity``, ``KineticEnergy``,
+            ``GeostrophicVelocities``, ``Divergence``, ...) satisfy
+            this contract. Two-input metrics (``RMSE``, ``MAE``, ...)
+            and operators that return a ``DataArray`` rather than a
+            ``Dataset`` do **not** fit and will raise at call time.
 
     Raises:
         TypeError: If ``inner`` is not an :class:`Operator` (raised at
@@ -234,15 +248,24 @@ class ApplyToEach(Operator):
             for v in values
         ])
 
-    but expressed as a single operator that fully describes the
-    fan-out via :meth:`get_config` (the prototype's class name and
-    base config, the swept kwarg, and the value list), making it JSON
-    round-trippable.
+    Each rebuilt operator runs against the **threaded** result, not
+    the original input — i.e. the second pass sees the variables added
+    by the first pass. This is what makes the equivalence with
+    ``Sequential([Augment(...) for v in values])`` exact, and lets
+    later sweeps consume variables produced by earlier ones.
 
     The prototype's ``get_config()`` is read once and used as the
-    base kwargs dict for the rebuilt instances, so the prototype's
-    class must satisfy the standard ``cls(**get_config())`` contract.
-    All Layer 1 operators in ``xr_toolz`` already do.
+    base kwargs dict for the rebuilt instances. The prototype's class
+    must therefore satisfy the *leaf* contract
+    ``cls(**proto.get_config())`` — i.e. its ``get_config`` must
+    return a dict directly usable as constructor kwargs. All
+    single-operator Layer 1 classes in ``xr_toolz`` satisfy this; the
+    composite/combinator classes (``Sequential``, ``Graph``,
+    ``Augment``, ``Tap``, ``ApplyToEach`` itself) do **not**, because
+    their configs carry serialized child records rather than live
+    operator instances. ``ApplyToEach`` validates this contract at
+    construction time via a sentinel rebuild and raises
+    ``TypeError`` with a descriptive message if it fails.
 
     Each rebuilt operator must produce uniquely-named output
     variables across the value sweep, otherwise the eventual merge
@@ -251,10 +274,9 @@ class ApplyToEach(Operator):
     → ``ssh_frontogenesis``), so this is not usually a concern.
 
     Args:
-        prototype: A configured :class:`Operator` instance. Its
-            ``get_config()`` must round-trip through its constructor:
-            ``cls(**proto.get_config())`` must rebuild an equivalent
-            operator. All standard Layer 1 operators satisfy this.
+        prototype: A configured single-operator :class:`Operator`
+            instance. Composite classes such as ``Sequential`` or
+            other combinators are not accepted (see contract above).
         kwarg: Name of the constructor kwarg to vary across the
             sweep. Must be a key of ``prototype.get_config()``.
         values: Sequence of values to substitute for ``kwarg``. Each
@@ -262,7 +284,9 @@ class ApplyToEach(Operator):
 
     Raises:
         TypeError: If ``prototype`` is not an :class:`Operator`, or if
-            any rebuilt op does not return a Dataset.
+            ``prototype.get_config()`` cannot be passed back to its
+            class constructor (composite-config case), or if any
+            rebuilt op does not return a Dataset.
         ValueError: If ``kwarg`` is not present in
             ``prototype.get_config()``.
 
@@ -318,6 +342,24 @@ class ApplyToEach(Operator):
                 f"{prototype.__class__.__name__}.get_config(); "
                 f"available keys: {sorted(base_config)}."
             )
+        # Fail fast if the prototype's config carries any serialized
+        # child Operator records (the ``{"class", "config"}`` shape
+        # used by Augment/ApplyToEach/Sequential/Graph for nested
+        # operator state). Such a prototype cannot be replayed by
+        # ``cls(**get_config())`` because the constructor expects
+        # live Operator instances rather than dicts.
+        cls = type(prototype)
+        if _has_serialized_operator_record(base_config):
+            raise TypeError(
+                f"ApplyToEach: prototype {cls.__name__} cannot be "
+                f"reconstructed from its own get_config() — its config "
+                f"carries serialized child operator records "
+                f'(``{{"class", "config"}}`` dicts) rather than live '
+                f"Operator instances. This is a known limitation for "
+                f"composite operators (Sequential, Graph, Augment, "
+                f"ApplyToEach). Pass a single-operator prototype "
+                f"whose get_config() returns plain constructor kwargs."
+            )
         self.prototype = prototype
         self.kwarg = kwarg
         self.values = list(values)
@@ -328,7 +370,10 @@ class ApplyToEach(Operator):
         result = ds
         for value in self.values:
             inner = cls(**{**base, self.kwarg: value})
-            out = inner(ds)
+            # Run against the *threaded* result so later values can
+            # depend on variables produced by earlier ones — matches
+            # the documented Sequential([Augment(...)]) equivalence.
+            out = inner(result)
             if not isinstance(out, xr.Dataset):
                 raise TypeError(
                     f"ApplyToEach requires inner op to return a Dataset; "
@@ -353,6 +398,21 @@ class ApplyToEach(Operator):
             f"ApplyToEach({self.prototype!r}, kwarg={self.kwarg!r}, "
             f"values={self.values!r})"
         )
+
+
+def _has_serialized_operator_record(value: Any) -> bool:
+    """Recurse into a config dict looking for ``{"class", "config"}`` markers.
+
+    Used by :class:`ApplyToEach` to detect composite prototypes whose
+    ``get_config()`` carries serialized child Operator records.
+    """
+    if isinstance(value, dict):
+        if {"class", "config"} <= value.keys():
+            return True
+        return any(_has_serialized_operator_record(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return any(_has_serialized_operator_record(v) for v in value)
+    return False
 
 
 __all__ = ["ApplyToEach", "Augment", "Tap"]
