@@ -98,13 +98,15 @@ class SklearnOp(Operator):
         }
 
 
-def _json_safe(value: Any) -> Any:
+def _json_safe(value: Any, *, _depth: int = 0) -> Any:
+    if _depth > 10:
+        return repr(value)
     if value is None or isinstance(value, str | int | float | bool):
         return value
     if isinstance(value, tuple):
-        return [_json_safe(v) for v in value]
+        return [_json_safe(v, _depth=_depth + 1) for v in value]
     if isinstance(value, list):
-        return [_json_safe(v) for v in value]
+        return [_json_safe(v, _depth=_depth + 1) for v in value]
     if isinstance(value, dict):
-        return {str(k): _json_safe(v) for k, v in value.items()}
+        return {str(k): _json_safe(v, _depth=_depth + 1) for k, v in value.items()}
     return repr(value)

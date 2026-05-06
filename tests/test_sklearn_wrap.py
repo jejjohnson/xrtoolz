@@ -148,3 +148,15 @@ def test_sklearn_op_composes_in_sequential_and_config_is_json_safe() -> None:
     np.testing.assert_array_equal(out["lon"], ds["lon"])
     assert out["ssh"].attrs == da.attrs
     json.dumps(seq.get_config())
+
+
+def test_sklearn_op_config_handles_circular_estimator_params() -> None:
+    class CircularEstimator:
+        def get_params(self, deep: bool = False) -> dict[str, object]:
+            params: dict[str, object] = {}
+            params["self"] = params
+            return params
+
+    config = SklearnOp(CircularEstimator()).get_config()
+
+    json.dumps(config)
