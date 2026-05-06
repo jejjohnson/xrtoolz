@@ -172,11 +172,12 @@ class _PixelMetricOp(Operator):
         self,
         input_signature: Signature | tuple[Signature, ...],
     ) -> Signature:
-        signature = (
-            input_signature[0]
-            if isinstance(input_signature, tuple)
-            else input_signature
-        )
+        if isinstance(input_signature, tuple):
+            signature = input_signature[0]
+            for other in input_signature[1:]:
+                _validate_compatible_signatures(signature, other)
+        else:
+            signature = input_signature
         dims = (self.dims,) if isinstance(self.dims, str) else tuple(self.dims)
         return Signature(signature.drop_dims(dims).dims, dtype="float")
 
@@ -207,6 +208,23 @@ class Correlation(_PixelMetricOp):
 
 class R2Score(_PixelMetricOp):
     _fn = staticmethod(r2_score)
+
+
+def _validate_compatible_signatures(left: Signature, right: Signature) -> None:
+    if set(left.dims) != set(right.dims):
+        raise ValueError(
+            "Metric input signatures must have the same dimensions; "
+            f"got {tuple(left.dims)} and {tuple(right.dims)}."
+        )
+    mismatched = {
+        name: (left.dims[name], right.dims[name])
+        for name in left.dims
+        if left.dims[name] is not None
+        and right.dims[name] is not None
+        and left.dims[name] != right.dims[name]
+    }
+    if mismatched:
+        raise ValueError(f"Metric input signature sizes do not match: {mismatched}.")
 
 
 __all__ = [

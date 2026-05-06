@@ -174,11 +174,7 @@ class CalculateClimatology(Operator):
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         dim = _detrend.CLIMATOLOGY_DIMS[self.freq]
-        dims = {
-            (dim if name == self.time else name): (None if name == self.time else size)
-            for name, size in input_signature.dims.items()
-        }
-        return Signature(dims, dtype=input_signature.dtype)
+        return _replace_dim(input_signature, old=self.time, new=dim, size=None)
 
 
 class CalculateClimatologySmoothed(Operator):
@@ -195,13 +191,7 @@ class CalculateClimatologySmoothed(Operator):
         return {"window": self.window, "time": self.time}
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
-        dims = {
-            ("dayofyear" if name == self.time else name): (
-                None if name == self.time else size
-            )
-            for name, size in input_signature.dims.items()
-        }
-        return Signature(dims, dtype=input_signature.dtype)
+        return _replace_dim(input_signature, old=self.time, new="dayofyear", size=None)
 
 
 class RemoveMean(Operator):
@@ -437,3 +427,19 @@ __all__ = [
     "ValidateLatitude",
     "ValidateLongitude",
 ]
+
+
+def _replace_dim(
+    input_signature: Signature,
+    *,
+    old: str,
+    new: str,
+    size: int | None,
+) -> Signature:
+    dims = {}
+    for name, dim_size in input_signature.dims.items():
+        if name == old:
+            dims[new] = size
+        else:
+            dims[name] = dim_size
+    return Signature(dims, dtype=input_signature.dtype)

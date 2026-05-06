@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import numpy as np
+import pytest
 import xarray as xr
 
 from xr_toolz.core import Graph, Input, Operator, Sequential, Signature
@@ -84,6 +85,11 @@ def test_interpolation_shape_changing_operator_signatures() -> None:
     assert Coarsen({"lat": 2, "lon": 5}).compute_output_signature(signature) == (
         Signature({"time": 24, "lat": 5, "lon": 4}, "float32")
     )
+    assert Coarsen({"lat": 3}, boundary="pad").compute_output_signature(
+        signature
+    ) == Signature({"time": 24, "lat": 4, "lon": 20}, "float32")
+    with pytest.raises(ValueError, match="boundary='exact'"):
+        Coarsen({"lat": 3}, boundary="exact").compute_output_signature(signature)
     assert Refine({"lat": 2}).compute_output_signature(signature) == Signature(
         {"time": 24, "lat": 19, "lon": 20},
         "float32",
@@ -122,3 +128,12 @@ def test_graph_summary_propagates_multi_input_metric_signature() -> None:
     assert "Graph (2 inputs, 1 outputs)" in text
     assert "RMSE" in text
     assert "(lon=6); dtype=float" in text
+
+
+def test_metric_signature_rejects_mismatched_inputs() -> None:
+    op = RMSE(variable="tas", dims=("time",))
+    pred = Signature({"time": 12, "lat": 4}, "float32")
+    ref = Signature({"time": 10, "lat": 4}, "float32")
+
+    with pytest.raises(ValueError, match="sizes do not match"):
+        op.compute_output_signature((pred, ref))

@@ -62,8 +62,9 @@ class Operator:
         if isinstance(input_signature, tuple):
             if len(input_signature) != 1:
                 raise ValueError(
-                    f"{self.__class__.__name__} must override "
-                    "compute_output_signature for multi-input calls."
+                    f"{self.__class__.__name__} received {len(input_signature)} "
+                    "input signatures but expected 1; override "
+                    "compute_output_signature to handle multiple inputs."
                 )
             return input_signature[0]
         return input_signature

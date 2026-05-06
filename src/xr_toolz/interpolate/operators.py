@@ -157,7 +157,17 @@ class Coarsen(Operator):
         updates: dict[str, int | None] = {}
         for dim, factor in self.factor.items():
             size = input_signature.dims.get(dim)
-            updates[dim] = None if size is None else size // factor
+            if size is None:
+                updates[dim] = None
+            elif self.boundary == "trim":
+                updates[dim] = size // factor
+            elif self.boundary == "exact" and size % factor:
+                raise ValueError(
+                    f"coarsen boundary='exact' requires {dim!r} size {size} "
+                    f"to be divisible by factor {factor}."
+                )
+            else:
+                updates[dim] = (size + factor - 1) // factor
         return input_signature.replace_dims(updates)
 
 
