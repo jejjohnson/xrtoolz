@@ -14,7 +14,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from xr_toolz.core import Operator
+from xr_toolz.core import Operator, Signature
 from xr_toolz.interpolate._src import (
     binning as _binning,
     coord_remap as _coord_remap,
@@ -121,6 +121,9 @@ class ResampleTime(Operator):
     def get_config(self) -> dict[str, Any]:
         return {"freq": self.freq, "method": self.method, "time": self.time}
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return input_signature.replace_dims({self.time: None})
+
 
 # ---------- grid-to-grid ---------------------------------------------------
 
@@ -150,6 +153,13 @@ class Coarsen(Operator):
             "boundary": self.boundary,
         }
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        updates: dict[str, int | None] = {}
+        for dim, factor in self.factor.items():
+            size = input_signature.dims.get(dim)
+            updates[dim] = None if size is None else size // factor
+        return input_signature.replace_dims(updates)
+
 
 class Refine(Operator):
     """Wrap :func:`xr_toolz.interpolate.refine`."""
@@ -163,6 +173,13 @@ class Refine(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"factor": dict(self.factor), "method": self.method}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        updates: dict[str, int | None] = {}
+        for dim, factor in self.factor.items():
+            size = input_signature.dims.get(dim)
+            updates[dim] = None if size is None else (size - 1) * factor + 1
+        return input_signature.replace_dims(updates)
 
 
 class RegridLike(Operator):
@@ -195,6 +212,14 @@ class RegridLike(Operator):
             "dims": list(self.dims),
             "method": self.method,
         }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        updates = {
+            dim: int(self.target.sizes[dim])
+            for dim in self.dims
+            if dim in self.target.sizes
+        }
+        return input_signature.replace_dims(updates)
 
 
 # ---------- binning --------------------------------------------------------
@@ -232,6 +257,12 @@ class Bin2D(Operator):
             "lat": self.lat,
         }
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {self.lat: len(self.grid.lat), self.lon: len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
+
 
 class Histogram2D(Operator):
     """Wrap :func:`xr_toolz.interpolate.histogram_2d`."""
@@ -246,6 +277,12 @@ class Histogram2D(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"grid": "<Grid>", "lon": self.lon, "lat": self.lat}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {self.lat: len(self.grid.lat), self.lon: len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
 
 
 # ---------- points → grid --------------------------------------------------
@@ -269,6 +306,12 @@ class PointsToGrid(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"grid": "<Grid>", "statistic": self.statistic}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
 
 
 # ---------- smoothers ------------------------------------------------------
@@ -452,6 +495,16 @@ class RemapAxis(Operator):
             "method": self.method,
         }
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        target_name = self.target_name or self._inferred_name or self.source_axis
+        dims = {}
+        for name, size in input_signature.dims.items():
+            if name == self.source_axis:
+                dims[target_name] = len(self._target_values)
+            else:
+                dims[name] = size
+        return Signature(dims, dtype=input_signature.dtype)
+
 
 # Vertical presets — thin specializations that pin convention names. The
 # user supplies the target coordinate values; the preset names the new
@@ -566,6 +619,15 @@ class ToPhase(Operator):
             "n_bins": self.n_bins,
             "epoch": self.epoch,
         }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        dims = {}
+        for name, size in input_signature.dims.items():
+            if name == self.time_dim:
+                dims["phase"] = self.n_bins
+            else:
+                dims[name] = size
+        return Signature(dims, dtype=input_signature.dtype)
 
 
 # ---------- learned resolution change --------------------------------------

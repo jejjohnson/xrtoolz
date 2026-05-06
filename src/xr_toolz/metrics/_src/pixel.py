@@ -20,7 +20,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from xr_toolz.core import Operator
+from xr_toolz.core import Operator, Signature
 from xr_toolz.metrics._src import array_pixel
 
 
@@ -167,6 +167,18 @@ class _PixelMetricOp(Operator):
             "variable": self.variable,
             "dims": self.dims if isinstance(self.dims, str) else list(self.dims),
         }
+
+    def compute_output_signature(
+        self,
+        input_signature: Signature | tuple[Signature, ...],
+    ) -> Signature:
+        signature = (
+            input_signature[0]
+            if isinstance(input_signature, tuple)
+            else input_signature
+        )
+        dims = (self.dims,) if isinstance(self.dims, str) else tuple(self.dims)
+        return Signature(signature.drop_dims(dims).dims, dtype="float")
 
 
 class MSE(_PixelMetricOp):

@@ -17,7 +17,7 @@ import warnings
 from collections.abc import Sequence
 from typing import Any
 
-from xr_toolz.core import Operator
+from xr_toolz.core import Operator, Signature
 from xr_toolz.geo._src import (
     detrend as _detrend,
     masks as _masks,
@@ -63,6 +63,9 @@ class RenameCoords(Operator):
     def get_config(self) -> dict[str, Any]:
         return {"mapping": self.mapping}
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return input_signature.rename_dims(self.mapping)
+
 
 class RenameVariables(Operator):
     """Wrap :func:`xr_toolz.geo.rename_variables` (data-var renames)."""
@@ -75,6 +78,9 @@ class RenameVariables(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"mapping": self.mapping}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return input_signature
 
 
 # ---------- subset ---------------------------------------------------------
@@ -110,6 +116,9 @@ class SubsetBBox(Operator):
             "lat": self.lat,
         }
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return input_signature.replace_dims({self.lon: None, self.lat: None})
+
 
 class SubsetTime(Operator):
     def __init__(self, time_min: str, time_max: str, time: str = "time"):
@@ -129,6 +138,9 @@ class SubsetTime(Operator):
             "time": self.time,
         }
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return input_signature.replace_dims({self.time: None})
+
 
 class SelectVariables(Operator):
     def __init__(self, variables: str | Sequence[str]):
@@ -139,6 +151,9 @@ class SelectVariables(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"variables": list(self.variables)}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return input_signature
 
 
 # ---------- detrend --------------------------------------------------------
@@ -157,6 +172,14 @@ class CalculateClimatology(Operator):
     def get_config(self) -> dict[str, Any]:
         return {"freq": self.freq, "time": self.time}
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        dim = _detrend.CLIMATOLOGY_DIMS[self.freq]
+        dims = {
+            (dim if name == self.time else name): (None if name == self.time else size)
+            for name, size in input_signature.dims.items()
+        }
+        return Signature(dims, dtype=input_signature.dtype)
+
 
 class CalculateClimatologySmoothed(Operator):
     def __init__(self, window: int = 60, time: str = "time"):
@@ -170,6 +193,15 @@ class CalculateClimatologySmoothed(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"window": self.window, "time": self.time}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        dims = {
+            ("dayofyear" if name == self.time else name): (
+                None if name == self.time else size
+            )
+            for name, size in input_signature.dims.items()
+        }
+        return Signature(dims, dtype=input_signature.dtype)
 
 
 class RemoveMean(Operator):
@@ -255,6 +287,11 @@ class Reduce(Operator):
             "keepdims": self.keepdims,
         }
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        if self.keepdims:
+            return input_signature.replace_dims({dim: 1 for dim in self.dim})
+        return input_signature.drop_dims(self.dim)
+
 
 class RemoveClimatology(Operator):
     """Subtract a precomputed climatology from the input dataset."""
@@ -334,6 +371,14 @@ class ApplyMask(Operator):
     def get_config(self) -> dict[str, Any]:
         mask_repr = self.mask if isinstance(self.mask, str) else "<DataArray>"
         return {"mask": mask_repr, "drop": self.drop}
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        if not self.drop:
+            return input_signature
+        return Signature(
+            {name: None for name in input_signature.dims},
+            dtype=input_signature.dtype,
+        )
 
 
 # ---------- deprecated metric ops -----------------------------------------
