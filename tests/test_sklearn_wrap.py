@@ -126,13 +126,17 @@ def test_sklearn_op_composes_in_sequential_and_config_is_json_safe() -> None:
     seq = Sequential(
         [
             ValidateCoords(),
-            SklearnOp(StandardScaler(), variable="ssh", sample_dim="time"),
+            SklearnOp(
+                StandardScaler(),
+                variable="ssh",
+                sample_dim="time",
+                method="fit_transform",
+            ),
             SklearnOp(
                 fitted_pca.estimator_,
                 variable="ssh",
                 output_variable="pcs",
                 sample_dim="time",
-                method="transform",
             ),
         ]
     )
@@ -160,3 +164,161 @@ def test_sklearn_op_config_handles_circular_estimator_params() -> None:
     config = SklearnOp(CircularEstimator()).get_config()
 
     json.dumps(config)
+
+
+def test_nan_policy_mask_on_dataset_drops_rows_across_all_variables() -> None:
+    da_a = _sample_da()
+    # Var b shares the same time axis but its own NaN pattern; the union of
+    # NaN rows across both variables determines what gets dropped.
+    values_b = np.array(
+        [
+            [10.0, 11.0],
+            [12.0, 13.0],
+            [14.0, np.nan],
+            [16.0, 17.0],
+            [18.0, 19.0],
+            [20.0, 21.0],
+        ]
+    )
+    da_b = xr.DataArray(
+        values_b,
+        dims=("time", "channel"),
+        coords={"time": da_a["time"], "channel": ["x", "y"]},
+        name="other",
+    )
+    ds = xr.Dataset({"ssh": da_a, "other": da_b})
+
+    union_nan = np.isnan(da_a.values).any(axis=1) | np.isnan(da_b.values).any(axis=1)
+    valid = ~union_nan
+
+    out = XarrayEstimator(
+        StandardScaler(),
+        sample_dim="time",
+        nan_policy="mask",
+    ).fit_transform(ds)
+
+    expected_input = np.column_stack([da_a.values[valid], da_b.values[valid]])
+    expected = StandardScaler().fit_transform(expected_input)
+
+    # Stacked column count (3 + 2) doesn't match either variable's feature
+    # count alone, so the wrap returns the changed-feature-count layout.
+    assert out.dims == ("time", "component")
+    assert out.shape == (len(da_a["time"]), expected.shape[1])
+    np.testing.assert_array_equal(out["time"], ds["time"])
+    np.testing.assert_allclose(out.values[valid], expected)
+    assert np.isnan(out.values[~valid]).all()
+
+
+def test_nan_policy_mask_all_nan_input_raises() -> None:
+    bad = xr.DataArray(
+        np.full((4, 2), np.nan),
+        dims=("time", "feature"),
+        coords={"time": np.arange(4), "feature": ["a", "b"]},
+    )
+    wrap = XarrayEstimator(
+        StandardScaler(),
+        sample_dim="time",
+        nan_policy="mask",
+    )
+
+    with pytest.raises(ValueError, match="removed all sample rows"):
+        wrap.fit_transform(bad)
+
+
+def test_sklearn_op_dataset_without_variable_or_output_variable_raises() -> None:
+    ds = xr.Dataset({"ssh": _sample_da()})
+    op = SklearnOp(StandardScaler(), sample_dim="time")
+
+    with pytest.raises(ValueError, match="neither `variable` nor `output_variable`"):
+        op(ds)
+
+
+def test_sklearn_op_default_method_is_transform() -> None:
+    # Default switched away from fit_transform — re-fitting on every Sequential
+    # call is rarely what users want.
+    assert SklearnOp(StandardScaler()).method == "transform"
+
+
+def test_sklearn_op_accepts_fitted_xarray_estimator_for_inverse_transform() -> None:
+    da = _sample_da().drop_sel(time=[1, 4])
+    fitted = XarrayEstimator(PCA(n_components=2), sample_dim="time").fit(da)
+    scores = fitted.transform(da)
+
+    # Wrap a *fitted* XarrayEstimator so inverse_transform recovers the
+    # original feature grid (training meta is preserved).
+    op = SklearnOp(fitted, method="inverse_transform")
+
+    recon = op(scores)
+
+    assert recon.dims == da.dims
+    np.testing.assert_array_equal(recon["feature"], da["feature"])
+
+
+def test_sklearn_op_get_config_for_fitted_xarray_estimator_is_json_safe() -> None:
+    fitted = XarrayEstimator(PCA(n_components=2), sample_dim="time").fit(
+        _sample_da().drop_sel(time=[1, 4])
+    )
+    op = SklearnOp(fitted, variable="ssh", method="transform")
+
+    config = op.get_config()
+
+    assert config["estimator"] == "PCA"
+    assert config["estimator_params"]["n_components"] == 2
+    json.dumps(config)
+
+
+def test_json_safe_handles_numpy_scalars() -> None:
+    from xr_toolz.transforms._src.sklearn_op import _json_safe
+
+    assert _json_safe(np.int64(7)) == 7
+    assert _json_safe(np.float64(1.5)) == 1.5
+    assert _json_safe(np.bool_(True)) is True
+
+
+def test_sklearn_accessor_predict_matches_explicit_estimator() -> None:
+    da = _sample_da().drop_sel(time=[1, 4])
+
+    fitted = XarrayEstimator(
+        KMeans(n_clusters=2, n_init="auto", random_state=0), sample_dim="time"
+    ).fit(da)
+    explicit = fitted.predict(da)
+
+    via_accessor = da.sklearn.predict(fitted.estimator_, sample_dim="time")
+
+    assert via_accessor.dims == explicit.dims
+    np.testing.assert_array_equal(via_accessor.values, explicit.values)
+
+
+def test_sklearn_accessor_inverse_transform_via_xarray_estimator() -> None:
+    # The accessor's _wrap_fitted path doesn't carry training meta; users who
+    # need inverse_transform should fit an XarrayEstimator explicitly. This
+    # test pins that workflow.
+    da = _sample_da().drop_sel(time=[1, 4])
+    fitted = XarrayEstimator(PCA(n_components=2), sample_dim="time").fit(da)
+    scores = fitted.transform(da)
+
+    recon = fitted.inverse_transform(scores)
+
+    assert recon.dims == da.dims
+    np.testing.assert_array_equal(recon["feature"], da["feature"])
+
+
+def test_sklearn_accessor_score_returns_float() -> None:
+    da = _sample_da().drop_sel(time=[1, 4])
+    fitted = XarrayEstimator(
+        KMeans(n_clusters=2, n_init="auto", random_state=0), sample_dim="time"
+    ).fit(da)
+
+    score = da.sklearn.score(fitted.estimator_, sample_dim="time")
+
+    assert isinstance(score, float)
+
+
+def test_sklearn_accessor_dataset_fit_transform() -> None:
+    ds = xr.Dataset({"ssh": _sample_da().drop_sel(time=[1, 4])})
+
+    explicit = XarrayEstimator(StandardScaler(), sample_dim="time").fit_transform(ds)
+    via_accessor = ds.sklearn.fit_transform(StandardScaler(), sample_dim="time")
+
+    np.testing.assert_array_equal(via_accessor.values, explicit.values)
+    assert via_accessor.dims == explicit.dims
