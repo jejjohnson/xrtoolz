@@ -125,17 +125,28 @@ class Graph(Operator):
         self,
         input_signature: Signature | dict[str, Signature],
     ) -> Signature | dict[str, Signature]:
-        """Propagate signatures through the graph without executing data."""
+        """Propagate signatures through the graph without executing data.
+
+        Mirrors :meth:`__call__`'s positional-shortcut behaviour: a bare
+        :class:`Signature` is allowed when the graph has exactly one
+        :class:`Input`, and the return type matches the output count
+        (single ``Signature`` for a 1-output graph, ``dict`` for a
+        multi-output graph). This keeps nested-graph composition working
+        — an outer operator wrapping an inner multi-output graph passes
+        a single parent signature here and gets back a dict.
+        """
         if isinstance(input_signature, Signature):
-            if len(self.inputs) != 1 or len(self.outputs) != 1:
+            if len(self.inputs) != 1:
                 raise ValueError(
-                    "Single Signature input requires exactly one graph input "
-                    f"and one output; got {len(self.inputs)} inputs and "
-                    f"{len(self.outputs)} outputs."
+                    "Single Signature input requires exactly one graph input; "
+                    f"got {len(self.inputs)} inputs. Pass a "
+                    "{name: Signature} dict for multi-input graphs."
                 )
             input_signatures = {next(iter(self.inputs)): input_signature}
             outputs = self._compute_signatures(input_signatures)
-            return outputs[next(iter(self.outputs))]
+            if len(self.outputs) == 1:
+                return outputs[next(iter(self.outputs))]
+            return outputs
         return self._compute_signatures(input_signature)
 
     def summary(self, input_signatures: Signature | dict[str, Signature]) -> str:
@@ -238,7 +249,13 @@ class Graph(Operator):
             if id(node) in cache:
                 continue
             if node.operator is None:
-                raise ValueError(f"Input node {node.name!r} was not bound to data.")
+                # We're propagating signatures here, not executing data —
+                # pin the wording so failures during compute_output_signature
+                # / summary point at the right thing.
+                raise ValueError(
+                    f"Graph input {node.name!r} has no signature; pass it "
+                    "via the input_signatures mapping."
+                )
             parent_signatures = tuple(cache[id(parent)] for parent in node.parents)
             input_signature = (
                 parent_signatures[0]

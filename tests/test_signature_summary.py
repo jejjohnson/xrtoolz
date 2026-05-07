@@ -256,3 +256,56 @@ def test_graph_in_graph_composition_propagates_signature() -> None:
     assert "Graph" in text  # outer header
     # Inner Graph appears as an op row with its own propagated signature.
     assert "(time=?, lat=181, lon=360); dtype=float32" in text
+
+
+def test_graph_signature_propagation_supports_single_input_multi_output() -> None:
+    # Mirror Graph.__call__'s positional shortcut: a bare Signature is
+    # accepted whenever there's one Input, regardless of output count.
+    # This keeps nested-graph composition working when the inner graph
+    # emits multiple outputs.
+    x = Input("ds")
+    spatial = SubsetBBox((-125, -65), (25, 50))(x)
+    temporal = SubsetTime("2000-01-01", "2000-12-31")(x)
+    graph = Graph(
+        inputs={"ds": x},
+        outputs={"spatial": spatial, "temporal": temporal},
+    )
+    signature = Signature({"time": 365, "lat": 181, "lon": 360}, dtype="float32")
+
+    out = graph.compute_output_signature(signature)
+
+    assert isinstance(out, dict)
+    assert set(out) == {"spatial", "temporal"}
+    assert out["spatial"] == Signature(
+        {"time": 365, "lat": None, "lon": None},
+        dtype="float32",
+    )
+    assert out["temporal"] == Signature(
+        {"time": None, "lat": 181, "lon": 360},
+        dtype="float32",
+    )
+
+
+def test_graph_signature_propagation_rejects_multi_input_with_bare_signature() -> None:
+    # Multi-input graphs still require an explicit dict — there's no
+    # unambiguous way to bind one Signature to multiple inputs.
+    pred = Input("pred")
+    ref = Input("ref")
+    score = RMSE(variable="tas", dims=("time",))(pred, ref)
+    graph = Graph(inputs={"pred": pred, "ref": ref}, outputs={"score": score})
+    signature = Signature({"time": 12, "lat": 4}, dtype="float32")
+
+    with pytest.raises(ValueError, match="exactly one graph input"):
+        graph.compute_output_signature(signature)
+
+
+def test_graph_compute_output_signature_missing_input_message() -> None:
+    # Error message should reference signatures (not data) since this
+    # path is propagation-time, not execution-time.
+    pred = Input("pred")
+    ref = Input("ref")
+    score = RMSE(variable="tas", dims=("time",))(pred, ref)
+    graph = Graph(inputs={"pred": pred, "ref": ref}, outputs={"score": score})
+
+    with pytest.raises(ValueError, match="Graph input signatures mismatch"):
+        graph.compute_output_signature({"pred": Signature({"time": 12})})
