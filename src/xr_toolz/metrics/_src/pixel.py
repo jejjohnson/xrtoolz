@@ -179,7 +179,9 @@ class _PixelMetricOp(Operator):
         else:
             signature = input_signature
         dims = (self.dims,) if isinstance(self.dims, str) else tuple(self.dims)
-        return Signature(signature.drop_dims(dims).dims, dtype="float")
+        # Pixel metric kernels promote int inputs to float64 (see
+        # _apply_pixel_kernel above), so the inferred output dtype follows.
+        return Signature(signature.drop_dims(dims).dims, dtype=np.float64)
 
 
 class MSE(_PixelMetricOp):

@@ -131,12 +131,19 @@ class ResampleTime(Operator):
 class Coarsen(Operator):
     """Wrap :func:`xr_toolz.interpolate.coarsen`."""
 
+    _VALID_BOUNDARY = ("exact", "trim", "pad")
+
     def __init__(
         self,
         factor: dict[str, int],
         method: str = "mean",
         boundary: str = "trim",
     ):
+        if boundary not in self._VALID_BOUNDARY:
+            raise ValueError(
+                f"Coarsen boundary must be one of {self._VALID_BOUNDARY!r}, "
+                f"got {boundary!r}."
+            )
         self.factor = dict(factor)
         self.method = method
         self.boundary = boundary

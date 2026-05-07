@@ -248,6 +248,14 @@ class Graph(Operator):
             cache[id(node)] = node.operator.compute_output_signature(input_signature)
         return {name: cache[id(node)] for name, node in self.outputs.items()}
 
+    def __repr__(self) -> str:
+        # Operator base __repr__ would dump the full topology via
+        # get_config(), which produces a multi-hundred-char string and
+        # blows up Sequential.summary tables when a Graph is nested
+        # inside another Graph or a Sequential. Keep it terse — describe()
+        # / get_config() expose the full topology when needed.
+        return f"Graph(inputs={list(self.inputs)!r}, outputs={list(self.outputs)!r})"
+
     def describe(self) -> str:
         """Pretty-print the graph structure."""
         lines = [

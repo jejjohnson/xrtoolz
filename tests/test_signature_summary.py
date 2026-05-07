@@ -130,10 +130,10 @@ def test_graph_summary_propagates_multi_input_metric_signature() -> None:
     output = graph.compute_output_signature({"pred": signature, "ref": signature})
     text = graph.summary({"pred": signature, "ref": signature})
 
-    assert output == {"score": Signature({"lon": 6}, "float")}
+    assert output == {"score": Signature({"lon": 6}, "float64")}
     assert "Graph (2 inputs, 1 output)" in text
     assert "RMSE" in text
-    assert "(lon=6); dtype=float" in text
+    assert "(lon=6); dtype=float64" in text
 
 
 def test_graph_summary_accepts_single_signature_for_single_input_graph() -> None:
@@ -155,3 +155,104 @@ def test_metric_signature_rejects_mismatched_inputs() -> None:
 
     with pytest.raises(ValueError, match="sizes do not match"):
         op.compute_output_signature((pred, ref))
+
+
+def test_signature_dtype_canonicalization_unifies_string_and_numpy_forms() -> None:
+    string_form = Signature({"time": 12}, dtype="float32")
+    numpy_form = Signature({"time": 12}, dtype=np.float32)
+    dtype_obj = Signature({"time": 12}, dtype=np.dtype("float32"))
+
+    assert string_form == numpy_form == dtype_obj
+    # Canonical name is the np.dtype.name string regardless of input form.
+    assert string_form.dtype == "float32"
+    assert numpy_form.dtype == "float32"
+
+
+def test_signature_equality_is_dim_order_insensitive() -> None:
+    a = Signature({"time": 12, "lat": 4}, dtype="float32")
+    b = Signature({"lat": 4, "time": 12}, dtype="float32")
+
+    assert a == b
+    assert hash(a) == hash(b)
+
+
+def test_signature_dims_are_immutable() -> None:
+    sig = Signature({"time": 12, "lat": 4}, dtype="float32")
+
+    # MappingProxyType disallows __setitem__ on the proxy, so a buggy
+    # operator override that tries to mutate in place fails loudly
+    # rather than corrupting cached signatures inside Graph.
+    with pytest.raises(TypeError):
+        sig.dims["time"] = 5  # type: ignore[index]
+
+
+def test_signature_validates_dim_types() -> None:
+    with pytest.raises(TypeError, match="dim name must be a str"):
+        Signature({1: 5})  # type: ignore[dict-item]
+    with pytest.raises(TypeError, match="must be int or None"):
+        Signature({"time": 1.5})  # type: ignore[dict-item]
+
+
+def test_signature_replace_dims_strict_raises_on_unknown() -> None:
+    sig = Signature({"time": 12, "lat": 4}, dtype="float32")
+
+    # Default (strict=False) silently ignores unknown keys — useful for
+    # shape-preserving paths that don't care if the dim is present.
+    assert sig.replace_dims({"missing": 7}) == sig
+    # strict=True surfaces typos in operator overrides.
+    with pytest.raises(KeyError, match="not in signature dims"):
+        sig.replace_dims({"missing": 7}, strict=True)
+
+
+def test_operator_default_raises_on_multi_input_signatures() -> None:
+    sig_a = Signature({"time": 12})
+    sig_b = Signature({"time": 12})
+
+    with pytest.raises(ValueError, match="received 2 input signatures"):
+        Operator().compute_output_signature((sig_a, sig_b))
+
+
+def test_coarsen_rejects_unknown_boundary() -> None:
+    with pytest.raises(ValueError, match="boundary must be one of"):
+        Coarsen({"lat": 2}, boundary="trip")
+
+
+def test_calculate_climatology_smoothed_uses_canonical_dim() -> None:
+    # The override pulls the dim name from CLIMATOLOGY_DIMS rather than
+    # hardcoding "dayofyear", so this test catches divergence between
+    # the runtime and the inferred signature.
+    from xr_toolz.geo._src import detrend
+    from xr_toolz.geo.operators import CalculateClimatologySmoothed
+
+    signature = Signature({"time": 365, "lat": 4}, dtype="float32")
+    smoothed = CalculateClimatologySmoothed().compute_output_signature(signature)
+
+    assert detrend.CLIMATOLOGY_DIMS["day"] in smoothed.dims
+    assert "time" not in smoothed.dims
+
+
+def test_graph_in_graph_composition_propagates_signature() -> None:
+    # Inner: takes one input, applies SubsetTime, returns output.
+    inner_in = Input("inner_x")
+    inner_out = SubsetTime("2000-01-01", "2000-01-31")(inner_in)
+    inner = Graph(inputs={"inner_x": inner_in}, outputs={"inner_y": inner_out})
+
+    # Outer: feeds Input through the inner Graph, then a SubsetBBox.
+    outer_in = Input("x")
+    after_inner = inner(outer_in)
+    after_bbox = SubsetBBox((-125, -65), (25, 50))(after_inner)
+    outer = Graph(inputs={"x": outer_in}, outputs={"y": after_bbox})
+
+    signature = Signature({"time": 365, "lat": 181, "lon": 360}, dtype="float32")
+
+    output = outer.compute_output_signature(signature)
+    text = outer.summary(signature)
+
+    # SubsetTime nukes time, then SubsetBBox nukes lat/lon — every dim
+    # ends up unknown but the dim-name set is preserved end to end.
+    assert output == Signature(
+        {"time": None, "lat": None, "lon": None}, dtype="float32"
+    )
+    assert "Graph" in text  # outer header
+    # Inner Graph appears as an op row with its own propagated signature.
+    assert "(time=?, lat=181, lon=360); dtype=float32" in text

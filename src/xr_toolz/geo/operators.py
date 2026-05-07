@@ -29,11 +29,30 @@ from xr_toolz.geo._src import (
 # ---------- validation -----------------------------------------------------
 
 
+def _validate_signature(
+    input_signature: Signature, *, aliases: tuple[str, ...], canonical: str
+) -> Signature:
+    """Mirror the runtime rename done by ``validate_longitude`` /
+    ``validate_latitude``: if any alias is present in the input dims,
+    rename it to ``canonical``. Shape-preserving otherwise."""
+    for alias in aliases:
+        if alias in input_signature.dims:
+            return input_signature.rename_dims({alias: canonical})
+    return input_signature
+
+
 class ValidateLongitude(Operator):
     """Wrap :func:`xr_toolz.geo.validate_longitude`."""
 
     def _apply(self, ds):
         return _validation.validate_longitude(ds)
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return _validate_signature(
+            input_signature,
+            aliases=_validation._LONGITUDE_ALIASES,
+            canonical="lon",
+        )
 
 
 class ValidateLatitude(Operator):
@@ -42,6 +61,13 @@ class ValidateLatitude(Operator):
     def _apply(self, ds):
         return _validation.validate_latitude(ds)
 
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return _validate_signature(
+            input_signature,
+            aliases=_validation._LATITUDE_ALIASES,
+            canonical="lat",
+        )
+
 
 class ValidateCoords(Operator):
     """Apply longitude and latitude validation in one pass."""
@@ -49,6 +75,18 @@ class ValidateCoords(Operator):
     def _apply(self, ds):
         ds = _validation.validate_longitude(ds)
         return _validation.validate_latitude(ds)
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        signature = _validate_signature(
+            input_signature,
+            aliases=_validation._LONGITUDE_ALIASES,
+            canonical="lon",
+        )
+        return _validate_signature(
+            signature,
+            aliases=_validation._LATITUDE_ALIASES,
+            canonical="lat",
+        )
 
 
 class RenameCoords(Operator):
@@ -196,7 +234,11 @@ class CalculateClimatologySmoothed(Operator):
         return {"window": self.window, "time": self.time}
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
-        return _replace_dim(input_signature, old=self.time, new="dayofyear", size=None)
+        # Smoothed climatology always groups by day-of-year; pull the
+        # canonical dim name from the same source the runtime uses
+        # rather than hard-coding the literal here.
+        new_dim = _detrend.CLIMATOLOGY_DIMS["day"]
+        return _replace_dim(input_signature, old=self.time, new=new_dim, size=None)
 
 
 class RemoveMean(Operator):
