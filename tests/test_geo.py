@@ -161,7 +161,7 @@ def test_validate_time_coerces_string():
     assert np.issubdtype(out["time"].dtype, np.datetime64)
 
 
-def test_validate_time_coerces_already_datetime():
+def test_validate_time_noop_already_datetime():
     time = pd.date_range("2000-01-01", periods=3)
     ds = xr.Dataset({"ssh": ("time", [1.0, 2.0, 3.0])}, coords={"time": time})
     out = validate_time(ds)

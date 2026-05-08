@@ -161,6 +161,13 @@ def validate_time(ds: xr.Dataset, *, time: str = "time") -> xr.Dataset:
     return ds
 
 
+_COORD_VALIDATORS: dict[str, Callable[[xr.Dataset], xr.Dataset]] = {
+    "lon": validate_longitude,
+    "lat": validate_latitude,
+    "time": validate_time,
+}
+
+
 def check_dataset_coords(
     ds: xr.Dataset,
     *,
@@ -186,13 +193,8 @@ def check_dataset_coords(
     if missing:
         raise AssertionError(f"Dataset missing required coords: {sorted(missing)}")
     if validate:
-        validators: dict[str, Callable[[xr.Dataset], xr.Dataset]] = {
-            "lon": validate_longitude,
-            "lat": validate_latitude,
-            "time": validate_time,
-        }
         for name in require:
-            fn = validators.get(name)
+            fn = _COORD_VALIDATORS.get(name)
             if fn is not None:
                 xr.testing.assert_identical(ds[[name]], fn(ds)[[name]])
 
