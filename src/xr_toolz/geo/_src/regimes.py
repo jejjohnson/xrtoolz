@@ -88,6 +88,7 @@ def eddy_regions(
 
 
 def _coarse_land_polygons() -> list[BaseGeometry]:
+    """Approximate major land masses for offline coastal masks."""
     return [
         box(-168.0, 7.0, -52.0, 72.0),
         box(-82.0, -56.0, -34.0, 13.0),
