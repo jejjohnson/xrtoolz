@@ -161,6 +161,7 @@ def test_fillnan_laplacian_operator_round_trips_and_skips_non_spatial_vars() -> 
     ("kwargs", "match"),
     [
         ({"max_iter": -1}, "max_iter"),
+        ({"max_iter": 0}, "max_iter"),
         ({"tol": -1.0}, "tol"),
         ({"relaxation": 0.0}, "relaxation"),
         ({"relaxation": 2.0}, "relaxation"),
@@ -170,3 +171,16 @@ def test_fillnan_laplacian_operator_round_trips_and_skips_non_spatial_vars() -> 
 def test_fillnan_laplacian_operator_validates_args_eagerly(kwargs, match) -> None:
     with pytest.raises(ValueError, match=match):
         FillNaNLaplacian(**kwargs)
+
+
+def test_fillnan_laplacian_inf_does_not_propagate_into_fill() -> None:
+    da = _harmonic_da().copy()
+    # +inf in a finite cell would historically poison np.nanmean and
+    # propagate into every NaN; the seed should now ignore it.
+    da.values[0, 0] = np.inf
+    da.values[8:13, 10:15] = np.nan
+
+    filled = fillnan_laplacian(da, max_iter=200, tol=1e-6)
+
+    filled_region = filled.values[8:13, 10:15]
+    assert np.isfinite(filled_region).all()

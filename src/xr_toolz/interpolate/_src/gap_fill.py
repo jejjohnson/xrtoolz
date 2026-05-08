@@ -103,8 +103,8 @@ def _validate_laplacian_args(
     relaxation: float,
     boundary: str,
 ) -> None:
-    if max_iter < 0:
-        raise ValueError(f"max_iter must be >= 0, got {max_iter}")
+    if max_iter < 1:
+        raise ValueError(f"max_iter must be >= 1, got {max_iter}")
     if tol < 0:
         raise ValueError(f"tol must be >= 0, got {tol}")
     if not 0.0 < relaxation < 2.0:
@@ -151,7 +151,9 @@ def _fillnan_laplacian_slice(
 
     u = arr.astype(float, copy=True)
     missing = ~finite
-    u[missing] = np.nanmean(u)
+    # `np.nanmean` skips NaN but not ±inf, so seed the initial guess from
+    # the finite mask explicitly to avoid inf propagating into the fill.
+    u[missing] = float(np.mean(u[finite]))
 
     rows, cols = np.indices(u.shape)
     red = missing & ((rows + cols) % 2 == 0)
