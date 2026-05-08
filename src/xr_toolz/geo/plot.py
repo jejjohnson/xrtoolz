@@ -19,7 +19,18 @@ def plot_resolved_scale_map(
     cmap: str = "viridis",
     levels=None,
 ) -> Axes:
-    """Plot a 2-D map of resolved scale in kilometres."""
+    """Plot a 2-D resolved-scale map.
+
+    Args:
+        rs_map: Two-dimensional resolved-scale field, typically in kilometres.
+        ax: Existing axes to draw on. A new axes is created when omitted.
+        cmap: Matplotlib colormap name.
+        levels: Optional contour levels. When omitted, an ``imshow`` raster is
+            drawn; otherwise filled contours are drawn.
+
+    Returns:
+        The axes object for further customization.
+    """
     import matplotlib.pyplot as plt
 
     if ax is None:
@@ -43,7 +54,17 @@ def plot_wavelet_spectrum_1d(
     ax: Axes | None = None,
     ref_slopes=("-3", "-5/3"),
 ) -> Axes:
-    """Plot a one-dimensional wavelet spectrum."""
+    """Plot a one-dimensional wavelet spectrum with reference slopes.
+
+    Args:
+        spectrum: One-dimensional spectrum whose first dimension is scale.
+        ax: Existing axes to draw on. A new axes is created when omitted.
+        ref_slopes: Reference spectral slopes, such as ``"-3"`` or ``"-5/3"``,
+            plotted as dashed comparison lines through the first finite value.
+
+    Returns:
+        The axes object for further customization.
+    """
     import matplotlib.pyplot as plt
 
     if ax is None:
@@ -71,7 +92,18 @@ def plot_wavelet_anisotropy(
     ax: Axes | None = None,
     log: bool = True,
 ) -> Axes:
-    """Plot a polar angle-scale heatmap from a directional spectrum."""
+    """Plot a polar angle-scale heatmap from a directional spectrum.
+
+    Args:
+        spectrum: Directional spectrum containing an ``"angle"`` dimension and
+            one non-angle scale dimension.
+        ax: Existing polar axes to draw on. A new polar axes is created when
+            omitted.
+        log: If ``True``, plot ``log10`` power values.
+
+    Returns:
+        The polar axes object for further customization.
+    """
     import matplotlib.pyplot as plt
 
     if "angle" not in spectrum.dims:

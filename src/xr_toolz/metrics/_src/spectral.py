@@ -169,7 +169,23 @@ def wavelet_psd_score(
     k0: float = 1.0,
     isotropic: bool = True,
 ) -> xr.Dataset:
-    """Localized wavelet PSD score ``1 - WPSD(err) / WPSD(ref)``."""
+    """Localized wavelet PSD score ``1 - WPSD(err) / WPSD(ref)``.
+
+    Args:
+        ds_pred: Prediction dataset containing ``variable``.
+        ds_ref: Reference dataset containing ``variable`` on the same grid.
+        variable: Data variable to score.
+        scales: Positive Morlet scales. The first dimension is used as the
+            scale axis.
+        dim: Spatial dimensions as ``(y, x)`` on a locally Cartesian grid.
+        x0: Reference length scale in the same units as the spatial coords.
+        ntheta: Number of evenly spaced Morlet angles.
+        k0: Dimensionless central Morlet wavenumber.
+        isotropic: If ``True``, average directional power over angle.
+
+    Returns:
+        Dataset containing ``score`` with untrusted COI samples masked to NaN.
+    """
     if variable not in ds_pred.data_vars:
         raise KeyError(f"prediction missing variable {variable!r}")
     if variable not in ds_ref.data_vars:
@@ -209,7 +225,22 @@ def wavelet_resolved_scale_map(
     k0: float = 1.0,
     threshold: float = 0.5,
 ) -> xr.DataArray:
-    """Return a local resolved-scale map in kilometres."""
+    """Return the wavelength where local wavelet PSD skill crosses a threshold.
+
+    Args:
+        truth: Reference field on a locally Cartesian grid.
+        pred: Prediction field on the same grid.
+        scales: Positive Morlet scales used to compute the local spectra.
+        dim: Spatial dimensions as ``(y, x)``.
+        x0: Reference length scale in the same units as the spatial coords.
+        ntheta: Number of evenly spaced Morlet angles.
+        k0: Dimensionless central Morlet wavenumber.
+        threshold: Score level defining the resolved scale.
+
+    Returns:
+        Two-dimensional resolved wavelength in kilometres. Locations with
+        fewer than two trusted scale samples are NaN.
+    """
     ds_pred = pred.rename("field").to_dataset()
     ds_ref = truth.rename("field").to_dataset()
     score = wavelet_psd_score(

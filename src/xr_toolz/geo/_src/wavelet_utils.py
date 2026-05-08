@@ -115,7 +115,7 @@ def build_coi_mask(
 
 
 def _coord_spacing(da: xr.DataArray, dim: str) -> float:
-    """Return validated uniform coordinate spacing for one dimension."""
+    """Validate a coordinate is uniform and return its absolute spacing."""
     if dim not in da.coords:
         raise ValueError(
             f"dim {dim!r} has no coordinate; wavelet spectra require "
