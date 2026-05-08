@@ -21,6 +21,7 @@ from xr_toolz.transforms._src.fourier import (
     drop_negative_frequencies,
     isotropic_power_spectrum,
     power_spectrum,
+    rotary_spectrum,
     stft,
 )
 from xr_toolz.transforms._src.sklearn_op import SklearnOp
@@ -45,5 +46,6 @@ __all__ = [
     "nmf",
     "pca",
     "power_spectrum",
+    "rotary_spectrum",
     "stft",
 ]

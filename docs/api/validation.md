@@ -26,6 +26,10 @@ Power-spectrum visualisations consuming
 
 ::: xr_toolz.viz.validation.PSDSpaceTimeScorePanel
 
+::: xr_toolz.viz.validation.RegionScoreBarPanel
+
+::: xr_toolz.viz.validation.RotaryPolarizationPanel
+
 ## Spatial snapshots
 
 ::: xr_toolz.viz.validation.SpatialMapPanel

@@ -74,15 +74,16 @@ from xr_toolz.metrics._src.probabilistic import (
     reliability_curve,
     spread_skill_ratio,
 )
-from xr_toolz.metrics._src.segmented_psd import (
-    SegmentedPSDScore,
-    along_track_psd_score,
-    psd_score_by_region,
 from xr_toolz.metrics._src.residuals import (
     BinnedResiduals2D,
     RegionScores,
     bin_residuals_2d,
     scores_by_region,
+)
+from xr_toolz.metrics._src.segmented_psd import (
+    SegmentedPSDScore,
+    along_track_psd_score,
+    psd_score_by_region,
 )
 from xr_toolz.metrics._src.spectral import (
     BandLimitedRMSE,
@@ -174,11 +175,11 @@ __all__ = [
     "reliability_curve",
     "resolved_scale",
     "rmse",
+    "scores_by_region",
     "segment_signal",
     "segmented_coherence",
     "segmented_csd",
     "segmented_psd",
-    "scores_by_region",
     "skill_by_lead_time",
     "spread_skill_ratio",
     "ssim",
