@@ -91,6 +91,7 @@ def plot_wavelet_anisotropy(
 
 
 def _parse_slope(slope: str | float) -> float:
+    """Convert slope labels such as ``"-5/3"`` to float exponents."""
     if isinstance(slope, str) and "/" in slope:
         num, den = slope.split("/", maxsplit=1)
         return float(num) / float(den)
@@ -98,6 +99,7 @@ def _parse_slope(slope: str | float) -> float:
 
 
 def _extent(da: xr.DataArray) -> tuple[float, float, float, float] | None:
+    """Return ``imshow`` extent from 2-D coordinate centers."""
     if da.ndim != 2:
         return None
     y = np.asarray(da[da.dims[0]].values, dtype=float)

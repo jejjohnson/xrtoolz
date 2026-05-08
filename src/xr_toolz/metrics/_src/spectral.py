@@ -303,6 +303,7 @@ def _resolved_scale_column(
     wavelengths_km: np.ndarray,
     threshold: float,
 ) -> float:
+    """Find the threshold wavelength for one spatial score column."""
     valid = np.isfinite(score)
     if valid.sum() < 2:
         return float("nan")

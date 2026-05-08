@@ -115,6 +115,7 @@ def build_coi_mask(
 
 
 def _coord_spacing(da: xr.DataArray, dim: str) -> float:
+    """Return validated uniform coordinate spacing for one dimension."""
     if dim not in da.coords:
         raise ValueError(
             f"dim {dim!r} has no coordinate; wavelet spectra require "
@@ -133,6 +134,7 @@ def _coord_spacing(da: xr.DataArray, dim: str) -> float:
 
 
 def _scale_values(scales: xr.DataArray) -> np.ndarray:
+    """Return scale values as a one-dimensional positive float array."""
     values = np.asarray(scales.values, dtype=float)
     if values.ndim != 1:
         raise ValueError("scales must be one-dimensional")
@@ -142,6 +144,7 @@ def _scale_values(scales: xr.DataArray) -> np.ndarray:
 
 
 def _require_dims(da: xr.DataArray, dim: tuple[str, str]) -> None:
+    """Validate that all required dimensions are present."""
     missing = [d for d in dim if d not in da.dims]
     if missing:
         raise ValueError(f"DataArray is missing wavelet dims {missing!r}")

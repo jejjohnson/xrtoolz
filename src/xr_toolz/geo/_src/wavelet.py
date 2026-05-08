@@ -176,6 +176,7 @@ def wvlt_cross_spectrum(
 
 
 def _normalize_power(power: xr.DataArray, source: xr.DataArray) -> xr.DataArray:
+    """Normalize trusted wavelet power to match source-field variance."""
     scale_dim = power.dims[0]
     scales = np.asarray(power[scale_dim].values, dtype=float)
     if scales.size < 2:
@@ -198,6 +199,7 @@ def _normalize_power(power: xr.DataArray, source: xr.DataArray) -> xr.DataArray:
 
 
 def _as_scale_dataarray(scales) -> xr.DataArray:
+    """Coerce array-like scales to a one-dimensional scale DataArray."""
     if isinstance(scales, xr.DataArray):
         return scales
     values = np.asarray(scales, dtype=float)
@@ -211,6 +213,7 @@ def _validate_cwt_input(
     dim: tuple[str, str],
     ntheta: int,
 ) -> None:
+    """Validate CWT dimensions, scales, angles, and spatial chunking."""
     _require_dims(da, dim)
     if da.ndim != 2:
         raise ValueError(f"cwt2 expects a 2-D DataArray; got dims {da.dims}.")
@@ -221,6 +224,7 @@ def _validate_cwt_input(
 
 
 def _raise_if_spatially_chunked(da: xr.DataArray, dim: tuple[str, str]) -> None:
+    """Raise when spatial dimensions have multiple chunks."""
     chunksizes = getattr(da, "chunksizes", {})
     for d in dim:
         chunks = chunksizes.get(d)
