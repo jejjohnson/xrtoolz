@@ -67,8 +67,8 @@ def eddy_regions(
     var: str,
     threshold: float | None = None,
     window: tuple[int, int] = (5, 5),
-    lon: str = "longitude",
-    lat: str = "latitude",
+    lon: str = "lon",
+    lat: str = "lat",
 ) -> xr.DataArray:
     """Return a two-class mask from local rolling variance of ``var``."""
     da = ds[var]

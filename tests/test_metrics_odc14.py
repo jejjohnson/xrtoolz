@@ -25,8 +25,8 @@ def test_bin_residuals_2d_matches_manual_reductions() -> None:
             "pred": ("point", np.array([1.0, 3.0, 5.0, 7.0])),
         },
         coords={
-            "longitude": ("point", np.array([0.25, 0.75, 1.25, 0.25])),
-            "latitude": ("point", np.array([0.25, 0.25, 0.25, 1.25])),
+            "lon": ("point", np.array([0.25, 0.75, 1.25, 0.25])),
+            "lat": ("point", np.array([0.25, 0.25, 0.25, 1.25])),
         },
     )
 
@@ -111,8 +111,8 @@ def test_eddy_regions_returns_two_class_dataarray() -> None:
     values = np.zeros((7, 7), dtype=float)
     values[3, 3] = 10.0
     ds = xr.Dataset(
-        {"ssh": (("latitude", "longitude"), values)},
-        coords={"latitude": np.arange(7), "longitude": np.arange(7)},
+        {"ssh": (("lat", "lon"), values)},
+        coords={"lat": np.arange(7), "lon": np.arange(7)},
     )
 
     out = eddy_regions(ds, var="ssh", threshold=1.0, window=(3, 3))
@@ -184,7 +184,7 @@ def _track_dataset() -> xr.Dataset:
         },
         coords={
             "point": np.arange(4),
-            "longitude": ("point", np.array([-1.0, -0.5, 0.5, 1.0])),
-            "latitude": ("point", np.zeros(4)),
+            "lon": ("point", np.array([-1.0, -0.5, 0.5, 1.0])),
+            "lat": ("point", np.zeros(4)),
         },
     )

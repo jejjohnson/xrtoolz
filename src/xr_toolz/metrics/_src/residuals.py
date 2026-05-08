@@ -21,8 +21,8 @@ def bin_residuals_2d(
     var_pred: str,
     lon_bins: Sequence[float],
     lat_bins: Sequence[float],
-    lon: str = "longitude",
-    lat: str = "latitude",
+    lon: str = "lon",
+    lat: str = "lat",
     statistics: Sequence[str] = ("mean", "std", "count", "rmse"),
 ) -> xr.Dataset:
     """Bin along-track residuals onto a 2-D latitude/longitude grid."""
@@ -71,8 +71,8 @@ def scores_by_region(
     var_ref: str,
     var_pred: str,
     regions: xr.DataArray | regionmask.Regions,
-    lon: str = "longitude",
-    lat: str = "latitude",
+    lon: str = "lon",
+    lat: str = "lat",
     metrics: Sequence[str] = ("rmse", "bias", "correlation", "explained_variance"),
     region_dim: str = "region",
 ) -> xr.Dataset:
@@ -123,8 +123,8 @@ class BinnedResiduals2D(Operator):
         var_pred: str,
         lon_bins: Sequence[float],
         lat_bins: Sequence[float],
-        lon: str = "longitude",
-        lat: str = "latitude",
+        lon: str = "lon",
+        lat: str = "lat",
         statistics: Sequence[str] = ("mean", "std", "count", "rmse"),
     ) -> None:
         self.var_ref = var_ref
@@ -168,8 +168,8 @@ class RegionScores(Operator):
         var_ref: str,
         var_pred: str,
         regions: xr.DataArray | regionmask.Regions,
-        lon: str = "longitude",
-        lat: str = "latitude",
+        lon: str = "lon",
+        lat: str = "lat",
         metrics: Sequence[str] = ("rmse", "bias", "correlation", "explained_variance"),
         region_dim: str = "region",
     ) -> None:
