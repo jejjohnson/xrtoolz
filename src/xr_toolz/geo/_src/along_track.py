@@ -103,7 +103,8 @@ def bandpass_wavelength(
         raise ValueError(f"spacing_km must be > 0, got {spacing_km}")
 
     if lambda_min_km is None:
-        assert lambda_max_km is not None
+        if lambda_max_km is None:
+            raise ValueError("lambda_max_km is required for low-pass filtering")
         btype = "low"
         cutoff: float | tuple[float, float] = _cutoff_from_wavelength(
             lambda_max_km, spacing_km

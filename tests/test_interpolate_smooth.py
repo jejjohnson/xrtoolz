@@ -208,6 +208,7 @@ def test_tier_b_fir_passes_through_non_numeric_and_no_dim_variables():
         coords={"time": np.arange(64)},
     )
     out = fir_filter(ds, dim="time", cutoff=0.2, num_taps=15)
+    assert not np.array_equal(out["x"].values, ds["x"].values)
     np.testing.assert_array_equal(out["label"].values, ds["label"].values)
     assert float(out["static"]) == 7.0
 

@@ -77,7 +77,7 @@ def _normalize_fir_cutoff(
 
     if not np.isscalar(cutoff):
         raise ValueError(f"btype={btype!r} requires a scalar cutoff; got {cutoff!r}")
-    c = float(cutoff)  # type: ignore[arg-type]
+    c = float(np.asarray(cutoff, dtype=float).item())
     if not (0.0 < c < 1.0):
         raise ValueError(f"cutoff must lie in (0, 1); got {c}")
     return c
