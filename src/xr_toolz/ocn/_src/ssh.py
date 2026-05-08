@@ -12,11 +12,11 @@ def calculate_ssh_alongtrack(
     mdt: str = "mdt",
     lwe: str | None = "lwe",
 ) -> xr.Dataset:
-    """Compose along-track SSH from SLA + MDT (− LWE, optional).
+    """Compose along-track SSH from SLA + MDT (- LWE, optional).
 
     Equivalent altimetry-convention formula:
 
-    ``ssh = sla + mdt − lwe``  (when *lwe* is given)
+    ``ssh = sla + mdt - lwe``  (when *lwe* is given)
 
     ``ssh = sla + mdt``        (when *lwe* is ``None``)
 
@@ -48,9 +48,10 @@ def calculate_ssh_alongtrack(
         ``ds`` with ``variable`` added.
     """
     ds = ds.copy()
-    ds[variable] = ds[sla] + ds[mdt]
+    ssh = ds[sla] + ds[mdt]
     if lwe is not None:
-        ds[variable] = ds[variable] - ds[lwe]
+        ssh = ssh - ds[lwe]
+    ds[variable] = ssh
     ds[variable].attrs.update(
         units="m",
         standard_name="sea_surface_height",

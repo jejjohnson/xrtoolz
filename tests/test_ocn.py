@@ -630,6 +630,24 @@ def test_calculate_ssh_alongtrack_operator():
     assert float(out["ssh"].values[0]) == pytest.approx(1.4)
 
 
+def test_calculate_ssh_alongtrack_operator_no_lwe():
+    ds = xr.Dataset(
+        {
+            "sla_filtered": ("track", [1.0]),
+            "mdt": ("track", [0.5]),
+        }
+    )
+    op = CalculateSSHAlongtrack(lwe=None)
+    out = op(ds)
+    assert float(out["ssh"].values[0]) == pytest.approx(1.5)
+    assert op.get_config() == {
+        "variable": "ssh",
+        "sla": "sla_filtered",
+        "mdt": "mdt",
+        "lwe": None,
+    }
+
+
 def test_advection_operator(ds_uv_grid):
     ds = ds_uv_grid.assign(c=lambda d: d["u"] * 0.0)
     out = Advection(scalar="c")(ds)
