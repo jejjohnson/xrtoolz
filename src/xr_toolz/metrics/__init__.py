@@ -15,6 +15,12 @@ Layer-1 ``Operator`` wrappers are re-exported flat from this package
 and from :mod:`xr_toolz.metrics.operators`.
 """
 
+from xr_toolz.metrics._src.array_segmented_psd import (
+    segment_signal,
+    segmented_coherence,
+    segmented_csd,
+    segmented_psd,
+)
 from xr_toolz.metrics._src.distributional import (
     CRPS,
     EnergyDistance,
@@ -67,6 +73,11 @@ from xr_toolz.metrics._src.probabilistic import (
     reliability_curve,
     spread_skill_ratio,
 )
+from xr_toolz.metrics._src.segmented_psd import (
+    SegmentedPSDScore,
+    along_track_psd_score,
+    psd_score_by_region,
+)
 from xr_toolz.metrics._src.spectral import (
     BandLimitedRMSE,
     FrequencyBandSkill,
@@ -117,9 +128,11 @@ __all__ = [
     "R2Score",
     "RankHistogram",
     "ReliabilityCurve",
+    "SegmentedPSDScore",
     "SkillByLeadTime",
     "SpreadSkillRatio",
     "Wasserstein1",
+    "along_track_psd_score",
     "band_limited_rmse",
     "bias",
     "centroid_displacement",
@@ -143,6 +156,7 @@ __all__ = [
     "phase_shift_error",
     "psd_error",
     "psd_score",
+    "psd_score_by_region",
     "pv_conservation_error",
     "r2_score",
     "rank_histogram",
@@ -150,6 +164,10 @@ __all__ = [
     "reliability_curve",
     "resolved_scale",
     "rmse",
+    "segment_signal",
+    "segmented_coherence",
+    "segmented_csd",
+    "segmented_psd",
     "skill_by_lead_time",
     "spread_skill_ratio",
     "ssim",

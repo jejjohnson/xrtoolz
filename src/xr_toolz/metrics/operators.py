@@ -34,6 +34,7 @@ from xr_toolz.metrics._src.probabilistic import (
     ReliabilityCurve,
     SpreadSkillRatio,
 )
+from xr_toolz.metrics._src.segmented_psd import SegmentedPSDScore
 from xr_toolz.metrics._src.spectral import (
     BandLimitedRMSE,
     FrequencyBandSkill,
@@ -73,6 +74,7 @@ __all__ = [
     "R2Score",
     "RankHistogram",
     "ReliabilityCurve",
+    "SegmentedPSDScore",
     "SkillByLeadTime",
     "SpreadSkillRatio",
     "Wasserstein1",
