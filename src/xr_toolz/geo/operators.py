@@ -17,6 +17,8 @@ import warnings
 from collections.abc import Sequence
 from typing import Any
 
+import xarray as xr
+
 from xr_toolz.core import Operator, Signature
 from xr_toolz.geo._src import (
     along_track as _along_track,
@@ -447,7 +449,7 @@ class WaveletPowerSpectrum(Operator):
         self.isotropic = bool(isotropic)
         self.output_var = output_var
 
-    def _apply(self, ds):
+    def _apply(self, ds: xr.Dataset) -> xr.Dataset:
         if self.var not in ds.data_vars:
             raise KeyError(f"Dataset missing variable {self.var!r}")
         out_name = self.output_var or f"{self.var}_wpsd"

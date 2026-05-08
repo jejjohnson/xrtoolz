@@ -2,17 +2,23 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import numpy as np
 import xarray as xr
+
+
+if TYPE_CHECKING:
+    from matplotlib.axes import Axes
 
 
 def plot_resolved_scale_map(
     rs_map: xr.DataArray,
     *,
-    ax=None,
+    ax: Axes | None = None,
     cmap: str = "viridis",
     levels=None,
-):
+) -> Axes:
     """Plot a 2-D map of resolved scale in kilometres."""
     import matplotlib.pyplot as plt
 
@@ -34,9 +40,9 @@ def plot_resolved_scale_map(
 def plot_wavelet_spectrum_1d(
     spectrum: xr.DataArray,
     *,
-    ax=None,
+    ax: Axes | None = None,
     ref_slopes=("-3", "-5/3"),
-):
+) -> Axes:
     """Plot a one-dimensional wavelet spectrum."""
     import matplotlib.pyplot as plt
 
@@ -62,9 +68,9 @@ def plot_wavelet_spectrum_1d(
 def plot_wavelet_anisotropy(
     spectrum: xr.DataArray,
     *,
-    ax=None,
+    ax: Axes | None = None,
     log: bool = True,
-):
+) -> Axes:
     """Plot a polar angle-scale heatmap from a directional spectrum."""
     import matplotlib.pyplot as plt
 

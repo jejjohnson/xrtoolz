@@ -67,8 +67,8 @@ def wavenumber_to_scale(
 def build_coi_mask(
     da: xr.DataArray,
     scales: xr.DataArray,
-    dim: tuple[str, str] = ("y", "x"),
     *,
+    dim: tuple[str, str] = ("y", "x"),
     x0: float,
 ) -> xr.DataArray:
     """Build a cone-of-influence mask for boundaries and NaN land cells.

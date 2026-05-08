@@ -437,7 +437,7 @@ class WaveletPSDScore(Operator):
         self.k0 = float(k0)
         self.isotropic = bool(isotropic)
 
-    def _apply(self, ds_pred, ds_ref):
+    def _apply(self, ds_pred: xr.Dataset, ds_ref: xr.Dataset) -> xr.Dataset:
         return wavelet_psd_score(
             ds_pred,
             ds_ref,
