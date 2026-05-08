@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import warnings
 from collections.abc import Sequence
-from typing import Any
+from typing import Any, Literal
 
 from xr_toolz.core import Operator, Signature
 from xr_toolz.geo._src import (
@@ -157,6 +157,61 @@ class RenameVariables(Operator):
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         return input_signature
+
+
+class RenameToCFStandardNames(Operator):
+    """Wrap :func:`xr_toolz.geo.rename_to_cf_standard_names`.
+
+    Renames each variable / coord that carries a ``standard_name`` attr
+    to that attr value. Raises ``ValueError`` on collision (two source
+    vars mapping to the same ``standard_name``).
+
+    Args:
+        include_coords: If ``True`` (default), rename coords too.
+    """
+
+    def __init__(self, *, include_coords: bool = True) -> None:
+        self.include_coords = include_coords
+
+    def _apply(self, ds):
+        return _validation.rename_to_cf_standard_names(
+            ds, include_coords=self.include_coords
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {"include_coords": self.include_coords}
+
+
+class RenameFromCFStandardNames(Operator):
+    """Wrap :func:`xr_toolz.geo.rename_from_cf_standard_names`.
+
+    Renames CF ``standard_name``-shaped variables to their xr_toolz
+    canonical names using the :mod:`xr_toolz.types.Variable` registry.
+
+    Args:
+        fallback: ``"passthrough"`` (default) leaves unrecognized names
+            unchanged. ``"raise"`` raises ``KeyError`` on unknown names.
+        include_coords: If ``True`` (default), rename coords too.
+    """
+
+    def __init__(
+        self,
+        *,
+        fallback: Literal["passthrough", "raise"] = "passthrough",
+        include_coords: bool = True,
+    ) -> None:
+        self.fallback = fallback
+        self.include_coords = include_coords
+
+    def _apply(self, ds):
+        return _validation.rename_from_cf_standard_names(
+            ds,
+            fallback=self.fallback,
+            include_coords=self.include_coords,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {"fallback": self.fallback, "include_coords": self.include_coords}
 
 
 # ---------- subset ---------------------------------------------------------

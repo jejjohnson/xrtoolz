@@ -63,12 +63,18 @@ from xr_toolz.geo._src.validation import (
     check_dataset_coords,
     decode_cf_time,
     rename_coords,
+    rename_from_cf_standard_names,
+    rename_to_cf_standard_names,
     rename_variables,
     validate_latitude,
     validate_longitude,
     validate_time,
 )
-from xr_toolz.geo.operators import BandpassWavelength
+from xr_toolz.geo.operators import (
+    BandpassWavelength,
+    RenameFromCFStandardNames,
+    RenameToCFStandardNames,
+)
 
 
 # Names moved to xr_toolz.metrics — kept importable for one release with
@@ -135,6 +141,8 @@ def __getattr__(name: str) -> Any:
 
 __all__ = [
     "BandpassWavelength",
+    "RenameFromCFStandardNames",
+    "RenameToCFStandardNames",
     "add_climatology",
     "add_country_mask",
     "add_land_mask",
@@ -162,6 +170,8 @@ __all__ = [
     "remove_climatology",
     "remove_mean",
     "rename_coords",
+    "rename_from_cf_standard_names",
+    "rename_to_cf_standard_names",
     "rename_variables",
     "reproject",
     "select_variables",
