@@ -32,7 +32,7 @@ def ds() -> xr.Dataset:
 
 
 @pytest.fixture
-def vector_ds() -> xr.Dataset:
+def taylor_green_ds() -> xr.Dataset:
     n = 16
     x = np.arange(n)
     y = np.arange(n)
@@ -68,17 +68,17 @@ def test_stft_operator(ds):
     assert "segment" in out["a_stft"].dims
 
 
-def test_ke_spectral_flux_operator(vector_ds):
+def test_ke_spectral_flux_operator(taylor_green_ds):
     out = KESpectralFlux(
         "u", "v", ("x", "y"), window=None, detrend=None, return_2d=True
-    )(vector_ds)
+    )(taylor_green_ds)
     assert {"transfer", "flux", "transfer_2d"} <= set(out.data_vars)
 
 
-def test_enstrophy_spectral_flux_operator(vector_ds):
+def test_enstrophy_spectral_flux_operator(taylor_green_ds):
     out = EnstrophySpectralFlux(
         "u", "v", ("x", "y"), window=None, detrend=None, return_2d=True
-    )(vector_ds)
+    )(taylor_green_ds)
     assert {"transfer", "flux", "transfer_2d"} <= set(out.data_vars)
 
 

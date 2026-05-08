@@ -33,6 +33,7 @@ _DEFAULT_PSD_KWARGS: dict[str, Any] = {
     "true_amplitude": True,
     "truncate": True,
 }
+# Keep shells with mathematically identical radii together despite roundoff.
 _RADIAL_BINNING_PRECISION = 12
 
 
