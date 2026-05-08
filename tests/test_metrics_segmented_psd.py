@@ -81,8 +81,8 @@ def _track_dataset(n: int = 192) -> xr.Dataset:
         {
             "ssh_ref": (dim, ref),
             "ssh_pred": (dim, pred),
-            "longitude": (dim, lon),
-            "latitude": (dim, lat),
+            "lon": (dim, lon),
+            "lat": (dim, lat),
             "time": (dim, time),
         }
     )
@@ -144,8 +144,8 @@ def test_along_track_segment_longitude_uses_circular_mean() -> None:
         {
             "ssh_ref": (dim, np.sin(2 * np.pi * x / npt)),
             "ssh_pred": (dim, 0.9 * np.sin(2 * np.pi * x / npt)),
-            "longitude": (dim, lon),
-            "latitude": (dim, np.zeros(npt)),
+            "lon": (dim, lon),
+            "lat": (dim, np.zeros(npt)),
             "time": (dim, np.datetime64("2020-01-01") + x.astype("timedelta64[s]")),
         }
     )
