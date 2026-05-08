@@ -34,7 +34,6 @@ _DEFAULT_PSD_KWARGS: dict[str, Any] = {
     "true_amplitude": True,
     "truncate": True,
 }
-_POLARIZATION_DENOM_EPS = np.finfo(float).eps
 
 
 def _output_name(da: xr.DataArray, suffix: str, fallback: str = "field") -> str:
@@ -156,6 +155,7 @@ def rotary_spectrum(
     components, then folds both onto a shared positive ``wavenumber`` axis.
     The unnormalized FFT is converted to a density with ``dx / n`` scaling so
     integrating ``psd_cw + psd_ccw`` over wavenumber recovers velocity variance.
+    Polarization is NaN where total rotary power is negligible.
 
     Args:
         ds: Dataset containing horizontal velocity components.
@@ -174,6 +174,8 @@ def rotary_spectrum(
         )
 
     w = ds[u_var] + 1j * ds[v_var]
+    # Rectangular window + mean-only detrending keeps the dx / n density scaling
+    # Parseval-consistent for variance.
     spec = xrft.fft(w, dim=[dim], window=None, detrend="constant", true_amplitude=False)
     freq_dim = f"freq_{dim}"
     density_scale = _coord_spacing(ds[dim]) / ds.sizes[dim]
@@ -191,7 +193,9 @@ def rotary_spectrum(
     psd_cw.name = "psd_cw"
 
     denom = psd_cw + psd_ccw
-    polarization = ((psd_cw - psd_ccw) / denom).where(denom > _POLARIZATION_DENOM_EPS)
+    polarization = ((psd_cw - psd_ccw) / denom).where(
+        denom > _polarization_epsilon(denom)
+    )
     polarization.name = "polarization"
     out = xr.Dataset(
         {"psd_ccw": psd_ccw, "psd_cw": psd_cw, "polarization": polarization}
@@ -213,6 +217,13 @@ def _coord_spacing(coord: xr.DataArray) -> float:
     else:
         diffs = np.diff(values.astype(float))
     return float(np.median(np.abs(diffs)))
+
+
+def _polarization_epsilon(da: xr.DataArray) -> float:
+    dtype = da.dtype
+    if np.issubdtype(dtype, np.floating):
+        return float(np.finfo(dtype).eps)
+    return float(np.finfo(float).eps)
 
 
 def stft(

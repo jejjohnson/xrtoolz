@@ -49,8 +49,7 @@ class RegionScoreBarPanel(_ValidationPanel):
         if has_method_dim:
             df = subset.to_dataframe().unstack(self.method_dim)
         else:
-            df = subset.to_dataframe()
-        df = df if has_method_dim else df.loc[:, metrics]
+            df = subset.to_dataframe().loc[:, metrics]
         df.index = [str(value) for value in df.index]
         if self.horizontal:
             df.plot.barh(ax=ax, colormap=self.cmap)
