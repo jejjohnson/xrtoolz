@@ -8,6 +8,9 @@ ranges, and attach CF-style ``units``, ``standard_name``, and
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
+import pandas as pd
 import xarray as xr
 
 from xr_toolz.transforms._src.encoders.coord_space import (
@@ -109,6 +112,89 @@ def rename_variables(ds: xr.Dataset, mapping: dict[str, str]) -> xr.Dataset:
     if not present:
         return ds
     return ds.rename(present)
+
+
+def decode_cf_time(
+    ds: xr.Dataset,
+    *,
+    time: str = "time",
+    units: str | None = None,
+) -> xr.Dataset:
+    """Assign a CF ``units`` attribute and decode the time coordinate.
+
+    Useful when raw integer / float time values and their epoch string
+    arrive separately (e.g. CMEMS NetCDF or older OPeNDAP feeds).
+
+    Args:
+        ds: Input dataset.
+        time: Name of the time coordinate.
+        units: CF ``units`` string (e.g. ``"days since 1950-01-01"``).
+            When ``None`` the attribute is left unchanged; if the
+            coordinate is already ``datetime64`` this is effectively a
+            no-op.
+
+    Returns:
+        Dataset with the time coordinate decoded to ``datetime64``.
+    """
+    ds = ds.copy()
+    if units is not None:
+        ds[time] = ds[time].assign_attrs(units=units)
+    return xr.decode_cf(ds)
+
+
+def validate_time(ds: xr.Dataset, *, time: str = "time") -> xr.Dataset:
+    """Coerce the time coordinate to ``pandas`` datetime.
+
+    Passes the raw coordinate values through :func:`pandas.to_datetime`,
+    which handles string, float-seconds, and already-``datetime64``
+    inputs uniformly.
+
+    Args:
+        ds: Input dataset.
+        time: Name of the time coordinate.
+
+    Returns:
+        Dataset with the time coordinate cast to ``datetime64[ns]``.
+    """
+    ds = ds.copy()
+    ds[time] = pd.to_datetime(ds[time].values)
+    return ds
+
+
+def check_dataset_coords(
+    ds: xr.Dataset,
+    *,
+    require: tuple[str, ...] = ("time", "lat", "lon"),
+    validate: bool = True,
+) -> None:
+    """Assert that required coordinates are present and (optionally) valid.
+
+    Args:
+        ds: Dataset to check.
+        require: Names that must appear in ``ds.variables``.
+        validate: When ``True``, run a round-trip through the
+            appropriate validator for ``"lon"``, ``"lat"``, and
+            ``"time"`` and assert the result is identical to the
+            input.  Pass ``False`` to skip the round-trip checks.
+
+    Raises:
+        AssertionError: If any name in ``require`` is missing from
+            ``ds.variables``, or if a round-trip validator produces a
+            different result (``validate=True``).
+    """
+    missing = set(require) - set(ds.variables)
+    if missing:
+        raise AssertionError(f"Dataset missing required coords: {sorted(missing)}")
+    if validate:
+        validators: dict[str, Callable[[xr.Dataset], xr.Dataset]] = {
+            "lon": validate_longitude,
+            "lat": validate_latitude,
+            "time": validate_time,
+        }
+        for name in require:
+            fn = validators.get(name)
+            if fn is not None:
+                xr.testing.assert_identical(ds[[name]], fn(ds)[[name]])
 
 
 def _rename_first_match(
