@@ -9,7 +9,7 @@ from :class:`xr_toolz.core.Operator`, so they compose with
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import xarray as xr
@@ -21,6 +21,7 @@ from xr_toolz.interpolate._src import (
     downscale as _downscale,
     gap_fill as _gap_fill,
     grid_to_grid as _grid_to_grid,
+    knn as _knn,
     mask_ops as _mask_ops,
     points_to_grid as _points_to_grid,
     resample as _resample,
@@ -68,6 +69,40 @@ class FillNaNTemporal(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"method": self.method, "time": self.time, "max_gap": self.max_gap}
+
+
+class FillNaNClimatology(Operator):
+    """Wrap :func:`xr_toolz.interpolate.fillnan_climatology`."""
+
+    def __init__(
+        self,
+        *,
+        time: str = "time",
+        group: Literal["month", "dayofyear", "season"] = "month",
+        residual: Literal["zero", "linear"] = "linear",
+        min_count: int = 1,
+    ):
+        self.time = time
+        self.group = group
+        self.residual = residual
+        self.min_count = min_count
+
+    def _apply(self, da):
+        return _gap_fill.fillnan_climatology(
+            da,
+            time=self.time,
+            group=self.group,
+            residual=self.residual,
+            min_count=self.min_count,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "time": self.time,
+            "group": self.group,
+            "residual": self.residual,
+            "min_count": self.min_count,
+        }
 
 
 class FillNaNLaplacian(Operator):
@@ -152,6 +187,53 @@ class FillNaNRBF(Operator):
             "neighbors": self.neighbors,
             "lon": self.lon,
             "lat": self.lat,
+        }
+
+
+class FillNaNIDW(Operator):
+    """Wrap :func:`xr_toolz.interpolate.fillnan_idw`."""
+
+    def __init__(
+        self,
+        *,
+        lon: str = "lon",
+        lat: str = "lat",
+        k: int = 8,
+        power: float = 2.0,
+        metric: _knn.Metric = "euclidean",
+        max_distance: float | None = None,
+        eps: float = 1e-12,
+    ):
+        _knn._validate_idw_args(k, power, metric, max_distance, eps)
+        self.lon = lon
+        self.lat = lat
+        self.k = k
+        self.power = power
+        self.metric = metric
+        self.max_distance = max_distance
+        self.eps = eps
+
+    def _apply(self, da):
+        return _knn.fillnan_idw(
+            da,
+            lon=self.lon,
+            lat=self.lat,
+            k=self.k,
+            power=self.power,
+            metric=self.metric,
+            max_distance=self.max_distance,
+            eps=self.eps,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "lon": self.lon,
+            "lat": self.lat,
+            "k": self.k,
+            "power": self.power,
+            "metric": self.metric,
+            "max_distance": self.max_distance,
+            "eps": self.eps,
         }
 
 
@@ -345,18 +427,34 @@ class CleanMask(Operator):
 class ResampleTime(Operator):
     """Wrap :func:`xr_toolz.interpolate.resample_time`."""
 
-    def __init__(self, freq: str = "1D", method: str = "mean", time: str = "time"):
+    def __init__(
+        self,
+        freq: str = "1D",
+        method: str = "mean",
+        time: str = "time",
+        interp_method: Literal["linear", "nearest", "cubic"] = "linear",
+    ):
         self.freq = freq
         self.method = method
         self.time = time
+        self.interp_method = interp_method
 
     def _apply(self, ds):
         return _resample.resample_time(
-            ds, freq=self.freq, method=self.method, time=self.time
+            ds,
+            freq=self.freq,
+            method=self.method,
+            time=self.time,
+            interp_method=self.interp_method,
         )
 
     def get_config(self) -> dict[str, Any]:
-        return {"freq": self.freq, "method": self.method, "time": self.time}
+        return {
+            "freq": self.freq,
+            "method": self.method,
+            "time": self.time,
+            "interp_method": self.interp_method,
+        }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         return input_signature.replace_dims({self.time: None})
@@ -552,7 +650,7 @@ class PointsToGrid(Operator):
         self.grid = grid
         self.statistic = statistic
 
-    def _apply(self, payload):
+    def _apply(self, payload) -> xr.DataArray:
         lons, lats, values = payload
         return _points_to_grid.points_to_grid(
             lons, lats, values, grid=self.grid, statistic=self.statistic
@@ -566,6 +664,199 @@ class PointsToGrid(Operator):
             {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
             dtype=input_signature.dtype,
         )
+
+
+class KDEToGrid(Operator):
+    """Wrap :func:`xr_toolz.interpolate.kde_to_grid`.
+
+    Expects ``(lons, lats)`` or ``(lons, lats, weights)`` as input.
+    """
+
+    def __init__(
+        self,
+        grid: _binning.Grid,
+        *,
+        bandwidth: float | str = "scott",
+        kernel: str = "gaussian",
+        metric: str = "euclidean",
+        algorithm: str = "auto",
+        output: str = "density",
+        rtol: float = 1e-4,
+    ):
+        self.grid = grid
+        self.bandwidth = bandwidth
+        self.kernel = kernel
+        self.metric = metric
+        self.algorithm = algorithm
+        self.output = output
+        self.rtol = float(rtol)
+
+    def _apply(self, payload) -> xr.DataArray:
+        if len(payload) == 2:
+            lons, lats = payload
+            weights = None
+        elif len(payload) == 3:
+            lons, lats, weights = payload
+        else:
+            raise ValueError(
+                "KDEToGrid expects (lons, lats) or (lons, lats, weights); "
+                f"got payload of length {len(payload)}"
+            )
+        return _points_to_grid.kde_to_grid(
+            lons,
+            lats,
+            self.grid,
+            weights=weights,
+            bandwidth=self.bandwidth,
+            kernel=self.kernel,
+            metric=self.metric,
+            algorithm=self.algorithm,
+            output=self.output,
+            rtol=self.rtol,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        # Coerce numpy scalar bandwidths so json.dumps(get_config()) works.
+        bw = (
+            self.bandwidth if isinstance(self.bandwidth, str) else float(self.bandwidth)
+        )
+        return {
+            "grid": "<Grid>",
+            "bandwidth": bw,
+            "kernel": self.kernel,
+            "metric": self.metric,
+            "algorithm": self.algorithm,
+            "output": self.output,
+            "rtol": self.rtol,
+        }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
+
+
+class IDWToGrid(Operator):
+    """Wrap :func:`xr_toolz.interpolate.idw_to_grid`.
+
+    Expects a 3-tuple ``(lons, lats, values)`` as input.
+    """
+
+    def __init__(
+        self,
+        grid: _binning.Grid,
+        *,
+        k: int = 8,
+        power: float = 2.0,
+        metric: _knn.Metric = "euclidean",
+        max_distance: float | None = None,
+        eps: float = 1e-12,
+    ):
+        _knn._validate_idw_args(k, power, metric, max_distance, eps)
+        self.grid = grid
+        self.k = k
+        self.power = power
+        self.metric = metric
+        self.max_distance = max_distance
+        self.eps = eps
+
+    def _apply(self, payload):
+        lons, lats, values = payload
+        return _knn.idw_to_grid(
+            lons,
+            lats,
+            values,
+            self.grid,
+            k=self.k,
+            power=self.power,
+            metric=self.metric,
+            max_distance=self.max_distance,
+            eps=self.eps,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "grid": "<Grid>",
+            "k": self.k,
+            "power": self.power,
+            "metric": self.metric,
+            "max_distance": self.max_distance,
+            "eps": self.eps,
+        }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
+
+
+class IDWToPoints(Operator):
+    """Wrap :func:`xr_toolz.interpolate.idw_to_points`.
+
+    Expects source ``(lons, lats, values)`` as input.
+    """
+
+    def __init__(
+        self,
+        dst_lons: np.ndarray,
+        dst_lats: np.ndarray,
+        *,
+        k: int = 8,
+        power: float = 2.0,
+        metric: _knn.Metric = "euclidean",
+        max_distance: float | None = None,
+        eps: float = 1e-12,
+    ):
+        _knn._validate_idw_args(k, power, metric, max_distance, eps)
+        self.dst_lons = np.asarray(dst_lons)
+        self.dst_lats = np.asarray(dst_lats)
+        self.k = k
+        self.power = power
+        self.metric = metric
+        self.max_distance = max_distance
+        self.eps = eps
+
+    def _apply(self, payload):
+        lons, lats, values = payload
+        return _knn.idw_to_points(
+            lons,
+            lats,
+            values,
+            self.dst_lons,
+            self.dst_lats,
+            k=self.k,
+            power=self.power,
+            metric=self.metric,
+            max_distance=self.max_distance,
+            eps=self.eps,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "dst_lons": self.dst_lons.tolist(),
+            "dst_lats": self.dst_lats.tolist(),
+            "k": self.k,
+            "power": self.power,
+            "metric": self.metric,
+            "max_distance": self.max_distance,
+            "eps": self.eps,
+        }
+
+    def compute_output_signature(self, input_signature: Any) -> Signature:
+        # Payload is a (lons, lats, values) tuple — pull dtype from values.
+        if isinstance(input_signature, tuple) and len(input_signature) == 3:
+            dtype = input_signature[2].dtype
+        else:
+            dtype = getattr(input_signature, "dtype", None)
+        out_shape = np.broadcast_shapes(self.dst_lons.shape, self.dst_lats.shape)
+        dims = (
+            {"point": int(out_shape[0])}
+            if len(out_shape) == 1
+            else {f"dim_{i}": int(s) for i, s in enumerate(out_shape)}
+        )
+        return Signature(dims, dtype=dtype)
 
 
 # ---------- smoothers ------------------------------------------------------
@@ -904,6 +1195,8 @@ __all__ = [
     "CleanMask",
     "Coarsen",
     "Downscale",
+    "FillNaNClimatology",
+    "FillNaNIDW",
     "FillNaNLaplacian",
     "FillNaNRBF",
     "FillNaNSpatial",
@@ -911,6 +1204,9 @@ __all__ = [
     "FromSigma",
     "GaussianSmooth",
     "Histogram2D",
+    "IDWToGrid",
+    "IDWToPoints",
+    "KDEToGrid",
     "LowpassFilter",
     "MaskBinaryClosing",
     "MaskBinaryOpening",

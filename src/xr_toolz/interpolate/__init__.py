@@ -4,13 +4,14 @@ Single conceptual home for *value resampling* (D12). Sub-organized by
 source/target structure under :mod:`._src`:
 
 - :mod:`._src.gap_fill` — ``fillnan_spatial``, ``fillnan_temporal``,
-  ``fillnan_laplacian``, ``fillnan_rbf``
+  ``fillnan_climatology``, ``fillnan_laplacian``, ``fillnan_rbf``,
+  ``fillnan_idw``
 - :mod:`._src.mask_ops` — ``clean_mask`` and binary mask cleanup helpers
 - :mod:`._src.grid_to_grid` — ``coarsen``, ``refine``
 - :mod:`._src.resample` — ``resample_time``
 - :mod:`._src.binning` — ``Grid``, ``Period``, ``SpaceTimeGrid``, ``bin_2d``,
   ``histogram_2d``
-- :mod:`._src.points_to_grid` — ``points_to_grid``
+- :mod:`._src.points_to_grid` — ``points_to_grid``, ``kde_to_grid``
 - :mod:`._src.smooth` — ``moving_average``, ``gaussian_smooth``,
   ``lowpass_filter``, ``fir_filter``
 - :mod:`._src.coord_remap` — ``remap_axis``, ``to_phase``
@@ -31,12 +32,15 @@ from xr_toolz.interpolate._src.binning import (
 )
 from xr_toolz.interpolate._src.coord_remap import remap_axis, to_phase
 from xr_toolz.interpolate._src.gap_fill import (
+    fillnan_climatology,
+    fillnan_idw,
     fillnan_laplacian,
     fillnan_rbf,
     fillnan_spatial,
     fillnan_temporal,
 )
 from xr_toolz.interpolate._src.grid_to_grid import coarsen, refine, regrid_like
+from xr_toolz.interpolate._src.knn import idw_to_grid, idw_to_points
 from xr_toolz.interpolate._src.mask_ops import (
     binary_closing_2d,
     binary_opening_2d,
@@ -44,7 +48,7 @@ from xr_toolz.interpolate._src.mask_ops import (
     remove_small_holes_2d,
     remove_small_objects_2d,
 )
-from xr_toolz.interpolate._src.points_to_grid import points_to_grid
+from xr_toolz.interpolate._src.points_to_grid import kde_to_grid, points_to_grid
 from xr_toolz.interpolate._src.resample import resample_time
 from xr_toolz.interpolate._src.smooth import (
     fir_filter,
@@ -54,6 +58,7 @@ from xr_toolz.interpolate._src.smooth import (
 )
 from xr_toolz.interpolate.operators import (
     CleanMask,
+    KDEToGrid,
     MaskBinaryClosing,
     MaskBinaryOpening,
     MaskRemoveSmallHoles,
@@ -64,6 +69,7 @@ from xr_toolz.interpolate.operators import (
 __all__ = [
     "CleanMask",
     "Grid",
+    "KDEToGrid",
     "MaskBinaryClosing",
     "MaskBinaryOpening",
     "MaskRemoveSmallHoles",
@@ -75,6 +81,8 @@ __all__ = [
     "binary_opening_2d",
     "clean_mask",
     "coarsen",
+    "fillnan_climatology",
+    "fillnan_idw",
     "fillnan_laplacian",
     "fillnan_rbf",
     "fillnan_spatial",
@@ -82,6 +90,9 @@ __all__ = [
     "fir_filter",
     "gaussian_smooth",
     "histogram_2d",
+    "idw_to_grid",
+    "idw_to_points",
+    "kde_to_grid",
     "lowpass_filter",
     "moving_average",
     "points_to_grid",
