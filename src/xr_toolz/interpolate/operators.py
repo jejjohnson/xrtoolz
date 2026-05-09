@@ -383,6 +383,68 @@ class PointsToGrid(Operator):
         )
 
 
+class KDEToGrid(Operator):
+    """Wrap :func:`xr_toolz.interpolate.kde_to_grid`.
+
+    Expects ``(lons, lats)`` or ``(lons, lats, weights)`` as input.
+    """
+
+    def __init__(
+        self,
+        grid: _binning.Grid,
+        *,
+        bandwidth: float | str = "scott",
+        kernel: str = "gaussian",
+        metric: str = "euclidean",
+        algorithm: str = "auto",
+        output: str = "density",
+        rtol: float = 1e-4,
+    ):
+        self.grid = grid
+        self.bandwidth = bandwidth
+        self.kernel = kernel
+        self.metric = metric
+        self.algorithm = algorithm
+        self.output = output
+        self.rtol = float(rtol)
+
+    def _apply(self, payload):
+        if len(payload) == 2:
+            lons, lats = payload
+            weights = None
+        else:
+            lons, lats, weights = payload
+        return _points_to_grid.kde_to_grid(
+            lons,
+            lats,
+            self.grid,
+            weights=weights,
+            bandwidth=self.bandwidth,
+            kernel=self.kernel,
+            metric=self.metric,
+            algorithm=self.algorithm,
+            output=self.output,
+            rtol=self.rtol,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "grid": "<Grid>",
+            "bandwidth": self.bandwidth,
+            "kernel": self.kernel,
+            "metric": self.metric,
+            "algorithm": self.algorithm,
+            "output": self.output,
+            "rtol": self.rtol,
+        }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
+
+
 # ---------- smoothers ------------------------------------------------------
 
 

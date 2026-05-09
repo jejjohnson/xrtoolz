@@ -33,6 +33,7 @@ from xr_toolz.interpolate.operators import (
     FillNaNSpatial,
     FillNaNTemporal,
     Histogram2D,
+    KDEToGrid,
     PointsToGrid,
     Refine,
     ResampleTime,
@@ -149,6 +150,7 @@ def test_points_to_grid_matches_function(grid: Grid) -> None:
         Bin2D(grid=Grid.from_bounds((0, 1), (0, 1), 0.5)),
         Histogram2D(grid=Grid.from_bounds((0, 1), (0, 1), 0.5)),
         PointsToGrid(grid=Grid.from_bounds((0, 1), (0, 1), 0.5)),
+        KDEToGrid(grid=Grid.from_bounds((0, 1), (0, 1), 0.5)),
     ],
     ids=lambda op: type(op).__name__,
 )
