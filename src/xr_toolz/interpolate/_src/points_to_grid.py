@@ -51,7 +51,7 @@ def points_to_grid(
 
 
 def _bandwidth_rule(pts: np.ndarray, rule: BandwidthRule) -> float:
-    """Return Scott or Silverman bandwidth for ``pts``."""
+    """Return Scott or Silverman bandwidth using ``sqrt(trace(cov) / d)``."""
     n, d = pts.shape
     coordinate_variance = np.var(pts, axis=0, ddof=1)
     sigma = float(np.sqrt(np.mean(coordinate_variance)))
