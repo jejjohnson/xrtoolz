@@ -4,7 +4,8 @@ Single conceptual home for *value resampling* (D12). Sub-organized by
 source/target structure under :mod:`._src`:
 
 - :mod:`._src.gap_fill` — ``fillnan_spatial``, ``fillnan_temporal``,
-  ``fillnan_laplacian``, ``fillnan_rbf``, ``fillnan_idw``
+  ``fillnan_climatology``, ``fillnan_laplacian``, ``fillnan_rbf``,
+  ``fillnan_idw``
 - :mod:`._src.grid_to_grid` — ``coarsen``, ``coarsen_conservative``, ``refine``
 - :mod:`._src.resample` — ``resample_time``
 - :mod:`._src.binning` — ``Grid``, ``Period``, ``SpaceTimeGrid``, ``bin_2d``,
@@ -30,6 +31,7 @@ from xr_toolz.interpolate._src.binning import (
 )
 from xr_toolz.interpolate._src.coord_remap import remap_axis, to_phase
 from xr_toolz.interpolate._src.gap_fill import (
+    fillnan_climatology,
     fillnan_idw,
     fillnan_laplacian,
     fillnan_rbf,
@@ -62,6 +64,7 @@ __all__ = [
     "bin_2d",
     "coarsen",
     "coarsen_conservative",
+    "fillnan_climatology",
     "fillnan_idw",
     "fillnan_laplacian",
     "fillnan_rbf",
