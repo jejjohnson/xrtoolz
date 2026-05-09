@@ -252,8 +252,14 @@ def ke_spectral_flux(
     u_hat, v_hat, du_dx, du_dy, dv_dx, dv_dy = _fourier_uv_gradients(
         u, v, dims, window=window, detrend=detrend
     )
-    phi_u = u * du_dx + v * du_dy
-    phi_v = u * dv_dx + v * dv_dy
+    # Reconstruct physical-space velocities from the (possibly windowed and
+    # detrended) spectra so the advection product mixes fields with matching
+    # preprocessing — using raw u/v here would bias the transfer when
+    # window/detrend are non-None (which they are by default).
+    u_proc = _ifft2(u_hat, freq_dims, u)
+    v_proc = _ifft2(v_hat, freq_dims, v)
+    phi_u = u_proc * du_dx + v_proc * du_dy
+    phi_v = u_proc * dv_dx + v_proc * dv_dy
     phi_u_hat = _fft2(phi_u, dims, window=None, detrend=None)
     phi_v_hat = _fft2(phi_v, dims, window=None, detrend=None)
     norm = float(np.prod([u.sizes[name] for name in dims]) ** 2)
@@ -309,7 +315,11 @@ def enstrophy_spectral_flux(
     zeta_hat = 2.0j * np.pi * (kx * v_hat - ky * u_hat)
     dzeta_dx = _gradient_from_hat(zeta_hat, freq_dims[0], freq_dims, u)
     dzeta_dy = _gradient_from_hat(zeta_hat, freq_dims[1], freq_dims, u)
-    adv_zeta = u * dzeta_dx + v * dzeta_dy
+    # Match the windowed/detrended preprocessing of zeta_hat in the
+    # advection product — see ke_spectral_flux for the same fix.
+    u_proc = _ifft2(u_hat, freq_dims, u)
+    v_proc = _ifft2(v_hat, freq_dims, v)
+    adv_zeta = u_proc * dzeta_dx + v_proc * dzeta_dy
     adv_zeta_hat = _fft2(adv_zeta, dims, window=None, detrend=None)
     norm = float(np.prod([u.sizes[name] for name in dims]) ** 2)
     transfer_2d = -np.real(np.conj(zeta_hat) * adv_zeta_hat) / norm
@@ -337,18 +347,18 @@ def integral_scale(
 
     Notes:
         ``moment=1`` returns ``∫ψ dk / ∫kψ dk``. ``moment=2`` returns the
-        Taylor microscale ``λ = sqrt(∫ψ dk / ∫k²ψ dk)``. The integrals
-        are approximated as plain sums, so the ``dk`` factors only
-        cancel cleanly when the wavenumber grid is uniformly spaced;
-        for non-uniform spacing prefer trapezoidal integration upstream.
+        Taylor microscale ``λ = sqrt(∫ψ dk / ∫k²ψ dk)``. Integrals use
+        xarray's coordinate-aware trapezoidal rule, so non-uniform
+        wavenumber grids (e.g. radially binned spectra) are handled
+        correctly.
     """
     if moment not in (1, 2):
         raise ValueError(
             f"moment must be 1 (integral scale) or 2 (Taylor microscale); got {moment}."
         )
     k = psd[wavenumber_dim]
-    numerator = psd.sum(dim=wavenumber_dim)
-    denominator = (psd * k**moment).sum(dim=wavenumber_dim)
+    numerator = psd.integrate(coord=wavenumber_dim)
+    denominator = (psd * k**moment).integrate(coord=wavenumber_dim)
     out = numerator / denominator
     if moment == 2:
         out = out**0.5

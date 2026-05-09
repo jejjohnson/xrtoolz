@@ -168,6 +168,34 @@ def test_enstrophy_spectral_flux_budget_closes(taylor_green_vortex_uv):
     assert abs(float(out["flux"].isel(freq_r=0))) < 1e-16
 
 
+def test_ke_spectral_flux_default_preprocessing_runs_and_closes_budget(
+    taylor_green_vortex_uv,
+):
+    """The defaults are window='tukey' / detrend='linear'. With the
+    advection product now consistently using the windowed/detrended
+    fields (not raw u/v), the transfer must still integrate to zero
+    even when preprocessing is enabled."""
+    u, v = taylor_green_vortex_uv
+    out = ke_spectral_flux(u, v, dim=("x", "y"))
+    assert np.isfinite(out["transfer"].values).all()
+    assert np.isfinite(out["flux"].values).all()
+    assert abs(float(out["transfer"].sum())) < 1e-10
+    # Flux endpoints bracket the cumulative integral; with a closed
+    # budget, both ends must be (numerically) zero.
+    assert abs(float(out["flux"].isel(freq_r=0))) < 1e-10
+    assert abs(float(out["flux"].isel(freq_r=-1))) < 1e-10
+
+
+def test_enstrophy_spectral_flux_default_preprocessing_runs_and_closes_budget(
+    taylor_green_vortex_uv,
+):
+    u, v = taylor_green_vortex_uv
+    out = enstrophy_spectral_flux(u, v, dim=("x", "y"))
+    assert np.isfinite(out["transfer"].values).all()
+    assert abs(float(out["transfer"].sum())) < 1e-10
+    assert abs(float(out["flux"].isel(freq_r=0))) < 1e-10
+
+
 def test_integral_scale_matches_gaussian_and_spike():
     width = 2.0
     k = np.linspace(0.0, 20.0, 20_001)
