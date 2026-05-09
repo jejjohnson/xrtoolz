@@ -199,7 +199,9 @@ class Coarsen(Operator):
                 f"got {boundary!r}."
             )
         if conservative and method != "mean":
-            raise ValueError("conservative coarsen only supports method='mean'.")
+            raise ValueError(
+                f"conservative coarsen only supports method='mean', got {method!r}."
+            )
         self.factor = dict(factor)
         self.method = method
         self.boundary = boundary

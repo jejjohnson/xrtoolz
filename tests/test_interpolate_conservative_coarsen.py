@@ -59,7 +59,7 @@ def test_conservative_coarsen_has_high_latitude_bias_vs_uniform() -> None:
     assert relative_bias > 0.02
 
 
-def test_conservative_coarsen_renormalizes_over_finite_cells() -> None:
+def test_conservative_coarsen_renormalizes_with_nan_values() -> None:
     lat = np.array([50.0, 55.0, 60.0, 65.0, 70.0, 75.0, 80.0, 85.0])
     values = np.array([1.0, np.nan, 3.0, 4.0, np.nan, np.nan, np.nan, np.nan])
     da = xr.DataArray(values, dims=("lat",), coords={"lat": lat})
@@ -154,3 +154,15 @@ def test_conservative_coarsen_rejects_misaligned_lat_chunks() -> None:
 
     with pytest.raises(ValueError, match="chunks along 'lat'"):
         coarsen_conservative(da, {"lat": 2})
+
+
+def test_conservative_coarsen_accepts_aligned_lat_chunks() -> None:
+    pytest.importorskip("dask.array")
+    da = xr.DataArray(
+        np.arange(8, dtype=float), dims=("lat",), coords={"lat": np.arange(8)}
+    ).chunk({"lat": 4})
+
+    result = coarsen_conservative(da, {"lat": 2})
+    expected = coarsen_conservative(da.compute(), {"lat": 2})
+
+    xr.testing.assert_allclose(result.compute(), expected)
