@@ -403,7 +403,7 @@ class SampleAtPoints(Operator):
         points: xr.Dataset,
         *,
         coords: tuple[str, ...] = ("lat", "lon"),
-        method: str = "linear",
+        method: _grid_to_points.Method = "linear",
         fill_value: float | None = np.nan,
         bounds_error: bool = False,
         point_dim: str = "points",
@@ -459,7 +459,7 @@ class AlongTrack(Operator):
         track: xr.Dataset,
         *,
         coords: tuple[str, ...] = ("time", "lat", "lon"),
-        method: str = "linear",
+        method: _grid_to_points.Method = "linear",
         fill_value: float | None = np.nan,
         point_dim: str = "points",
     ):

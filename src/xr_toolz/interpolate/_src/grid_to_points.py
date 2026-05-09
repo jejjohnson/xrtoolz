@@ -218,7 +218,28 @@ def along_track(
     fill_value: float | None = np.nan,
     point_dim: str = "points",
 ) -> xr.DataArray:
-    """Collocate a gridded field onto an observation track in space and time."""
+    """Collocate a gridded field onto an observation track.
+
+    This is a convenience wrapper around :func:`sample_at_points` for
+    time-collocated tracks such as satellite altimetry, drifters, or buoys.
+    It validates that datetime-like coordinates are datetime-like in both the
+    source and target before delegating to the generic sampler.
+
+    Args:
+        da: Source gridded field with 1-D coordinates for every name in
+            ``coords``.
+        track: Track dataset containing each coordinate in ``coords`` as a
+            1-D variable on ``point_dim``.
+        coords: Coordinate names to interpolate over. Defaults to
+            ``("time", "lat", "lon")``.
+        method: Interpolation method supported by
+            :class:`scipy.interpolate.RegularGridInterpolator`.
+        fill_value: Value used for finite out-of-bounds track points.
+        point_dim: Name of the target-track dimension.
+
+    Returns:
+        Values from ``da`` collocated onto ``track`` along ``point_dim``.
+    """
     for name in coords:
         source_is_time = np.issubdtype(np.asarray(da[name].values).dtype, np.datetime64)
         target_is_time = np.issubdtype(
