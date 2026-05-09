@@ -80,6 +80,7 @@ def test_refine_2d_broadcasts_over_leading_dims(plate: xr.DataArray) -> None:
     )
 
     xr.testing.assert_allclose(result, expected)
+    np.testing.assert_allclose(result.isel(time=1) - result.isel(time=0), 1.0)
 
 
 def test_refine_2d_dask_time_chunks_match_numpy(plate: xr.DataArray) -> None:
