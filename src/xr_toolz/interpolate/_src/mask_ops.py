@@ -69,8 +69,9 @@ def _validate_area(area: int) -> None:
 def _remove_small_holes(m: np.ndarray, *, area: int) -> np.ndarray:
     morph = _require_skimage()
     if "max_size" in inspect.signature(morph.remove_small_holes).parameters:
-        # scikit-image 0.26+ uses inclusive max_size; xr_toolz keeps the
-        # historical "smaller than area" contract, so use area - 1.
+        # scikit-image 0.26+ removes components with size <= max_size.
+        # xr_toolz keeps the historical "smaller than area" contract, so
+        # use area - 1 (e.g. area=1 removes nothing).
         return morph.remove_small_holes(m, max_size=area - 1)
     return morph.remove_small_holes(m, area_threshold=area)
 
@@ -78,8 +79,9 @@ def _remove_small_holes(m: np.ndarray, *, area: int) -> np.ndarray:
 def _remove_small_objects(m: np.ndarray, *, area: int) -> np.ndarray:
     morph = _require_skimage()
     if "max_size" in inspect.signature(morph.remove_small_objects).parameters:
-        # scikit-image 0.26+ uses inclusive max_size; xr_toolz keeps the
-        # historical "smaller than area" contract, so use area - 1.
+        # scikit-image 0.26+ removes components with size <= max_size.
+        # xr_toolz keeps the historical "smaller than area" contract, so
+        # use area - 1 (e.g. area=1 removes nothing).
         return morph.remove_small_objects(m, max_size=area - 1)
     return morph.remove_small_objects(m, min_size=area)
 
