@@ -10,7 +10,7 @@ source/target structure under :mod:`._src`:
 - :mod:`._src.resample` — ``resample_time``
 - :mod:`._src.binning` — ``Grid``, ``Period``, ``SpaceTimeGrid``, ``bin_2d``,
   ``histogram_2d``
-- :mod:`._src.points_to_grid` — ``points_to_grid``
+- :mod:`._src.points_to_grid` — ``points_to_grid``, ``kde_to_grid``
 - :mod:`._src.smooth` — ``moving_average``, ``gaussian_smooth``,
   ``lowpass_filter``, ``fir_filter``
 - :mod:`._src.coord_remap` — ``remap_axis``, ``to_phase``
@@ -40,7 +40,7 @@ from xr_toolz.interpolate._src.gap_fill import (
 )
 from xr_toolz.interpolate._src.grid_to_grid import coarsen, refine, regrid_like
 from xr_toolz.interpolate._src.knn import idw_to_grid, idw_to_points
-from xr_toolz.interpolate._src.points_to_grid import points_to_grid
+from xr_toolz.interpolate._src.points_to_grid import kde_to_grid, points_to_grid
 from xr_toolz.interpolate._src.resample import resample_time
 from xr_toolz.interpolate._src.smooth import (
     fir_filter,
@@ -48,10 +48,12 @@ from xr_toolz.interpolate._src.smooth import (
     lowpass_filter,
     moving_average,
 )
+from xr_toolz.interpolate.operators import KDEToGrid
 
 
 __all__ = [
     "Grid",
+    "KDEToGrid",
     "Period",
     "SpaceTimeGrid",
     "bin_2d",
@@ -67,6 +69,7 @@ __all__ = [
     "histogram_2d",
     "idw_to_grid",
     "idw_to_points",
+    "kde_to_grid",
     "lowpass_filter",
     "moving_average",
     "points_to_grid",
