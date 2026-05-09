@@ -64,6 +64,7 @@ nav:
           - Operators & Pipelines: notebooks/operators_pipeline_demo.ipynb
           - Structural Summaries: notebooks/sequential_summary_demo.ipynb
           - Sklearn patch-wise Recipe: notebooks/sklearn_patchwise_recipe.ipynb
+          - NaN-aware Smoothing: notebooks/nan_aware_smoothing.ipynb
       - Validation:
           - V1 — Scales of Evaluation: notebooks/validation_v1_scales.ipynb
           - V1.5 — PSD Plots & Resolved Scale: notebooks/validation_v1_psd_plots.ipynb
