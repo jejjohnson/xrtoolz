@@ -6,6 +6,7 @@ source/target structure under :mod:`._src`:
 - :mod:`._src.gap_fill` — ``fillnan_spatial``, ``fillnan_temporal``,
   ``fillnan_climatology``, ``fillnan_laplacian``, ``fillnan_biharmonic``,
   ``fillnan_rbf``, ``fillnan_idw``
+- :mod:`._src.mask_ops` — ``clean_mask`` and binary mask cleanup helpers
 - :mod:`._src.grid_to_grid` — ``coarsen``, ``coarsen_conservative``,
   ``refine``, ``refine_2d``
 - :mod:`._src.resample` — ``resample_time``
@@ -48,6 +49,13 @@ from xr_toolz.interpolate._src.grid_to_grid import (
     regrid_like,
 )
 from xr_toolz.interpolate._src.knn import idw_to_grid, idw_to_points
+from xr_toolz.interpolate._src.mask_ops import (
+    binary_closing_2d,
+    binary_opening_2d,
+    clean_mask,
+    remove_small_holes_2d,
+    remove_small_objects_2d,
+)
 from xr_toolz.interpolate._src.points_to_grid import kde_to_grid, points_to_grid
 from xr_toolz.interpolate._src.resample import resample_time
 from xr_toolz.interpolate._src.smooth import (
@@ -56,16 +64,32 @@ from xr_toolz.interpolate._src.smooth import (
     lowpass_filter,
     moving_average,
 )
-from xr_toolz.interpolate.operators import FillNaNBiharmonic, KDEToGrid
+from xr_toolz.interpolate.operators import (
+    CleanMask,
+    FillNaNBiharmonic,
+    KDEToGrid,
+    MaskBinaryClosing,
+    MaskBinaryOpening,
+    MaskRemoveSmallHoles,
+    MaskRemoveSmallObjects,
+)
 
 
 __all__ = [
+    "CleanMask",
     "FillNaNBiharmonic",
     "Grid",
     "KDEToGrid",
+    "MaskBinaryClosing",
+    "MaskBinaryOpening",
+    "MaskRemoveSmallHoles",
+    "MaskRemoveSmallObjects",
     "Period",
     "SpaceTimeGrid",
     "bin_2d",
+    "binary_closing_2d",
+    "binary_opening_2d",
+    "clean_mask",
     "coarsen",
     "coarsen_conservative",
     "fillnan_biharmonic",
@@ -88,6 +112,8 @@ __all__ = [
     "refine_2d",
     "regrid_like",
     "remap_axis",
+    "remove_small_holes_2d",
+    "remove_small_objects_2d",
     "resample_time",
     "to_phase",
 ]
