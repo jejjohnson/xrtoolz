@@ -18,8 +18,8 @@ def resample_time(
     ds: xr.Dataset | xr.DataArray,
     freq: str = "1D",
     method: str = "mean",
-    *,
     time: str = "time",
+    *,
     interp_method: Literal["linear", "nearest", "cubic"] = "linear",
 ) -> xr.Dataset | xr.DataArray:
     """Resample along the time axis via xarray's built-in resampler.
