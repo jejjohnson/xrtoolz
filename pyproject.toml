@@ -34,7 +34,6 @@ dependencies = [
     "xskillscore>=0.0.26",
     "numpy-groupies>=0.11",
     "finitediffx>=0.1.0",
-    "scikit-image>=0.22",
     "matplotlib>=3.8",
     "cartopy>=0.22",
 ]
@@ -68,6 +67,13 @@ cds-insitu = [
 # only breaks ``cwt`` / ``dwt``, not the rest of the transforms module.
 wavelets = [
     "PyWavelets>=1.4",
+]
+
+# ``pip install xr_toolz[image]`` — image-processing backends for
+# biharmonic inpainting and structural image metrics. Imported lazily so
+# core interpolation and metrics remain usable without scikit-image.
+image = [
+    "scikit-image>=0.21",
 ]
 
 [project.urls]

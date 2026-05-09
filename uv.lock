@@ -3223,7 +3223,6 @@ dependencies = [
     { name = "pyproj" },
     { name = "regionmask" },
     { name = "rioxarray" },
-    { name = "scikit-image" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "xarray" },
@@ -3243,6 +3242,9 @@ cds-insitu = [
     { name = "geopandas" },
     { name = "loguru" },
     { name = "pyarrow" },
+]
+image = [
+    { name = "scikit-image" },
 ]
 wavelets = [
     { name = "pywavelets" },
@@ -3297,14 +3299,14 @@ requires-dist = [
     { name = "pywavelets", marker = "extra == 'wavelets'", specifier = ">=1.4" },
     { name = "regionmask", specifier = ">=0.12" },
     { name = "rioxarray", specifier = ">=0.15" },
-    { name = "scikit-image", specifier = ">=0.22" },
+    { name = "scikit-image", marker = "extra == 'image'", specifier = ">=0.21" },
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "scipy", specifier = ">=1.12" },
     { name = "xarray", specifier = ">=2024.2" },
     { name = "xrft", specifier = ">=1.0" },
     { name = "xskillscore", specifier = ">=0.0.26" },
 ]
-provides-extras = ["aemet", "cds-insitu", "wavelets"]
+provides-extras = ["aemet", "cds-insitu", "wavelets", "image"]
 
 [package.metadata.requires-dev]
 dev = [
