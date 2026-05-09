@@ -224,6 +224,8 @@ def wavelet_resolved_scale_map(
     ntheta: int = 16,
     k0: float = 1.0,
     threshold: float = 0.5,
+    wavelength_scale: float = 1e-3,
+    wavelength_units: str = "km",
 ) -> xr.DataArray:
     """Return the wavelength where local wavelet PSD skill crosses a threshold.
 
@@ -236,10 +238,16 @@ def wavelet_resolved_scale_map(
         ntheta: Number of evenly spaced Morlet angles.
         k0: Dimensionless central Morlet wavenumber.
         threshold: Score level defining the resolved scale.
+        wavelength_scale: Multiplier applied to ``1 / wavenumber`` to
+            convert into ``wavelength_units``. Defaults to ``1e-3`` for
+            metres → km (matches the historical behaviour); pass
+            ``1.0`` if your coords are already in km.
+        wavelength_units: Unit string written to the output attrs.
 
     Returns:
-        Two-dimensional resolved wavelength in kilometres. Locations with
-        fewer than two trusted scale samples are NaN.
+        Two-dimensional resolved wavelength in ``wavelength_units``.
+        Locations with fewer than two trusted scale samples, or where
+        the threshold isn't bracketed by the score column, are NaN.
     """
     ds_pred = pred.rename("field").to_dataset()
     ds_ref = truth.rename("field").to_dataset()
@@ -255,26 +263,26 @@ def wavelet_resolved_scale_map(
         isotropic=True,
     )["score"]
     scale_dim = scales.dims[0]
-    wavelengths_km = (
+    wavelengths = (
         1.0
         / np.asarray(
             scale_to_wavenumber(scales, x0=x0, k0=k0).values,
             dtype=float,
         )
-        / 1000.0
+        * wavelength_scale
     )
     out = xr.apply_ufunc(
         _resolved_scale_column,
         score,
         input_core_dims=[[scale_dim]],
         output_core_dims=[[]],
-        kwargs={"wavelengths_km": wavelengths_km, "threshold": threshold},
+        kwargs={"wavelengths_km": wavelengths, "threshold": threshold},
         vectorize=True,
         dask="forbidden",
         output_dtypes=[float],
     )
     out.name = "wavelet_resolved_scale"
-    out.attrs["units"] = "km"
+    out.attrs["units"] = wavelength_units
     out.attrs["threshold"] = threshold
     return out
 
@@ -334,11 +342,21 @@ def _resolved_scale_column(
     wavelengths_km: np.ndarray,
     threshold: float,
 ) -> float:
-    """Find the threshold wavelength for one spatial score column."""
+    """Find the threshold wavelength for one spatial score column.
+
+    Returns NaN when the column lacks two valid samples *or* when the
+    threshold isn't bracketed by the column — without this guard
+    ``find_intercept_1D`` extrapolates and reports an arbitrary edge
+    wavelength for perfect-skill (all > threshold) or hopeless-skill
+    (all < threshold) columns.
+    """
     valid = np.isfinite(score)
     if valid.sum() < 2:
         return float("nan")
-    return find_intercept_1D(wavelengths_km[valid], score[valid], level=threshold)
+    valid_scores = score[valid]
+    if threshold < valid_scores.min() or threshold > valid_scores.max():
+        return float("nan")
+    return find_intercept_1D(wavelengths_km[valid], valid_scores, level=threshold)
 
 
 def find_intercept_2D(
