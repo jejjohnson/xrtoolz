@@ -124,3 +124,6 @@ venv.bak/
 
 # Plans (tracked via GitHub issues, not committed)
 .plans/
+
+# Claude Code session state
+.claude/worktrees/
