@@ -8,7 +8,8 @@ along one or more dimensions. Learned counterparts
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Iterable, Mapping, Sequence
+from typing import Literal
 
 import numpy as np
 import xarray as xr
@@ -26,6 +27,92 @@ def coarsen(
     """
     coarsened = ds.coarsen(dim=factor, boundary=boundary)
     return getattr(coarsened, method)()
+
+
+def coarsen_conservative(
+    ds: xr.Dataset | xr.DataArray,
+    factor: Mapping[str, int],
+    *,
+    lat: str = "lat",
+    boundary: Literal["trim", "exact", "pad"] = "trim",
+) -> xr.Dataset | xr.DataArray:
+    """Area-weighted coarsen using cosine-of-latitude weights.
+
+    This preserves cosine-latitude-weighted integrals for aligned, integer
+    coarsening of regular latitude/longitude grids. Non-latitude dimensions
+    use uniform weights, and missing values are skipped with weights
+    renormalized within each block.
+    """
+    factor_dict = _validate_coarsen_factor(factor)
+    if isinstance(ds, xr.Dataset):
+        return ds.map(
+            lambda da: _coarsen_conservative_dataset_variable(
+                da, factor_dict, lat=lat, boundary=boundary
+            )
+        )
+    return _coarsen_conservative_dataarray(ds, factor_dict, lat=lat, boundary=boundary)
+
+
+def _coarsen_conservative_dataset_variable(
+    da: xr.DataArray,
+    factor: dict[str, int],
+    *,
+    lat: str,
+    boundary: Literal["trim", "exact", "pad"],
+) -> xr.DataArray:
+    variable_factor = {dim: value for dim, value in factor.items() if dim in da.dims}
+    if not variable_factor:
+        return da
+    return _coarsen_conservative_dataarray(
+        da, variable_factor, lat=lat, boundary=boundary
+    )
+
+
+def _coarsen_conservative_dataarray(
+    da: xr.DataArray,
+    factor: dict[str, int],
+    *,
+    lat: str,
+    boundary: Literal["trim", "exact", "pad"],
+) -> xr.DataArray:
+    if lat not in da.dims or lat not in factor:
+        return da.coarsen(dim=factor, boundary=boundary).mean()
+
+    _validate_lat_chunks(da, factor[lat], lat=lat)
+
+    cos_lat = np.cos(np.deg2rad(da[lat]))
+    weights = xr.DataArray(cos_lat.data, dims=(lat,), coords={lat: da[lat]})
+    mask = xr.apply_ufunc(np.isfinite, da, dask="allowed")
+    weighted = weights * mask
+    numerator = (
+        (da.where(mask, 0.0) * weighted).coarsen(dim=factor, boundary=boundary).sum()
+    )
+    denominator = weighted.coarsen(dim=factor, boundary=boundary).sum()
+    valid = denominator > 0
+    return numerator.where(valid) / denominator.where(valid)
+
+
+def _validate_coarsen_factor(factor: Mapping[str, int]) -> dict[str, int]:
+    factor_dict = dict(factor)
+    for dim, value in factor_dict.items():
+        if not isinstance(value, int) or value < 1:
+            raise ValueError(
+                f"coarsen factor for {dim!r} must be a positive int, got {value!r}."
+            )
+    return factor_dict
+
+
+def _validate_lat_chunks(da: xr.DataArray, factor: int, *, lat: str) -> None:
+    chunks = da.chunks
+    if chunks is None:
+        return
+    axis = da.get_axis_num(lat)
+    bad_chunks = [chunk for chunk in chunks[axis] if chunk % factor != 0]
+    if bad_chunks:
+        raise ValueError(
+            f"conservative coarsen requires chunks along {lat!r} to be multiples "
+            f"of factor {factor}; got chunks {chunks[axis]!r}."
+        )
 
 
 def refine(
