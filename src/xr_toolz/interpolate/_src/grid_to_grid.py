@@ -96,23 +96,35 @@ def _coarsen_conservative_dataarray(
 
     cos_lat = np.cos(np.deg2rad(da[lat]))
     mask = xr.apply_ufunc(np.isfinite, da, dask="allowed")
-    weighted = cos_lat * mask
+    # Single mask multiplication: zero-out NaN cells in da, then weight.
+    weights = cos_lat * mask
     numerator = (
-        (da.where(mask, 0.0) * weighted).coarsen(dim=factor, boundary=boundary).sum()
+        (da.where(mask, 0.0) * cos_lat).coarsen(dim=factor, boundary=boundary).sum()
     )
-    denominator = weighted.coarsen(dim=factor, boundary=boundary).sum()
-    valid = denominator > 0
-    return (numerator / denominator).where(valid)
+    denominator = weights.coarsen(dim=factor, boundary=boundary).sum()
+    # Mask zero denominators before dividing so we never trigger 0/0 warnings.
+    safe_den = denominator.where(denominator > 0)
+    return numerator / safe_den
 
 
 def _validate_coarsen_factor(factor: Mapping[str, int]) -> dict[str, int]:
-    factor_dict = dict(factor)
-    for dim, value in factor_dict.items():
-        if not isinstance(value, int) or value < 1:
+    factor_dict: dict[str, int] = {}
+    for dim, value in factor.items():
+        # Accept numpy integer types (np.int64 etc.) by reducing through __index__.
+        try:
+            int_value = (
+                int(value.__index__()) if hasattr(value, "__index__") else int(value)
+            )
+            int_match = hasattr(value, "__index__")
+        except (TypeError, ValueError):
+            int_match = False
+            int_value = 0
+        if not int_match or int_value < 1 or isinstance(value, bool):
             raise ValueError(
                 f"coarsen factor for {dim!r} must be a positive integer "
                 f"(>= 1), got {value!r}."
             )
+        factor_dict[dim] = int_value
     return factor_dict
 
 

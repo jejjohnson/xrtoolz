@@ -202,7 +202,9 @@ class Coarsen(Operator):
             raise ValueError(
                 f"conservative coarsen only supports method='mean', got {method!r}."
             )
-        self.factor = dict(factor)
+        # Reuse the layer-0 validator so int-likes (np.int64) are accepted and
+        # negative / zero / non-integer factors fail at construction time.
+        self.factor = _grid_to_grid._validate_coarsen_factor(factor)
         self.method = method
         self.boundary = boundary
         self.conservative = conservative
