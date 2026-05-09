@@ -53,7 +53,8 @@ def points_to_grid(
 def _bandwidth_rule(pts: np.ndarray, rule: BandwidthRule) -> float:
     """Return Scott or Silverman bandwidth for ``pts``."""
     n, d = pts.shape
-    sigma = float(np.sqrt(np.mean(np.var(pts, axis=0, ddof=1))))
+    coordinate_variance = np.var(pts, axis=0, ddof=1)
+    sigma = float(np.sqrt(np.mean(coordinate_variance)))
     if rule == "scott":
         bandwidth = n ** (-1.0 / (d + 4)) * sigma
     elif rule == "silverman":

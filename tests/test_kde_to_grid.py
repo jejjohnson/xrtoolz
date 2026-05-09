@@ -40,7 +40,7 @@ def test_kde_to_grid_counts_mode_preserves_sample_count() -> None:
     assert np.isclose(float((out * _cell_area(grid)).sum()), 3.0, rtol=2e-3)
 
 
-def test_kde_to_grid_bandwidth_dispatch_produces_finite_outputs() -> None:
+def test_kde_to_grid_bandwidth_rules_produce_finite_and_similar_outputs() -> None:
     grid = Grid.from_bounds((-3.0, 3.0), (-3.0, 3.0), resolution=0.5)
     lons = np.array([-1.0, -0.5, 0.25, 1.5])
     lats = np.array([0.0, 0.75, -0.25, 1.0])
