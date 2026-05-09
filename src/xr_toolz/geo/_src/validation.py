@@ -282,6 +282,17 @@ def rename_to_cf_standard_names(
                 f"standard_name={tgt!r}; cannot rename both."
             )
         inverse[tgt] = src
+    # Detect collisions with names that already exist in the dataset
+    # but aren't being renamed; xarray.rename would error on these,
+    # but with a less helpful message.
+    existing = set(ds.variables) - set(mapping)
+    for src, tgt in mapping.items():
+        if tgt in existing:
+            raise ValueError(
+                f"rename_to_cf_standard_names: source {src!r} maps to "
+                f"standard_name={tgt!r}, which already exists in the "
+                "dataset; rename or drop the existing variable first."
+            )
     return ds.rename(mapping) if mapping else ds
 
 
@@ -315,11 +326,19 @@ def rename_from_cf_standard_names(
         xr_toolz names.
 
     Raises:
+        ValueError: If ``fallback`` is not ``"passthrough"`` or
+            ``"raise"``.
         KeyError: If ``fallback="raise"`` and any variable name looks
             like a CF ``standard_name`` (contains ``"_"``) but is not
-            in the registry.
+            in the registry — and is also not itself a registered
+            canonical name (e.g. ``"sst_obs"``, ``"analysed_sst"``).
     """
+    if fallback not in ("passthrough", "raise"):
+        raise ValueError(
+            f"fallback must be 'passthrough' or 'raise'; got {fallback!r}."
+        )
     cf_to_canonical = _build_cf_index()
+    canonical_names = _canonical_name_set()
     candidates: list[str] = (
         [str(k) for k in ds.variables]
         if include_coords
@@ -332,12 +351,12 @@ def rename_from_cf_standard_names(
             canon = cf_to_canonical[name]
             if canon != name:
                 mapping[name] = canon
-        else:
+        elif "_" in name and name not in canonical_names:
             # Only flag as unknown if the name looks like a CF standard_name
-            # (snake_case multi-word). Single-word names like "ssh" are
-            # already canonical and should not trigger a "raise".
-            if "_" in name:
-                unknown.append(name)
+            # (snake_case multi-word) AND isn't a registered canonical name.
+            # Single-word names ("ssh") and underscored canonicals
+            # ("sst_obs", "analysed_sst") pass through silently.
+            unknown.append(name)
     if unknown and fallback == "raise":
         raise KeyError(
             f"rename_from_cf_standard_names: unknown CF standard_name(s) "
@@ -362,3 +381,16 @@ def _build_cf_index() -> dict[str, str]:
         if var.standard_name and var.standard_name not in index:
             index[var.standard_name] = var.name
     return index
+
+
+@functools.cache
+def _canonical_name_set() -> frozenset[str]:
+    """Set of canonical short names from the Variable registry.
+
+    Used to recognize underscored canonicals like ``sst_obs`` so they
+    aren't mistakenly flagged as unknown CF standard_names by
+    ``rename_from_cf_standard_names(..., fallback="raise")``.
+    """
+    from xr_toolz.types._src.variable import REGISTRY
+
+    return frozenset(var.name for var in REGISTRY.values())

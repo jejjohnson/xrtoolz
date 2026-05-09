@@ -615,11 +615,14 @@ __all__ = [
     "BandpassWavelength",
     "CalculateClimatology",
     "CalculateClimatologySmoothed",
+    "DecodeCFTime",
     "FillNaN",
     "Reduce",
     "RemoveClimatology",
     "RemoveMean",
     "RenameCoords",
+    "RenameFromCFStandardNames",
+    "RenameToCFStandardNames",
     "RenameVariables",
     "SelectVariables",
     "SubsetBBox",
@@ -627,6 +630,7 @@ __all__ = [
     "ValidateCoords",
     "ValidateLatitude",
     "ValidateLongitude",
+    "ValidateTime",
 ]
 
 

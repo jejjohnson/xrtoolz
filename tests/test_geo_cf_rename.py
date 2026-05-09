@@ -194,3 +194,52 @@ def test_rename_from_cf_operator_get_config_round_trip():
     op2 = RenameFromCFStandardNames(**cfg)
     assert op2.fallback == "raise"
     assert op2.include_coords is False
+
+
+def test_rename_from_cf_strict_skips_underscored_canonicals():
+    """Registered canonical names that legitimately contain underscores
+    (e.g. ``ice_conc``, ``air_temperature_daily_mean``) must not be
+    flagged as unknown CF standard_names in strict mode — they're
+    already canonical even though they contain underscores."""
+    ds = xr.Dataset(
+        {
+            "ice_conc": xr.DataArray([1.0], dims="x"),
+            "air_temperature_daily_mean": xr.DataArray([1.0], dims="x"),
+        }
+    )
+    out = rename_from_cf_standard_names(ds, fallback="raise")
+    assert "ice_conc" in out.data_vars
+    assert "air_temperature_daily_mean" in out.data_vars
+
+
+def test_rename_from_cf_invalid_fallback_raises():
+    ds = xr.Dataset({"unknown_cf_quantity": xr.DataArray([1.0], dims="x")})
+    with pytest.raises(ValueError, match="fallback"):
+        rename_from_cf_standard_names(ds, fallback="pass_through")
+
+
+def test_rename_to_cf_existing_target_raises_with_clear_message():
+    """If a non-renamed variable already has the target CF name, surface
+    a helpful error before xarray's generic rename-collision message."""
+    ds = _ds_with_cf_attrs(ssh="sea_surface_height_above_geoid")
+    ds["sea_surface_height_above_geoid"] = xr.DataArray([0.0, 0.0], dims="x")
+    with pytest.raises(ValueError, match="already exists"):
+        rename_to_cf_standard_names(ds)
+
+
+def test_rename_to_cf_dim_coord_renames_dimension_too():
+    """Renaming a dimension coord (e.g. ``lat`` with
+    standard_name='latitude') also renames the corresponding dim. This
+    test locks in that behavior so accidental dim-renaming doesn't
+    regress silently."""
+    ds = xr.Dataset(
+        {"ssh": (("lat",), [1.0, 2.0])},
+        coords={
+            "lat": xr.DataArray(
+                [0.0, 1.0], dims="lat", attrs={"standard_name": "latitude"}
+            )
+        },
+    )
+    out = rename_to_cf_standard_names(ds, include_coords=True)
+    assert "latitude" in out.dims
+    assert "lat" not in out.dims
