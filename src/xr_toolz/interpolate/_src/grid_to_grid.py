@@ -71,7 +71,9 @@ def refine_2d(
         raise ValueError(f"da must have dims {lat!r} and {lon!r}.")
     if lat not in factor or lon not in factor:
         raise ValueError(f"factor must include both {lat!r} and {lon!r}.")
-    if isinstance(order, bool) or not isinstance(order, int) or order not in range(6):
+    if isinstance(order, bool) or not isinstance(order, int):
+        raise ValueError(f"order must be an integer in 0..5, got {order!r}.")
+    if order not in range(6):
         raise ValueError(f"order must be in 0..5, got {order!r}.")
 
     f_lat = factor[lat]
@@ -87,8 +89,9 @@ def refine_2d(
     new_lon = _interp_coord(da[lon].values, n_lon)
 
     def _resize_slice(arr2d: np.ndarray) -> np.ndarray:
+        arr2d = np.asarray(arr2d, dtype=np.float64)
         return resize(
-            arr2d.astype(np.float64),
+            arr2d,
             (n_lat, n_lon),
             order=order,
             anti_aliasing=anti_aliasing,
