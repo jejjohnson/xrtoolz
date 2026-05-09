@@ -34,14 +34,19 @@ __all__ = [
 
 
 def _require_inpaint_biharmonic():
+    # importlib keeps ty (typecheck) from trying to resolve the optional
+    # ``skimage`` dependency at static-analysis time; the [image] extra is
+    # only required at call time.
+    import importlib
+
     try:
-        from skimage.restoration import inpaint_biharmonic
+        restoration = importlib.import_module("skimage.restoration")
     except ImportError as exc:  # pragma: no cover - exercised without extra
         raise ImportError(
             "fillnan_biharmonic requires scikit-image. "
             "Install with: pip install 'xr_toolz[image]'"
         ) from exc
-    return inpaint_biharmonic
+    return restoration.inpaint_biharmonic
 
 
 def fillnan_spatial(

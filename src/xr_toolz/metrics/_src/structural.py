@@ -28,13 +28,17 @@ from xr_toolz.core import Operator
 
 
 def _require_structural_similarity():
+    # importlib keeps ty (typecheck) from resolving the optional [image] extra
+    # at static-analysis time.
+    import importlib
+
     try:
-        from skimage.metrics import structural_similarity
+        metrics_mod = importlib.import_module("skimage.metrics")
     except ImportError as exc:  # pragma: no cover - exercised without extra
         raise ImportError(
             "ssim requires scikit-image. Install with: pip install 'xr_toolz[image]'"
         ) from exc
-    return structural_similarity
+    return metrics_mod.structural_similarity
 
 
 def _normalize_dims(dims: str | Sequence[str]) -> list[str]:

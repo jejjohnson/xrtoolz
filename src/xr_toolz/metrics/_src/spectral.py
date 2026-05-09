@@ -456,13 +456,18 @@ def find_intercept_2D(
         ``(space_dim, time_dim)`` and contains the segment's coordinate
         polyline.
     """
+    # importlib keeps ty (typecheck) from resolving the optional [image] extra
+    # at static-analysis time.
+    import importlib
+
     try:
-        from skimage.measure import find_contours
+        measure = importlib.import_module("skimage.measure")
     except ImportError as exc:  # pragma: no cover - exercised without [image]
         raise ImportError(
             "find_intercept_2D requires scikit-image. "
             "Install with: pip install 'xr_toolz[image]'"
         ) from exc
+    find_contours = measure.find_contours
 
     if score.ndim != 2:
         raise ValueError(
