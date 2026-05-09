@@ -79,17 +79,18 @@ def _target_is_coarser_than_source(
 
     try:
         values_ns = np.asarray(coord.values, dtype="datetime64[ns]").astype("int64")
-        deltas = np.diff(values_ns)
-        positive_deltas = deltas[deltas > 0]
-        if positive_deltas.size == 0:
-            return False
-        source_delta_ns = int(np.median(positive_deltas))
-        start = pd.Timestamp(coord.values[0])
-        if pd.isna(start):
-            return False
-        target_delta_ns = _target_delta_ns(freq, cast(pd.Timestamp, start))
     except (TypeError, ValueError):
         return False
+
+    deltas = np.diff(values_ns)
+    positive_deltas = deltas[deltas > 0]
+    if positive_deltas.size == 0:
+        return False
+    source_delta_ns = int(np.median(positive_deltas))
+    start = pd.Timestamp(coord.values[0])
+    if pd.isna(start):
+        return False
+    target_delta_ns = _target_delta_ns(freq, cast(pd.Timestamp, start))
 
     return target_delta_ns > source_delta_ns
 
@@ -101,4 +102,9 @@ def _target_delta_ns(freq: str, start: pd.Timestamp) -> int:
     except ValueError:
         # Variable-length offsets such as "MS" do not expose fixed nanos;
         # estimate their first step from the input coordinate anchor.
-        return int((start + offset - start).value)
+        try:
+            return int((start + offset - start).value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"Could not infer target frequency duration for {freq!r}."
+            ) from exc

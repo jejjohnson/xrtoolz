@@ -130,6 +130,19 @@ def test_fillnan_climatology_operator_matches_function() -> None:
     xr.testing.assert_allclose(op(missing), expected)
 
 
+def test_resample_time_operator_passes_interp_method() -> None:
+    time = pd.date_range("2020-01-01", periods=3, freq="1D")
+    ds = xr.Dataset({"x": ("time", [0.0, 24.0, 48.0])}, coords={"time": time})
+
+    linear = ResampleTime(freq="12h", method="interpolate", interp_method="linear")(ds)
+    nearest = ResampleTime(freq="12h", method="interpolate", interp_method="nearest")(
+        ds
+    )
+
+    assert float(linear["x"].sel(time="2020-01-01T12:00")) == pytest.approx(12.0)
+    assert float(nearest["x"].sel(time="2020-01-01T12:00")) == pytest.approx(0.0)
+
+
 def test_bin_2d_matches_function(scattered_da: xr.DataArray, grid: Grid) -> None:
     op = Bin2D(grid=grid, statistic="mean")
     expected = bin_2d(scattered_da, grid=grid, statistic="mean")

@@ -136,6 +136,7 @@ def fillnan_climatology(
         raise ValueError(
             f"{time!r} coordinate must be datetime-like for climatology grouping."
         ) from exc
+    # Name of the synthetic group coordinate created by xarray (e.g. "month").
     group_name = grouper.name
     grouped = da.groupby(grouper)
     climatology = grouped.mean(time, skipna=True)
