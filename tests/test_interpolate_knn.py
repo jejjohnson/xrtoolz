@@ -10,7 +10,7 @@ from scipy.interpolate import griddata
 from xr_toolz.interpolate import Grid, fillnan_idw, idw_to_grid, idw_to_points
 
 
-def test_idw_to_points_returns_exact_source_value() -> None:
+def test_idw_to_points_returns_exact_value_at_source_location() -> None:
     out = idw_to_points(
         [0.0, 1.0],
         [0.0, 0.0],

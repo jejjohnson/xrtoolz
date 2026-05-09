@@ -181,6 +181,22 @@ def idw_to_grid(
 
     For ``metric="haversine"``, ``max_distance`` is interpreted in radians
     (for example, ``50 / 6371`` for approximately 50 km).
+
+    Args:
+        lons: Source longitudes.
+        lats: Source latitudes.
+        values: Source values.
+        grid: Target regular lon/lat grid.
+        k: Number of nearest finite source neighbours to use.
+        power: Inverse-distance exponent. ``0`` gives an unweighted kNN mean.
+        metric: ``"euclidean"`` for degree-space distances or ``"haversine"``
+            for great-circle distances.
+        max_distance: Optional neighbour cutoff. For ``metric="haversine"``,
+            this is interpreted in radians.
+        eps: Small non-negative offset for non-exact distance weights.
+
+    Returns:
+        DataArray with ``("lat", "lon")`` dimensions on ``grid``.
     """
     lon_grid, lat_grid = np.meshgrid(grid.lon, grid.lat, indexing="xy")
     out = idw_to_points(
@@ -219,7 +235,7 @@ def fillnan_idw(
     ``metric="haversine"``, coordinate values are interpreted as lon/lat
     degrees and converted to radians internally; ``max_distance`` is in
     radians. For ``metric="euclidean"``, distances are measured in grid-index
-    space (column/row).
+    array-index space (column/row positions), not coordinate-value space.
     """
     _validate_idw_args(k, power, metric, max_distance, eps)
     lon_coord = np.asarray(da.coords[lon].values, dtype=float)
