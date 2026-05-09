@@ -8,11 +8,18 @@ import matplotlib.figure as mpl_figure
 import numpy as np
 import xarray as xr
 
-from xr_toolz.viz.validation._src.base import _ValidationPanel
+from xr_toolz.viz.validation._src.psd import _PSDPanelBase
 
 
-class RotaryPolarizationPanel(_ValidationPanel):
-    """Heatmap of rotary polarization over wavenumber and latitude."""
+class RotaryPolarizationPanel(_PSDPanelBase):
+    """Heatmap of rotary polarization over wavenumber and latitude.
+
+    Inherits the constrained-layout / per-axes title pattern from
+    :class:`_PSDPanelBase` so the optional top wavelength axis doesn't
+    collide with the figure title.
+    """
+
+    _default_axes_layout = (1, 1)
 
     def __init__(
         self,
@@ -24,6 +31,8 @@ class RotaryPolarizationPanel(_ValidationPanel):
         vmin: float = -1.0,
         vmax: float = 1.0,
         wavelength_axis: bool = True,
+        space_scale: float = 1.0,
+        wavelength_label: str = "Wavelength [km]",
         figsize: tuple[float, float] = (6, 8),
         **kw: Any,
     ) -> None:
@@ -37,6 +46,12 @@ class RotaryPolarizationPanel(_ValidationPanel):
         self.vmin = float(vmin)
         self.vmax = float(vmax)
         self.wavelength_axis = bool(wavelength_axis)
+        # ``space_scale`` multiplies 1/k to convert into the units used in
+        # ``wavelength_label``. xrft outputs cycles/<coord-unit>, so for
+        # coords in metres + a "[km]" label this is 1e-3; for coords
+        # already in km, leave it at the default 1.0.
+        self.space_scale = float(space_scale)
+        self.wavelength_label = str(wavelength_label)
 
     def _default_title(self) -> str:
         return "Rotary Polarization"
@@ -63,11 +78,15 @@ class RotaryPolarizationPanel(_ValidationPanel):
         ax.set_xlabel(self.wavenumber_dim)
         ax.set_ylabel(self.y_dim)
         if self.wavelength_axis:
+            scale = self.space_scale
             secax = ax.secondary_xaxis(
                 "top",
-                functions=(_safe_reciprocal, _safe_reciprocal),
+                functions=(
+                    lambda k: _safe_reciprocal(k) * scale,
+                    lambda lam: _safe_reciprocal(lam) * scale,
+                ),
             )
-            secax.set_xlabel("Wavelength [km]")
+            secax.set_xlabel(self.wavelength_label)
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -79,6 +98,8 @@ class RotaryPolarizationPanel(_ValidationPanel):
             "vmin": self.vmin,
             "vmax": self.vmax,
             "wavelength_axis": self.wavelength_axis,
+            "space_scale": self.space_scale,
+            "wavelength_label": self.wavelength_label,
         }
 
 

@@ -162,3 +162,29 @@ def test_rotary_spectrum_avg_dims_reduce_outputs():
     assert out["psd_ccw"].dims == ("wavenumber",)
     assert out["psd_cw"].dims == ("wavenumber",)
     assert out["polarization"].dims == ("wavenumber",)
+
+
+def test_rotary_spectrum_handles_dim_without_explicit_coord():
+    """xarray allows dims with no coordinate variable; rotary_spectrum
+    should fall back to unit spacing rather than KeyError on ds[dim]."""
+    n = 32
+    rng = np.random.default_rng(0)
+    ds = xr.Dataset(
+        {
+            "u": ("x", rng.standard_normal(n)),
+            "v": ("x", rng.standard_normal(n)),
+        },
+    )
+    assert "x" not in ds.coords
+    out = rotary_spectrum(ds, u_var="u", v_var="v", dim="x")
+    assert out["psd_ccw"].dims == ("wavenumber",)
+
+
+def test_rotary_spectrum_preserves_nyquist_bin_for_even_length_inputs():
+    """Even-length FFTs put Nyquist on the negative-frequency side
+    only; the outer-join on wavenumber must keep that bin so total
+    rotary power is variance-consistent."""
+    ds = _rotary_fixture(rotation_direction=1.0)
+    out = rotary_spectrum(ds, u_var="u", v_var="v", dim="x")
+    nyquist = 0.5 / 1.0  # spacing = 1
+    assert nyquist in out["wavenumber"].values

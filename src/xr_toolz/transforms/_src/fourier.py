@@ -178,7 +178,12 @@ def rotary_spectrum(
     # Parseval-consistent for variance.
     spec = xrft.fft(w, dim=[dim], window=None, detrend="constant", true_amplitude=False)
     freq_dim = f"freq_{dim}"
-    density_scale = _coord_spacing(ds[dim]) / ds.sizes[dim]
+    # Datasets can legally have dims without explicit coord variables;
+    # fall back to unit spacing in that case rather than KeyError-ing.
+    coord = ds[dim] if dim in ds.coords else None
+    density_scale = (_coord_spacing(coord) if coord is not None else 1.0) / ds.sizes[
+        dim
+    ]
     psd = (np.abs(spec) ** 2) * density_scale
 
     psd_ccw = psd.where(psd[freq_dim] > 0.0, drop=True).rename({freq_dim: "wavenumber"})
@@ -188,7 +193,10 @@ def rotary_spectrum(
         .sortby(freq_dim)
         .rename({freq_dim: "wavenumber"})
     )
-    psd_ccw, psd_cw = xr.align(psd_ccw, psd_cw, join="inner")
+    # Union the two folds and fill missing bins with 0 so an even-length
+    # FFT's lone -Nyquist bin survives, keeping psd_cw + psd_ccw
+    # Parseval-consistent with the input variance.
+    psd_ccw, psd_cw = xr.align(psd_ccw, psd_cw, join="outer", fill_value=0.0)
     psd_ccw.name = "psd_ccw"
     psd_cw.name = "psd_cw"
 
