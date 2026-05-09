@@ -107,7 +107,7 @@ def _collect_point_coordinates(
     points: xr.Dataset,
     coords: tuple[str, ...],
     point_dim: str,
-) -> dict:
+) -> dict[str, tuple[str, np.ndarray]]:
     """Collect output coordinates that are defined along the point dimension."""
     assigned: dict[str, tuple[str, np.ndarray]] = {}
     for name in coords:
@@ -257,9 +257,9 @@ def along_track(
         Values from ``da`` collocated onto ``track`` along ``point_dim``.
     """
     for name in coords:
-        source_is_time = np.issubdtype(np.asarray(da[name].values).dtype, np.datetime64)
+        source_is_time = np.issubdtype(da[name].values.dtype, np.datetime64)
         target_is_time = np.issubdtype(
-            np.asarray(track[name].values).dtype,
+            track[name].values.dtype,
             np.datetime64,
         )
         if source_is_time != target_is_time:

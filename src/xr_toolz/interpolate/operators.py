@@ -29,6 +29,7 @@ from xr_toolz.interpolate._src import (
 
 
 def _json_fill_value(value: float | None) -> float | str | None:
+    """Convert fill values to JSON-safe form, representing NaN as ``"nan"``."""
     if value is None:
         return None
     if np.isnan(value):
