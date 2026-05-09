@@ -23,17 +23,22 @@ CANONICAL_FUNCS = (
     ("fillnan_temporal", "gap_fill"),
     ("fillnan_laplacian", "gap_fill"),
     ("fillnan_rbf", "gap_fill"),
+    ("fillnan_idw", "knn"),
+    ("idw_to_grid", "knn"),
+    ("idw_to_points", "knn"),
     ("coarsen", "grid_to_grid"),
     ("refine", "grid_to_grid"),
     ("regrid_like", "grid_to_grid"),
     ("resample_time", "resample"),
     ("points_to_grid", "points_to_grid"),
+    ("kde_to_grid", "points_to_grid"),
 )
 
 CANONICAL_OPS = (
     "Bin2D",
     "Coarsen",
     "Downscale",
+    "FillNaNIDW",
     "FillNaNLaplacian",
     "FillNaNRBF",
     "FillNaNSpatial",
@@ -41,6 +46,9 @@ CANONICAL_OPS = (
     "FromSigma",
     "GaussianSmooth",
     "Histogram2D",
+    "IDWToGrid",
+    "IDWToPoints",
+    "KDEToGrid",
     "LowpassFilter",
     "MovingAverage",
     "PointsToGrid",
@@ -69,6 +77,9 @@ REMOVED_FROM_GEO = (
     "fillnan_temporal",
     "fillnan_laplacian",
     "fillnan_rbf",
+    "fillnan_idw",
+    "idw_to_grid",
+    "idw_to_points",
     "resample_time",
 )
 
