@@ -7,7 +7,7 @@ source/target structure under :mod:`._src`:
   ``fillnan_climatology``, ``fillnan_laplacian``, ``fillnan_rbf``,
   ``fillnan_idw``
 - :mod:`._src.mask_ops` — ``clean_mask`` and binary mask cleanup helpers
-- :mod:`._src.grid_to_grid` — ``coarsen``, ``refine``
+- :mod:`._src.grid_to_grid` — ``coarsen``, ``coarsen_conservative``, ``refine``
 - :mod:`._src.resample` — ``resample_time``
 - :mod:`._src.binning` — ``Grid``, ``Period``, ``SpaceTimeGrid``, ``bin_2d``,
   ``histogram_2d``
@@ -39,7 +39,12 @@ from xr_toolz.interpolate._src.gap_fill import (
     fillnan_spatial,
     fillnan_temporal,
 )
-from xr_toolz.interpolate._src.grid_to_grid import coarsen, refine, regrid_like
+from xr_toolz.interpolate._src.grid_to_grid import (
+    coarsen,
+    coarsen_conservative,
+    refine,
+    regrid_like,
+)
 from xr_toolz.interpolate._src.knn import idw_to_grid, idw_to_points
 from xr_toolz.interpolate._src.mask_ops import (
     binary_closing_2d,
@@ -81,6 +86,7 @@ __all__ = [
     "binary_opening_2d",
     "clean_mask",
     "coarsen",
+    "coarsen_conservative",
     "fillnan_climatology",
     "fillnan_idw",
     "fillnan_laplacian",
