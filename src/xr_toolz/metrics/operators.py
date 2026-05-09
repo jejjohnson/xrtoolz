@@ -40,6 +40,7 @@ from xr_toolz.metrics._src.spectral import (
     BandLimitedRMSE,
     FrequencyBandSkill,
     PSDScore,
+    WaveletPSDScore,
 )
 from xr_toolz.metrics._src.structural import (
     SSIM,
@@ -81,4 +82,5 @@ __all__ = [
     "SkillByLeadTime",
     "SpreadSkillRatio",
     "Wasserstein1",
+    "WaveletPSDScore",
 ]

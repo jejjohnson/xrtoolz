@@ -17,10 +17,16 @@ from xr_toolz.transforms._src.dct import dct, dst, idct, idst
 from xr_toolz.transforms._src.decompose import eof, ica, kmeans, nmf, pca
 from xr_toolz.transforms._src.fourier import (
     coherence,
+    compensated_spectrum,
     cross_spectrum,
     drop_negative_frequencies,
+    enstrophy_spectral_flux,
+    fit_spectral_slope,
+    integral_scale,
     isotropic_power_spectrum,
+    ke_spectral_flux,
     power_spectrum,
+    rotary_spectrum,
     stft,
 )
 from xr_toolz.transforms._src.sklearn_op import SklearnOp
@@ -30,20 +36,26 @@ from xr_toolz.transforms._src.wavelet import cwt, dwt
 __all__ = [
     "SklearnOp",
     "coherence",
+    "compensated_spectrum",
     "cross_spectrum",
     "cwt",
     "dct",
     "drop_negative_frequencies",
     "dst",
     "dwt",
+    "enstrophy_spectral_flux",
     "eof",
+    "fit_spectral_slope",
     "ica",
     "idct",
     "idst",
+    "integral_scale",
     "isotropic_power_spectrum",
+    "ke_spectral_flux",
     "kmeans",
     "nmf",
     "pca",
     "power_spectrum",
+    "rotary_spectrum",
     "stft",
 ]
