@@ -10,7 +10,7 @@ from :class:`xr_toolz.core.Operator`, so they compose with
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import xarray as xr
@@ -22,10 +22,23 @@ from xr_toolz.interpolate._src import (
     downscale as _downscale,
     gap_fill as _gap_fill,
     grid_to_grid as _grid_to_grid,
+    knn as _knn,
     points_to_grid as _points_to_grid,
     resample as _resample,
     smooth as _smooth,
 )
+
+
+ResizeMode = Literal["reflect", "constant", "edge", "symmetric", "wrap"]
+
+
+def _as_integer_factor(dim: str, factor: int | float) -> int:
+    if isinstance(factor, bool) or int(factor) != factor:
+        raise ValueError(
+            f"refinement factor for {dim!r} must be an integer for the default "
+            "interpolation method."
+        )
+    return int(factor)
 
 
 # ---------- gap fill -------------------------------------------------------
@@ -68,6 +81,40 @@ class FillNaNTemporal(Operator):
 
     def get_config(self) -> dict[str, Any]:
         return {"method": self.method, "time": self.time, "max_gap": self.max_gap}
+
+
+class FillNaNClimatology(Operator):
+    """Wrap :func:`xr_toolz.interpolate.fillnan_climatology`."""
+
+    def __init__(
+        self,
+        *,
+        time: str = "time",
+        group: Literal["month", "dayofyear", "season"] = "month",
+        residual: Literal["zero", "linear"] = "linear",
+        min_count: int = 1,
+    ):
+        self.time = time
+        self.group = group
+        self.residual = residual
+        self.min_count = min_count
+
+    def _apply(self, da):
+        return _gap_fill.fillnan_climatology(
+            da,
+            time=self.time,
+            group=self.group,
+            residual=self.residual,
+            min_count=self.min_count,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "time": self.time,
+            "group": self.group,
+            "residual": self.residual,
+            "min_count": self.min_count,
+        }
 
 
 class FillNaNLaplacian(Operator):
@@ -155,24 +202,87 @@ class FillNaNRBF(Operator):
         }
 
 
+class FillNaNIDW(Operator):
+    """Wrap :func:`xr_toolz.interpolate.fillnan_idw`."""
+
+    def __init__(
+        self,
+        *,
+        lon: str = "lon",
+        lat: str = "lat",
+        k: int = 8,
+        power: float = 2.0,
+        metric: _knn.Metric = "euclidean",
+        max_distance: float | None = None,
+        eps: float = 1e-12,
+    ):
+        _knn._validate_idw_args(k, power, metric, max_distance, eps)
+        self.lon = lon
+        self.lat = lat
+        self.k = k
+        self.power = power
+        self.metric = metric
+        self.max_distance = max_distance
+        self.eps = eps
+
+    def _apply(self, da):
+        return _knn.fillnan_idw(
+            da,
+            lon=self.lon,
+            lat=self.lat,
+            k=self.k,
+            power=self.power,
+            metric=self.metric,
+            max_distance=self.max_distance,
+            eps=self.eps,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "lon": self.lon,
+            "lat": self.lat,
+            "k": self.k,
+            "power": self.power,
+            "metric": self.metric,
+            "max_distance": self.max_distance,
+            "eps": self.eps,
+        }
+
+
 # ---------- resample -------------------------------------------------------
 
 
 class ResampleTime(Operator):
     """Wrap :func:`xr_toolz.interpolate.resample_time`."""
 
-    def __init__(self, freq: str = "1D", method: str = "mean", time: str = "time"):
+    def __init__(
+        self,
+        freq: str = "1D",
+        method: str = "mean",
+        time: str = "time",
+        interp_method: Literal["linear", "nearest", "cubic"] = "linear",
+    ):
         self.freq = freq
         self.method = method
         self.time = time
+        self.interp_method = interp_method
 
     def _apply(self, ds):
         return _resample.resample_time(
-            ds, freq=self.freq, method=self.method, time=self.time
+            ds,
+            freq=self.freq,
+            method=self.method,
+            time=self.time,
+            interp_method=self.interp_method,
         )
 
     def get_config(self) -> dict[str, Any]:
-        return {"freq": self.freq, "method": self.method, "time": self.time}
+        return {
+            "freq": self.freq,
+            "method": self.method,
+            "time": self.time,
+            "interp_method": self.interp_method,
+        }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         return input_signature.replace_dims({self.time: None})
@@ -191,17 +301,31 @@ class Coarsen(Operator):
         factor: dict[str, int],
         method: str = "mean",
         boundary: str = "trim",
+        conservative: bool = False,
+        lat: str = "lat",
     ):
         if boundary not in self._VALID_BOUNDARY:
             raise ValueError(
                 f"Coarsen boundary must be one of {self._VALID_BOUNDARY!r}, "
                 f"got {boundary!r}."
             )
-        self.factor = dict(factor)
+        if conservative and method != "mean":
+            raise ValueError(
+                f"conservative coarsen only supports method='mean', got {method!r}."
+            )
+        # Reuse the layer-0 validator so int-likes (np.int64) are accepted and
+        # negative / zero / non-integer factors fail at construction time.
+        self.factor = _grid_to_grid._validate_coarsen_factor(factor)
         self.method = method
         self.boundary = boundary
+        self.conservative = conservative
+        self.lat = lat
 
     def _apply(self, ds):
+        if self.conservative:
+            return _grid_to_grid.coarsen_conservative(
+                ds, factor=self.factor, lat=self.lat, boundary=self.boundary
+            )
         return _grid_to_grid.coarsen(
             ds, factor=self.factor, method=self.method, boundary=self.boundary
         )
@@ -211,6 +335,8 @@ class Coarsen(Operator):
             "factor": dict(self.factor),
             "method": self.method,
             "boundary": self.boundary,
+            "conservative": self.conservative,
+            "lat": self.lat,
         }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
@@ -232,23 +358,120 @@ class Coarsen(Operator):
 
 
 class Refine(Operator):
-    """Wrap :func:`xr_toolz.interpolate.refine`."""
+    """Wrap :func:`xr_toolz.interpolate.refine`.
 
-    def __init__(self, factor: dict[str, int], method: str = "linear"):
+    If ``order`` is set, dispatches to the scikit-image-backed 2-D resize
+    path and requires ``factor`` to include both ``lat`` and ``lon``.
+
+    Args:
+        factor: Per-dimension refinement factors.
+        method: Interpolation method for the default ``xr.interp`` path.
+        order: Optional scikit-image spline order (0..5). When set, uses the
+            2-D resize path.
+        lat: Latitude-like dimension name for the 2-D resize path.
+        lon: Longitude-like dimension name for the 2-D resize path.
+        anti_aliasing: Anti-aliasing setting passed to scikit-image.
+        mode: Boundary mode for scikit-image (``"reflect"``, ``"constant"``,
+            ``"edge"``, ``"symmetric"``, or ``"wrap"``).
+        cval: Fill value used when ``mode="constant"``.
+    """
+
+    def __init__(
+        self,
+        factor: dict[str, int | float],
+        method: str = "linear",
+        *,
+        order: int | None = None,
+        lat: str = "lat",
+        lon: str = "lon",
+        anti_aliasing: bool | None = None,
+        mode: ResizeMode = "reflect",
+        cval: float = 0.0,
+    ):
+        if order is not None:
+            extra = set(factor) - {lat, lon}
+            if extra:
+                raise ValueError(
+                    "Refine(order=...) only resizes the (lat, lon) plane; "
+                    f"got extra factor dims {sorted(extra)!r}. Drop them or "
+                    "use order=None."
+                )
         self.factor = dict(factor)
         self.method = method
+        self.order = order
+        self.lat = lat
+        self.lon = lon
+        self.anti_aliasing = anti_aliasing
+        self.mode = mode
+        self.cval = cval
 
     def _apply(self, ds):
-        return _grid_to_grid.refine(ds, factor=self.factor, method=self.method)
+        if self.order is not None:
+            if isinstance(ds, xr.Dataset):
+                # refine_2d is DataArray-only; map over variables that have
+                # both core dims and pass others through unchanged so we keep
+                # the same Dataset/DataArray contract as the default path.
+                def _resize_var(da: xr.DataArray) -> xr.DataArray:
+                    if {self.lat, self.lon} <= set(da.dims):
+                        return _grid_to_grid.refine_2d(
+                            da,
+                            factor=self.factor,
+                            lat=self.lat,
+                            lon=self.lon,
+                            order=self.order,
+                            anti_aliasing=self.anti_aliasing,
+                            mode=self.mode,
+                            cval=self.cval,
+                        )
+                    return da
+
+                return ds.map(_resize_var)
+            return _grid_to_grid.refine_2d(
+                ds,
+                factor=self.factor,
+                lat=self.lat,
+                lon=self.lon,
+                order=self.order,
+                anti_aliasing=self.anti_aliasing,
+                mode=self.mode,
+                cval=self.cval,
+            )
+        factor = {
+            dim: _as_integer_factor(dim, value) for dim, value in self.factor.items()
+        }
+        return _grid_to_grid.refine(ds, factor=factor, method=self.method)
 
     def get_config(self) -> dict[str, Any]:
-        return {"factor": dict(self.factor), "method": self.method}
+        return {
+            "factor": dict(self.factor),
+            "method": self.method,
+            "order": self.order,
+            "lat": self.lat,
+            "lon": self.lon,
+            "anti_aliasing": self.anti_aliasing,
+            "mode": self.mode,
+            "cval": self.cval,
+        }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
+        # When order is set, only lat / lon dims are resized; pass other dims
+        # through unchanged even if the user passed them in `factor` (we
+        # rejected that case in __init__, so this is just a safety net).
+        active_dims = (
+            {self.lat, self.lon} if self.order is not None else set(self.factor)
+        )
         updates: dict[str, int | None] = {}
         for dim, factor in self.factor.items():
+            if dim not in active_dims:
+                continue
             size = input_signature.dims.get(dim)
-            updates[dim] = None if size is None else (size - 1) * factor + 1
+            if size is None:
+                updates[dim] = None
+            elif self.order is None or float(factor).is_integer():
+                # Integer factors use refine()'s endpoint-preserving formula.
+                updates[dim] = (size - 1) * _as_integer_factor(dim, factor) + 1
+            else:
+                updates[dim] = max(1, round(size * factor))
         return input_signature.replace_dims(updates)
 
 
@@ -368,7 +591,7 @@ class PointsToGrid(Operator):
         self.grid = grid
         self.statistic = statistic
 
-    def _apply(self, payload):
+    def _apply(self, payload) -> xr.DataArray:
         lons, lats, values = payload
         return _points_to_grid.points_to_grid(
             lons, lats, values, grid=self.grid, statistic=self.statistic
@@ -382,6 +605,199 @@ class PointsToGrid(Operator):
             {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
             dtype=input_signature.dtype,
         )
+
+
+class KDEToGrid(Operator):
+    """Wrap :func:`xr_toolz.interpolate.kde_to_grid`.
+
+    Expects ``(lons, lats)`` or ``(lons, lats, weights)`` as input.
+    """
+
+    def __init__(
+        self,
+        grid: _binning.Grid,
+        *,
+        bandwidth: float | str = "scott",
+        kernel: str = "gaussian",
+        metric: str = "euclidean",
+        algorithm: str = "auto",
+        output: str = "density",
+        rtol: float = 1e-4,
+    ):
+        self.grid = grid
+        self.bandwidth = bandwidth
+        self.kernel = kernel
+        self.metric = metric
+        self.algorithm = algorithm
+        self.output = output
+        self.rtol = float(rtol)
+
+    def _apply(self, payload) -> xr.DataArray:
+        if len(payload) == 2:
+            lons, lats = payload
+            weights = None
+        elif len(payload) == 3:
+            lons, lats, weights = payload
+        else:
+            raise ValueError(
+                "KDEToGrid expects (lons, lats) or (lons, lats, weights); "
+                f"got payload of length {len(payload)}"
+            )
+        return _points_to_grid.kde_to_grid(
+            lons,
+            lats,
+            self.grid,
+            weights=weights,
+            bandwidth=self.bandwidth,
+            kernel=self.kernel,
+            metric=self.metric,
+            algorithm=self.algorithm,
+            output=self.output,
+            rtol=self.rtol,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        # Coerce numpy scalar bandwidths so json.dumps(get_config()) works.
+        bw = (
+            self.bandwidth if isinstance(self.bandwidth, str) else float(self.bandwidth)
+        )
+        return {
+            "grid": "<Grid>",
+            "bandwidth": bw,
+            "kernel": self.kernel,
+            "metric": self.metric,
+            "algorithm": self.algorithm,
+            "output": self.output,
+            "rtol": self.rtol,
+        }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
+
+
+class IDWToGrid(Operator):
+    """Wrap :func:`xr_toolz.interpolate.idw_to_grid`.
+
+    Expects a 3-tuple ``(lons, lats, values)`` as input.
+    """
+
+    def __init__(
+        self,
+        grid: _binning.Grid,
+        *,
+        k: int = 8,
+        power: float = 2.0,
+        metric: _knn.Metric = "euclidean",
+        max_distance: float | None = None,
+        eps: float = 1e-12,
+    ):
+        _knn._validate_idw_args(k, power, metric, max_distance, eps)
+        self.grid = grid
+        self.k = k
+        self.power = power
+        self.metric = metric
+        self.max_distance = max_distance
+        self.eps = eps
+
+    def _apply(self, payload):
+        lons, lats, values = payload
+        return _knn.idw_to_grid(
+            lons,
+            lats,
+            values,
+            self.grid,
+            k=self.k,
+            power=self.power,
+            metric=self.metric,
+            max_distance=self.max_distance,
+            eps=self.eps,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "grid": "<Grid>",
+            "k": self.k,
+            "power": self.power,
+            "metric": self.metric,
+            "max_distance": self.max_distance,
+            "eps": self.eps,
+        }
+
+    def compute_output_signature(self, input_signature: Signature) -> Signature:
+        return Signature(
+            {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
+            dtype=input_signature.dtype,
+        )
+
+
+class IDWToPoints(Operator):
+    """Wrap :func:`xr_toolz.interpolate.idw_to_points`.
+
+    Expects source ``(lons, lats, values)`` as input.
+    """
+
+    def __init__(
+        self,
+        dst_lons: np.ndarray,
+        dst_lats: np.ndarray,
+        *,
+        k: int = 8,
+        power: float = 2.0,
+        metric: _knn.Metric = "euclidean",
+        max_distance: float | None = None,
+        eps: float = 1e-12,
+    ):
+        _knn._validate_idw_args(k, power, metric, max_distance, eps)
+        self.dst_lons = np.asarray(dst_lons)
+        self.dst_lats = np.asarray(dst_lats)
+        self.k = k
+        self.power = power
+        self.metric = metric
+        self.max_distance = max_distance
+        self.eps = eps
+
+    def _apply(self, payload):
+        lons, lats, values = payload
+        return _knn.idw_to_points(
+            lons,
+            lats,
+            values,
+            self.dst_lons,
+            self.dst_lats,
+            k=self.k,
+            power=self.power,
+            metric=self.metric,
+            max_distance=self.max_distance,
+            eps=self.eps,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        return {
+            "dst_lons": self.dst_lons.tolist(),
+            "dst_lats": self.dst_lats.tolist(),
+            "k": self.k,
+            "power": self.power,
+            "metric": self.metric,
+            "max_distance": self.max_distance,
+            "eps": self.eps,
+        }
+
+    def compute_output_signature(self, input_signature: Any) -> Signature:
+        # Payload is a (lons, lats, values) tuple — pull dtype from values.
+        if isinstance(input_signature, tuple) and len(input_signature) == 3:
+            dtype = input_signature[2].dtype
+        else:
+            dtype = getattr(input_signature, "dtype", None)
+        out_shape = np.broadcast_shapes(self.dst_lons.shape, self.dst_lats.shape)
+        dims = (
+            {"point": int(out_shape[0])}
+            if len(out_shape) == 1
+            else {f"dim_{i}": int(s) for i, s in enumerate(out_shape)}
+        )
+        return Signature(dims, dtype=dtype)
 
 
 # ---------- smoothers ------------------------------------------------------
@@ -772,6 +1188,8 @@ __all__ = [
     "Bin2D",
     "Coarsen",
     "Downscale",
+    "FillNaNClimatology",
+    "FillNaNIDW",
     "FillNaNLaplacian",
     "FillNaNRBF",
     "FillNaNSpatial",
@@ -780,6 +1198,9 @@ __all__ = [
     "GaussianSmooth",
     "GaussianSmoothMasked",
     "Histogram2D",
+    "IDWToGrid",
+    "IDWToPoints",
+    "KDEToGrid",
     "LowpassFilter",
     "MovingAverage",
     "PointsToGrid",

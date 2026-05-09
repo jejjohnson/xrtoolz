@@ -4,12 +4,14 @@ Single conceptual home for *value resampling* (D12). Sub-organized by
 source/target structure under :mod:`._src`:
 
 - :mod:`._src.gap_fill` — ``fillnan_spatial``, ``fillnan_temporal``,
-  ``fillnan_laplacian``, ``fillnan_rbf``
-- :mod:`._src.grid_to_grid` — ``coarsen``, ``refine``
+  ``fillnan_climatology``, ``fillnan_laplacian``, ``fillnan_rbf``,
+  ``fillnan_idw``
+- :mod:`._src.grid_to_grid` — ``coarsen``, ``coarsen_conservative``,
+  ``refine``, ``refine_2d``
 - :mod:`._src.resample` — ``resample_time``
 - :mod:`._src.binning` — ``Grid``, ``Period``, ``SpaceTimeGrid``, ``bin_2d``,
   ``histogram_2d``
-- :mod:`._src.points_to_grid` — ``points_to_grid``
+- :mod:`._src.points_to_grid` — ``points_to_grid``, ``kde_to_grid``
 - :mod:`._src.smooth` — ``moving_average``, ``gaussian_smooth``,
   ``gaussian_smooth_masked``, ``lowpass_filter``, ``fir_filter``
 - :mod:`._src.coord_remap` — ``remap_axis``, ``to_phase``
@@ -30,13 +32,22 @@ from xr_toolz.interpolate._src.binning import (
 )
 from xr_toolz.interpolate._src.coord_remap import remap_axis, to_phase
 from xr_toolz.interpolate._src.gap_fill import (
+    fillnan_climatology,
+    fillnan_idw,
     fillnan_laplacian,
     fillnan_rbf,
     fillnan_spatial,
     fillnan_temporal,
 )
-from xr_toolz.interpolate._src.grid_to_grid import coarsen, refine, regrid_like
-from xr_toolz.interpolate._src.points_to_grid import points_to_grid
+from xr_toolz.interpolate._src.grid_to_grid import (
+    coarsen,
+    coarsen_conservative,
+    refine,
+    refine_2d,
+    regrid_like,
+)
+from xr_toolz.interpolate._src.knn import idw_to_grid, idw_to_points
+from xr_toolz.interpolate._src.points_to_grid import kde_to_grid, points_to_grid
 from xr_toolz.interpolate._src.resample import resample_time
 from xr_toolz.interpolate._src.smooth import (
     fir_filter,
@@ -45,16 +56,20 @@ from xr_toolz.interpolate._src.smooth import (
     lowpass_filter,
     moving_average,
 )
-from xr_toolz.interpolate.operators import GaussianSmoothMasked
+from xr_toolz.interpolate.operators import GaussianSmoothMasked, KDEToGrid
 
 
 __all__ = [
     "GaussianSmoothMasked",
     "Grid",
+    "KDEToGrid",
     "Period",
     "SpaceTimeGrid",
     "bin_2d",
     "coarsen",
+    "coarsen_conservative",
+    "fillnan_climatology",
+    "fillnan_idw",
     "fillnan_laplacian",
     "fillnan_rbf",
     "fillnan_spatial",
@@ -63,10 +78,14 @@ __all__ = [
     "gaussian_smooth",
     "gaussian_smooth_masked",
     "histogram_2d",
+    "idw_to_grid",
+    "idw_to_points",
+    "kde_to_grid",
     "lowpass_filter",
     "moving_average",
     "points_to_grid",
     "refine",
+    "refine_2d",
     "regrid_like",
     "remap_axis",
     "resample_time",
