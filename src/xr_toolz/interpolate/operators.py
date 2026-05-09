@@ -273,6 +273,14 @@ class Refine(Operator):
         mode: ResizeMode = "reflect",
         cval: float = 0.0,
     ):
+        if order is not None:
+            extra = set(factor) - {lat, lon}
+            if extra:
+                raise ValueError(
+                    "Refine(order=...) only resizes the (lat, lon) plane; "
+                    f"got extra factor dims {sorted(extra)!r}. Drop them or "
+                    "use order=None."
+                )
         self.factor = dict(factor)
         self.method = method
         self.order = order
@@ -284,6 +292,25 @@ class Refine(Operator):
 
     def _apply(self, ds):
         if self.order is not None:
+            if isinstance(ds, xr.Dataset):
+                # refine_2d is DataArray-only; map over variables that have
+                # both core dims and pass others through unchanged so we keep
+                # the same Dataset/DataArray contract as the default path.
+                def _resize_var(da: xr.DataArray) -> xr.DataArray:
+                    if {self.lat, self.lon} <= set(da.dims):
+                        return _grid_to_grid.refine_2d(
+                            da,
+                            factor=self.factor,
+                            lat=self.lat,
+                            lon=self.lon,
+                            order=self.order,
+                            anti_aliasing=self.anti_aliasing,
+                            mode=self.mode,
+                            cval=self.cval,
+                        )
+                    return da
+
+                return ds.map(_resize_var)
             return _grid_to_grid.refine_2d(
                 ds,
                 factor=self.factor,
@@ -312,12 +339,21 @@ class Refine(Operator):
         }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
+        # When order is set, only lat / lon dims are resized; pass other dims
+        # through unchanged even if the user passed them in `factor` (we
+        # rejected that case in __init__, so this is just a safety net).
+        active_dims = (
+            {self.lat, self.lon} if self.order is not None else set(self.factor)
+        )
         updates: dict[str, int | None] = {}
         for dim, factor in self.factor.items():
+            if dim not in active_dims:
+                continue
             size = input_signature.dims.get(dim)
             if size is None:
                 updates[dim] = None
-            elif self.order is None:
+            elif self.order is None or float(factor).is_integer():
+                # Integer factors use refine()'s endpoint-preserving formula.
                 updates[dim] = (size - 1) * _as_integer_factor(dim, factor) + 1
             else:
                 updates[dim] = max(1, round(size * factor))

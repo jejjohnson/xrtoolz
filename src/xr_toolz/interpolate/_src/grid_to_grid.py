@@ -107,13 +107,22 @@ def refine_2d(
 
     f_lat = factor[lat]
     f_lon = factor[lon]
-    if f_lat <= 0 or f_lon <= 0:
-        raise ValueError(
-            f"refinement factors for {lat!r} and {lon!r} must be positive."
-        )
+    for d, f in ((lat, f_lat), (lon, f_lon)):
+        if isinstance(f, bool):
+            raise ValueError(f"refinement factor for {d!r} must not be a boolean.")
+        if f <= 0:
+            raise ValueError(f"refinement factor for {d!r} must be positive.")
 
-    n_lat = max(1, round(da.sizes[lat] * f_lat))
-    n_lon = max(1, round(da.sizes[lon] * f_lon))
+    # Match :func:`refine` semantics for integer factors: (n-1)*f + 1 preserves
+    # the original endpoints on the refined grid. Non-integer factors fall back
+    # to round(size * factor) for backwards-compat with skimage's resize.
+    def _new_size(size: int, factor_value: int | float) -> int:
+        if isinstance(factor_value, int) or float(factor_value).is_integer():
+            return (size - 1) * int(factor_value) + 1
+        return max(1, round(size * factor_value))
+
+    n_lat = _new_size(da.sizes[lat], f_lat)
+    n_lon = _new_size(da.sizes[lon], f_lon)
     new_lat = _interp_coord(da[lat].values, n_lat)
     new_lon = _interp_coord(da[lon].values, n_lon)
 
