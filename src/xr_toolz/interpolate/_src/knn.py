@@ -22,6 +22,7 @@ def _validate_idw_args(
     max_distance: float | None,
     eps: float,
 ) -> None:
+    """Validate common IDW hyperparameters."""
     if not isinstance(k, int) or isinstance(k, bool) or k < 1:
         raise ValueError(f"k must be a positive integer, got {k!r}")
     if power < 0:
@@ -35,12 +36,14 @@ def _validate_idw_args(
 
 
 def _build_tree(src_xy: np.ndarray, metric: Metric) -> Any:
+    """Build the sklearn neighbour tree appropriate for ``metric``."""
     if metric == "haversine":
         return BallTree(src_xy, metric="haversine")
     return KDTree(src_xy, metric="euclidean")
 
 
 def _to_metric_xy(lons: np.ndarray, lats: np.ndarray, metric: Metric) -> np.ndarray:
+    """Convert lon/lat arrays to the coordinate order expected by the tree."""
     if metric == "haversine":
         return np.deg2rad(np.column_stack([lats, lons]))
     return np.column_stack([lons, lats])
@@ -55,6 +58,7 @@ def _idw_kernel(
     max_distance: float | None,
     eps: float,
 ) -> np.ndarray:
+    """Evaluate the inverse-distance weighted mean at query coordinates."""
     if queries.size == 0:
         return np.empty(0, dtype=float)
 
@@ -92,6 +96,7 @@ def _prepare_sources(
     lats: ArrayLike,
     values: ArrayLike,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Flatten, size-check, and finite-filter scattered source arrays."""
     lon_arr = np.ravel(np.asarray(lons, dtype=float))
     lat_arr = np.ravel(np.asarray(lats, dtype=float))
     value_arr = np.ravel(np.asarray(values, dtype=float))
@@ -236,6 +241,23 @@ def fillnan_idw(
     degrees and converted to radians internally; ``max_distance`` is in
     radians. For ``metric="euclidean"``, distances are measured in array-index
     space (column/row positions), not coordinate-value space.
+
+    Args:
+        da: Input DataArray with ``lat`` and ``lon`` dimensions.
+        lon: Name of the longitude coordinate and dimension.
+        lat: Name of the latitude coordinate and dimension.
+        k: Number of nearest finite neighbours to use.
+        power: Inverse-distance exponent. ``0`` gives an unweighted kNN mean.
+        metric: ``"euclidean"`` for array-index distances or ``"haversine"``
+            for great-circle distances from coordinate values.
+        max_distance: Optional neighbour cutoff. For ``metric="haversine"``,
+            this is interpreted in radians; for ``"euclidean"``, in index
+            units.
+        eps: Small non-negative offset for non-exact distance weights.
+
+    Returns:
+        Same-shaped DataArray with NaNs filled where finite neighbours are
+        available.
     """
     _validate_idw_args(k, power, metric, max_distance, eps)
     lon_coord = np.asarray(da.coords[lon].values, dtype=float)
