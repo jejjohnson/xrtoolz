@@ -367,7 +367,7 @@ class PointsToGrid(Operator):
         self.grid = grid
         self.statistic = statistic
 
-    def _apply(self, payload):
+    def _apply(self, payload) -> xr.DataArray:
         lons, lats, values = payload
         return _points_to_grid.points_to_grid(
             lons, lats, values, grid=self.grid, statistic=self.statistic

@@ -51,7 +51,7 @@ def points_to_grid(
 
 
 def _bandwidth_rule(pts: np.ndarray, rule: BandwidthRule) -> float:
-    """Return Scott or Silverman bandwidth using ``sqrt(trace(cov) / d)``."""
+    """Return Scott or Silverman bandwidth from mean coordinate variance."""
     n, d = pts.shape
     coordinate_variance = np.var(pts, axis=0, ddof=1)
     sigma = float(np.sqrt(np.mean(coordinate_variance)))
@@ -86,7 +86,8 @@ def kde_to_grid(
         lats: 1-D point latitudes. Non-finite entries are dropped.
         grid: Target :class:`Grid`.
         weights: Optional per-point weights passed to
-            :class:`sklearn.neighbors.KernelDensity`.
+            :class:`sklearn.neighbors.KernelDensity`. Non-finite weights are
+            dropped with their corresponding lon/lat points.
         bandwidth: Positive float, or ``"scott"`` / ``"silverman"``. For
             ``metric="haversine"``, float bandwidths are radians.
         kernel: sklearn KDE kernel name.
