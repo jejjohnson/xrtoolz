@@ -102,7 +102,8 @@ def test_array_gaussian_smooth_nd_does_not_propagate_single_nan():
     x[4, 4] = np.nan
     out = ia.gaussian_smooth_nd(x, sigma=1.0)
     assert np.isnan(out[4, 4])
-    assert not np.isnan(np.delete(out.ravel(), 4 * 9 + 4)).any()
+    center_idx = 4 * 9 + 4
+    assert not np.isnan(np.delete(out.ravel(), center_idx)).any()
 
 
 def test_array_gaussian_smooth_nd_keeps_masked_land_nan():
@@ -238,7 +239,10 @@ def test_tier_b_gaussian_smooth_masked_matches_tier_a():
     )
 
     out = gaussian_smooth_masked(ds, dim=("lat", "lon"), sigma={"lat": 1.0, "lon": 2.0})
-    expected = ia.gaussian_smooth_nd(x, sigma=(0.0, 1.0, 2.0))
+    expected = np.stack(
+        [ia.gaussian_smooth_nd(block, sigma=(1.0, 2.0)) for block in x],
+        axis=0,
+    )
     np.testing.assert_allclose(out["x"].values, expected)
     np.testing.assert_array_equal(out["lat_only"].values, ds["lat_only"].values)
     np.testing.assert_array_equal(out["label"].values, ds["label"].values)
@@ -262,7 +266,10 @@ def test_tier_b_gaussian_smooth_masked_dask_contract():
     da = xr.DataArray(x, dims=("time", "lat", "lon")).chunk({"time": 1})
     out = gaussian_smooth_masked(da, dim=("lat", "lon"), sigma=1.0)
     assert out.chunks[0] == (1, 1, 1)
-    expected = ia.gaussian_smooth_nd(x, sigma=(0.0, 1.0, 1.0))
+    expected = np.stack(
+        [ia.gaussian_smooth_nd(block, sigma=(1.0, 1.0)) for block in x],
+        axis=0,
+    )
     np.testing.assert_allclose(out.compute().values, expected)
 
     split_lat = da.chunk({"lat": 4})

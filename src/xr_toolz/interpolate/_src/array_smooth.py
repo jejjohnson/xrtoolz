@@ -300,14 +300,8 @@ def gaussian_smooth_nd(
             f"sigma must be scalar or length arr.ndim={arr_ndim}; got shape "
             f"{sigma_arr.shape}"
         )
-    elif np.any(sigma_arr < 0):
-        raise ValueError(
-            f"sigma entries must be non-negative, got {sigma_arr.tolist()}"
-        )
-    elif not np.any(sigma_arr > 0):
-        raise ValueError(
-            f"at least one sigma entry must be > 0, got {sigma_arr.tolist()}"
-        )
+    elif np.any(sigma_arr <= 0):
+        raise ValueError(f"all sigma entries must be > 0, got {sigma_arr.tolist()}")
 
     a = _as_floating(arr)
     if not nan_aware:
