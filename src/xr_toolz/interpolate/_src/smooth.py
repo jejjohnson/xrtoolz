@@ -142,38 +142,24 @@ def _gaussian_smooth_masked_dataarray(
         )
 
     def _kernel(arr: np.ndarray) -> np.ndarray:
-        core_ndim = len(sigmas)
-        if arr.ndim == core_ndim:
-            return _array.gaussian_smooth_nd(
-                arr,
-                sigma=sigmas,
-                truncate=truncate,
-                mode=mode,
-                nan_aware=nan_aware,
-                min_weight=min_weight,
-            )
-
-        leading_shape = arr.shape[:-core_ndim]
-        core_shape = arr.shape[-core_ndim:]
-        flat = arr.reshape((-1, *core_shape))
-        smoothed = [
-            _array.gaussian_smooth_nd(
-                block,
-                sigma=sigmas,
-                truncate=truncate,
-                mode=mode,
-                nan_aware=nan_aware,
-                min_weight=min_weight,
-            )
-            for block in flat
-        ]
-        return np.stack(smoothed, axis=0).reshape((*leading_shape, *core_shape))
+        # `vectorize=True` ensures apply_ufunc only ever hands us a core-shaped
+        # block, so we don't need a manual reshape / stack loop. That also
+        # avoids the empty-leading-dim crash that the manual np.stack hit.
+        return _array.gaussian_smooth_nd(
+            arr,
+            sigma=sigmas,
+            truncate=truncate,
+            mode=mode,
+            nan_aware=nan_aware,
+            min_weight=min_weight,
+        )
 
     out = xr.apply_ufunc(
         _kernel,
         da,
         input_core_dims=[list(dims)],
         output_core_dims=[list(dims)],
+        vectorize=True,
         dask="parallelized",
         output_dtypes=[np.result_type(da.dtype, np.float64)],
         dask_gufunc_kwargs={"allow_rechunk": False},
