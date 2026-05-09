@@ -9,7 +9,7 @@ from :class:`xr_toolz.core.Operator`, so they compose with
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 import xarray as xr
@@ -25,6 +25,17 @@ from xr_toolz.interpolate._src import (
     resample as _resample,
     smooth as _smooth,
 )
+
+
+ResizeMode = Literal["reflect", "constant", "edge", "symmetric", "wrap"]
+
+
+def _as_integer_factor(dim: str, factor: int | float) -> int:
+    if isinstance(factor, bool) or int(factor) != factor:
+        raise ValueError(
+            f"refinement factor for {dim!r} must be an integer for order=None."
+        )
+    return int(factor)
 
 
 # ---------- gap fill -------------------------------------------------------
@@ -231,23 +242,72 @@ class Coarsen(Operator):
 
 
 class Refine(Operator):
-    """Wrap :func:`xr_toolz.interpolate.refine`."""
+    """Wrap :func:`xr_toolz.interpolate.refine`.
 
-    def __init__(self, factor: dict[str, int], method: str = "linear"):
+    If ``order`` is set, dispatches to the scikit-image-backed 2-D resize
+    path and requires ``factor`` to include both ``lat`` and ``lon``.
+    """
+
+    def __init__(
+        self,
+        factor: dict[str, int | float],
+        method: str = "linear",
+        *,
+        order: int | None = None,
+        lat: str = "lat",
+        lon: str = "lon",
+        anti_aliasing: bool | None = None,
+        mode: ResizeMode = "reflect",
+        cval: float = 0.0,
+    ):
         self.factor = dict(factor)
         self.method = method
+        self.order = order
+        self.lat = lat
+        self.lon = lon
+        self.anti_aliasing = anti_aliasing
+        self.mode = mode
+        self.cval = cval
 
     def _apply(self, ds):
-        return _grid_to_grid.refine(ds, factor=self.factor, method=self.method)
+        if self.order is not None:
+            return _grid_to_grid.refine_2d(
+                ds,
+                factor=self.factor,
+                lat=self.lat,
+                lon=self.lon,
+                order=self.order,
+                anti_aliasing=self.anti_aliasing,
+                mode=self.mode,
+                cval=self.cval,
+            )
+        factor = {
+            dim: _as_integer_factor(dim, value) for dim, value in self.factor.items()
+        }
+        return _grid_to_grid.refine(ds, factor=factor, method=self.method)
 
     def get_config(self) -> dict[str, Any]:
-        return {"factor": dict(self.factor), "method": self.method}
+        return {
+            "factor": dict(self.factor),
+            "method": self.method,
+            "order": self.order,
+            "lat": self.lat,
+            "lon": self.lon,
+            "anti_aliasing": self.anti_aliasing,
+            "mode": self.mode,
+            "cval": self.cval,
+        }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         updates: dict[str, int | None] = {}
         for dim, factor in self.factor.items():
             size = input_signature.dims.get(dim)
-            updates[dim] = None if size is None else (size - 1) * factor + 1
+            if size is None:
+                updates[dim] = None
+            elif self.order is None:
+                updates[dim] = (size - 1) * _as_integer_factor(dim, factor) + 1
+            else:
+                updates[dim] = max(1, round(size * factor))
         return input_signature.replace_dims(updates)
 
 
