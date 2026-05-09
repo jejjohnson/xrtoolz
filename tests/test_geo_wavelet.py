@@ -114,3 +114,69 @@ def test_wavelet_plot_helpers_return_axes() -> None:
         == "rectilinear"
     )
     assert plot_wavelet_anisotropy(spectrum.isel(y=24, x=24)).name == "polar"
+
+
+def test_morlet2_ft_peaks_at_expected_wavenumber() -> None:
+    """The Morlet kernel peaks at the central wavenumber kc = k0/(s*x0)
+    along its rotation axis. Catches sign/normalization regressions in
+    the analytic Fourier transform."""
+    from xr_toolz.geo._src.wavelet import morlet2_ft
+
+    x0 = 1.0
+    k0 = 3.0
+    s = 2.0
+    theta = 0.0
+    sigma = s * x0
+    kc = k0 / sigma
+    kx = np.linspace(-2.0, 2.0, 41)
+    ky = np.linspace(-2.0, 2.0, 41)
+    KX, KY = np.meshgrid(kx, ky, indexing="ij")
+    psi_hat = morlet2_ft(KX, KY, s=s, theta=theta, x0=x0, k0=k0)
+    assert psi_hat.shape == KX.shape
+    assert np.iscomplexobj(psi_hat)
+    peak_idx = np.unravel_index(np.abs(psi_hat).argmax(), psi_hat.shape)
+    np.testing.assert_allclose(KX[peak_idx], kc, atol=2 * (kx[1] - kx[0]))
+    np.testing.assert_allclose(KY[peak_idx], 0.0, atol=2 * (ky[1] - ky[0]))
+
+
+def test_wvlt_cross_spectrum_self_matches_power_spectrum_up_to_constant() -> None:
+    """Cross-spectrum of a field with itself is the *raw* auto-power
+    (no variance normalization), so it differs from
+    ``wvlt_power_spectrum`` by a single overall scalar — verifying the
+    ratio is spatially constant locks in the cross-spectrum's
+    normalization convention."""
+    from xr_toolz.geo._src.wavelet import wvlt_cross_spectrum
+
+    da = _plane_wave(nx=32, ny=32, wavelength=4.0)
+    scales = xr.DataArray([2.0, 4.0], dims="scale")
+    csd = wvlt_cross_spectrum(da, da, scales, x0=1.0, ntheta=4, isotropic=True)
+    psd = wvlt_power_spectrum(da, scales, x0=1.0, ntheta=4, isotropic=True)
+    assert csd.dims == psd.dims
+    np.testing.assert_allclose(np.asarray(csd.imag), 0.0, atol=1e-12)
+    psd_arr = np.asarray(psd)
+    ratio = np.asarray(csd.real)[psd_arr > 1e-10] / psd_arr[psd_arr > 1e-10]
+    if ratio.size:
+        np.testing.assert_allclose(ratio, ratio.mean(), rtol=1e-6)
+
+
+def test_plot_wavelet_spectrum_1d_rejects_higher_dimensional_input() -> None:
+    import matplotlib
+
+    matplotlib.use("Agg")
+    from xr_toolz.geo.plot import plot_wavelet_spectrum_1d
+
+    da = _plane_wave()
+    scales = xr.DataArray([2.0, 4.0], dims="scale")
+    spectrum = wvlt_power_spectrum(da, scales, x0=1.0, ntheta=4, isotropic=False)
+    with pytest.raises(ValueError, match="1-D"):
+        plot_wavelet_spectrum_1d(spectrum)
+
+
+def test_scales_validation_rejects_non_finite_and_non_monotone() -> None:
+    da = _plane_wave()
+    bad_nan = xr.DataArray([2.0, np.nan, 4.0], dims="scale")
+    bad_unsorted = xr.DataArray([4.0, 2.0, 8.0], dims="scale")
+    with pytest.raises(ValueError, match="finite"):
+        cwt2(da, bad_nan, x0=1.0, ntheta=4)
+    with pytest.raises(ValueError, match="increasing"):
+        cwt2(da, bad_unsorted, x0=1.0, ntheta=4)

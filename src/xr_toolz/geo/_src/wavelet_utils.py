@@ -134,12 +134,22 @@ def _coord_spacing(da: xr.DataArray, dim: str) -> float:
 
 
 def _scale_values(scales: xr.DataArray) -> np.ndarray:
-    """Return scale values as a one-dimensional positive float array."""
+    """Return scale values as a one-dimensional positive float array.
+
+    Downstream code uses ``np.log(scales)`` and ``np.gradient`` over
+    the scale axis, so non-finite or non-monotone scales would
+    silently produce invalid weights / interpolations — refuse them
+    here with a clear error.
+    """
     values = np.asarray(scales.values, dtype=float)
     if values.ndim != 1:
         raise ValueError("scales must be one-dimensional")
+    if not np.all(np.isfinite(values)):
+        raise ValueError("scales must be finite (no NaN or inf).")
     if np.any(values <= 0):
         raise ValueError("scales must be strictly positive")
+    if values.size > 1 and not np.all(np.diff(values) > 0):
+        raise ValueError("scales must be strictly increasing.")
     return values
 
 

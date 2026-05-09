@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -17,7 +18,7 @@ def plot_resolved_scale_map(
     *,
     ax: Axes | None = None,
     cmap: str = "viridis",
-    levels=None,
+    levels: Sequence[float] | int | None = None,
 ) -> Axes:
     """Plot a 2-D resolved-scale map.
 
@@ -52,7 +53,7 @@ def plot_wavelet_spectrum_1d(
     spectrum: xr.DataArray,
     *,
     ax: Axes | None = None,
-    ref_slopes=("-3", "-5/3"),
+    ref_slopes: Sequence[str | float] = ("-3", "-5/3"),
 ) -> Axes:
     """Plot a one-dimensional wavelet spectrum with reference slopes.
 
@@ -67,6 +68,11 @@ def plot_wavelet_spectrum_1d(
     """
     import matplotlib.pyplot as plt
 
+    if spectrum.ndim != 1:
+        raise ValueError(
+            f"plot_wavelet_spectrum_1d expects a 1-D spectrum; got dims "
+            f"{spectrum.dims}. Reduce the extra dims first (e.g. .mean('angle'))."
+        )
     if ax is None:
         _, ax = plt.subplots()
     scale_dim = spectrum.dims[0]
@@ -108,6 +114,11 @@ def plot_wavelet_anisotropy(
 
     if "angle" not in spectrum.dims:
         raise ValueError("spectrum must include an 'angle' dimension")
+    if spectrum.ndim != 2:
+        raise ValueError(
+            f"plot_wavelet_anisotropy expects exactly 2 dims (angle + one "
+            f"scale axis); got {spectrum.dims}. Average / reduce extra dims first."
+        )
     scale_dim = next(dim for dim in spectrum.dims if dim != "angle")
     if ax is None:
         _, ax = plt.subplots(subplot_kw={"projection": "polar"})
