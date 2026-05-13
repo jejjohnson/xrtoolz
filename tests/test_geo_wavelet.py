@@ -56,13 +56,14 @@ def test_cwt1d_outputs_power_rectification_and_coi() -> None:
     assert np.iscomplexobj(out["wave"].values)
 
 
-def test_cwt1d_recovers_synthetic_sine_period() -> None:
-    da = _sine_wave(period=8.0)
+@pytest.mark.parametrize("period", [4.0, 8.0, 16.0])
+def test_cwt1d_recovers_synthetic_sine_period(period: float) -> None:
+    da = _sine_wave(period=period)
     out = cwt1d(da, dj=0.125)
     spectrum = out["power_rect"].where(out["coi_mask"]).mean("time", skipna=True)
     peak_scale = spectrum.idxmax("scale")
     peak_period = out["period"].sel(scale=peak_scale)
-    assert float(peak_period) == pytest.approx(8.0, rel=0.07)
+    assert float(peak_period) == pytest.approx(period, rel=0.07)
 
 
 def test_cwt1d_supports_paul_and_dog_mothers() -> None:
@@ -88,6 +89,9 @@ def test_wavelet_significance_and_dominant_period_map() -> None:
     sig = wavelet_significance(out["power_rect"], null="white")
     assert sig.dims == ("scale", "time")
     assert sig.dtype == bool
+    red = wavelet_significance(out["power_rect"], null="red", alpha=0.5)
+    assert red.attrs["null"] == "red"
+    assert red.attrs["alpha"] == 0.5
     pmap = dominant_period_map(
         out["power_rect"], coi_mask=out["coi_mask"], signif_mask=sig
     )

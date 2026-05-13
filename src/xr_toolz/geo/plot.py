@@ -150,6 +150,8 @@ def plot_scalogram(
             the y-axis.
         coi: Optional cone-of-influence period series to overlay.
         signif_mask: Optional boolean mask to contour significant regions.
+            The plot draws a contour at ``0.5``, i.e. the boundary between
+            insignificant (``False``) and significant (``True``) samples.
         ax: Existing axes to draw on. A new axes is created when omitted.
         log_period: If ``True``, draw the period axis on a logarithmic scale.
         cmap: Matplotlib colormap name for the power heatmap.
@@ -204,7 +206,9 @@ def plot_global_wavelet_spectrum(
     Args:
         power: Wavelet power with a scale dimension, optionally including a
             time dimension to average over.
-        signif: Optional reference or significance series to draw as a dashed
+        signif: Optional one-dimensional threshold or reference spectrum with
+            the same scale/period coordinate as ``power``. If it includes a
+            time dimension, it is time-averaged before being drawn as a dashed
             line on the same axes.
         ax: Existing axes to draw on. A new axes is created when omitted.
 
