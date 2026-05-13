@@ -58,10 +58,21 @@ def moving_average(
     center: bool = True,
     min_periods: int | None = None,
 ) -> xr.Dataset:
-    """Sliding-window mean along ``dim``.
+    """Sliding-window mean along ``dim``. NaN-skipping.
 
-    See the kernel :func:`xr_toolz.interpolate._src._smooth_kernels.moving_average`
-    for parameter semantics.
+    Args:
+        ds: Input Dataset. Every numeric data variable carrying ``dim`` is
+            smoothed; other variables pass through unchanged.
+        dim: Dimension to smooth along.
+        window: Window length in samples (positive integer).
+        center: If True (the default), the window is centered on each
+            output sample; otherwise it is trailing.
+        min_periods: Minimum number of non-NaN samples required inside
+            the window for the output to be non-NaN. Defaults to
+            ``window`` (i.e. partial-window edges are NaN).
+
+    Returns:
+        Dataset with the same dims, coords, and attrs as ``ds``.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
@@ -231,10 +242,25 @@ def lowpass_filter(
 ) -> xr.Dataset:
     """Zero-phase Butterworth filter along ``dim``.
 
-    ``cutoff`` is the normalized critical frequency (fraction of the
-    Nyquist rate). For ``btype`` in ``{"bandpass", "bandstop"}`` pass a
-    length-2 ``(low, high)`` sequence. See the kernel
-    :func:`xr_toolz.interpolate._src._smooth_kernels.lowpass_filter`.
+    Applied with :func:`scipy.signal.sosfiltfilt` for zero phase and
+    SOS-form numerical stability. Complex inputs are filtered
+    component-wise; variables that don't carry ``dim`` (or are
+    non-numeric) pass through unchanged.
+
+    Args:
+        ds: Input Dataset.
+        dim: Dimension to filter along.
+        cutoff: Normalized critical frequency (fraction of the Nyquist
+            rate). For ``btype`` in ``{"low", "high", "lowpass",
+            "highpass"}`` this is a scalar in ``(0, 1)``. For ``btype``
+            in ``{"bandpass", "bandstop"}`` it is a length-2
+            ``(low, high)`` sequence with both entries in ``(0, 1)``.
+        order: Filter order (positive integer).
+        btype: One of ``{"low", "high", "lowpass", "highpass",
+            "bandpass", "bandstop"}``.
+
+    Returns:
+        Filtered Dataset with the same dims, coords, and attrs as ``ds``.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
@@ -257,8 +283,28 @@ def fir_filter(
 ) -> xr.Dataset:
     """Zero-phase FIR filter along ``dim``.
 
-    See the kernel :func:`xr_toolz.interpolate._src._smooth_kernels.fir_filter`
-    for cutoff, window, and tap-count semantics.
+    Applied with :func:`scipy.signal.filtfilt` for zero phase. Complex
+    inputs are filtered component-wise; variables that don't carry
+    ``dim`` (or are non-numeric) pass through unchanged.
+
+    Args:
+        ds: Input Dataset.
+        dim: Dimension to filter along.
+        cutoff: Normalized cutoff frequency (fraction of the Nyquist
+            rate). For ``btype`` in ``{"bandpass", "bandstop"}`` pass a
+            length-2 ``(low, high)`` sequence.
+        method: Window family — ``"lanczos"`` or ``"kaiser"``.
+        btype: One of ``{"low", "high", "lowpass", "highpass",
+            "bandpass", "bandstop"}``.
+        num_taps: Odd FIR tap count. Defaults to a conservative value
+            for Lanczos; for Kaiser it is estimated from
+            ``attenuation_db`` (which is then required).
+        attenuation_db: Kaiser stop-band attenuation target in
+            decibels. Required when ``method="kaiser"`` and
+            ``num_taps`` is not supplied.
+
+    Returns:
+        Filtered Dataset with the same dims, coords, and attrs as ``ds``.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
