@@ -104,11 +104,12 @@ def _coarsen_conservative_dataarray(
     cos_lat = np.cos(np.deg2rad(da[lat]))
     mask = _finite_mask_da(da)
     # Single mask multiplication: zero-out NaN cells in da, then weight.
-    weights = cos_lat * mask
+    # mask on the left keeps ty's inference DataArray-shaped (cos_lat is ndarray).
+    weights = mask * cos_lat
     numerator = (
         (da.where(mask, 0.0) * cos_lat).coarsen(dim=factor, boundary=boundary).sum()
     )
-    denominator = weights.coarsen(dim=factor, boundary=boundary).sum()
+    denominator = weights.coarsen(dim=factor, boundary=boundary).sum()  # ty: ignore[unresolved-attribute]
     # Mask zero denominators before dividing so we never trigger 0/0 warnings.
     safe_den = denominator.where(denominator > 0)
     return numerator / safe_den

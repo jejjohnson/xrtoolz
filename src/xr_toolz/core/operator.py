@@ -25,6 +25,7 @@ class ConfigMixin:
 
     __config_mixin_auto__ = True
     __config_exclude__: tuple[str, ...] = ()
+    _config_mixin_config: dict[str, Any]
 
     def __init_subclass__(cls, **kwargs: Any) -> None:
         super().__init_subclass__(**kwargs)
@@ -62,7 +63,7 @@ class ConfigMixin:
         wrapped_init.__name__ = init.__name__
         wrapped_init.__qualname__ = init.__qualname__
         wrapped_init.__doc__ = init.__doc__
-        wrapped_init.__signature__ = signature  # type: ignore[attr-defined]
+        wrapped_init.__signature__ = signature  # ty: ignore[unresolved-attribute]
         cls.__init__ = wrapped_init  # ty: ignore[invalid-assignment]
 
     def get_config(self) -> dict[str, Any]:
