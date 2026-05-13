@@ -1,4 +1,8 @@
-"""Finite-value helpers for interpolation primitives."""
+"""Shared finite-value helpers.
+
+Consumed across ``xr_toolz.interpolate``, ``xr_toolz.transforms``, and
+any other module that needs to filter or mask non-finite samples.
+"""
 
 from __future__ import annotations
 

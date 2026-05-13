@@ -18,6 +18,12 @@ source/target structure under :mod:`._src`:
 - :mod:`._src.downscale` — placeholder submodule for upcoming work
   (D12, issue #36)
 
+Binary mask morphology (``clean_mask``, ``binary_opening_2d``,
+``binary_closing_2d``, ``remove_small_holes_2d``,
+``remove_small_objects_2d``) and axis remapping (``remap_axis``,
+``to_phase``) are re-exported from :mod:`xr_toolz.transforms`; the
+canonical home for those primitives is :mod:`xr_toolz.transforms._src`.
+
 Layer-1 ``Operator`` wrappers live in :mod:`xr_toolz.interpolate.operators`.
 """
 

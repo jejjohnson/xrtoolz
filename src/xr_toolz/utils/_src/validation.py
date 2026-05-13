@@ -1,4 +1,9 @@
-"""Shared validation helpers for interpolation primitives."""
+"""Shared validation helpers.
+
+Used cross-package — ``xr_toolz.interpolate``, ``xr_toolz.transforms``
+(morphology), and metrics — for dim/coord presence checks, scalar/int
+validation, boolean-mask validation, and IDW hyperparameter validation.
+"""
 
 from __future__ import annotations
 

@@ -17,10 +17,20 @@ if TYPE_CHECKING:
 
 
 class ConfigMixin:
-    """Mixin that captures constructor arguments for ``get_config``.
+    """Mixin that auto-implements ``get_config`` from constructor arguments.
 
-    Classes that need custom serialization can define their own
-    ``get_config`` method or set ``__config_mixin_auto__ = False``.
+    The wrapped ``__init__`` first runs the user's body (so attribute
+    coercions take effect) and then captures one entry per parameter:
+    if ``self.<name>`` was set during ``__init__``, the *normalized*
+    value is captured; otherwise the raw bound argument is kept. This
+    preserves the contract that ``get_config`` should be JSON-
+    serializable as long as ``__init__`` casts numpy / pandas scalars
+    to built-in types before storing them.
+
+    Classes that need custom serialization (e.g. ndarray-valued
+    configuration that requires a list round-trip) should override
+    ``get_config`` directly or set ``__config_mixin_auto__ = False``.
+    Per-field exclusion is available via ``__config_exclude__``.
     """
 
     __config_mixin_auto__ = True
@@ -54,11 +64,14 @@ class ConfigMixin:
                     call_kwargs[name] = value
             init(*call_args, **call_kwargs)
             exclude = set(getattr(self, "__config_exclude__", ()))
-            self._config_mixin_config = {
-                name: value
-                for name, value in bound.arguments.items()
-                if name != "self" and name not in exclude
-            }
+            # Prefer self.<name> when __init__ stored a coerced value (e.g.
+            # `self.dj = float(dj)`); fall back to the raw bound argument.
+            captured: dict[str, Any] = {}
+            for name, value in bound.arguments.items():
+                if name == "self" or name in exclude:
+                    continue
+                captured[name] = getattr(self, name, value)
+            self._config_mixin_config = captured
 
         wrapped_init.__name__ = init.__name__
         wrapped_init.__qualname__ = init.__qualname__
@@ -67,7 +80,12 @@ class ConfigMixin:
         cls.__init__ = wrapped_init  # ty: ignore[invalid-assignment]
 
     def get_config(self) -> dict[str, Any]:
-        """Return captured constructor arguments."""
+        """Return captured constructor arguments.
+
+        Should be JSON-serializable. ``__init__`` is responsible for
+        coercing scalar inputs to JSON-friendly types (``float(...)``,
+        ``int(...)``, etc.) before assigning them to ``self``.
+        """
         return dict(getattr(self, "_config_mixin_config", {}))
 
 
