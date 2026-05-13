@@ -166,7 +166,12 @@ def wavelet_significance(
         param_value = _default_param(mother_name, param)
         fourier_factor, _, _ = _wavelet_factors(mother_name, param_value)
         period = scale * fourier_factor
-    variance = float(power.attrs.get("source_variance", power.mean(skipna=True)))
+    variance = float(
+        power.attrs.get(
+            "source_variance",
+            power.mean(dim_time, skipna=True).mean(skipna=True),
+        )
+    )
     if null_model == "white":
         background = np.ones_like(period)
     else:

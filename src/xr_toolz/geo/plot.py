@@ -265,7 +265,12 @@ def plot_dominant_period_map(
     Returns:
         The axes object for further customization.
     """
-    return plot_resolved_scale_map(pmap, ax=ax, cmap=cmap, levels=levels)
+    out = plot_resolved_scale_map(pmap, ax=ax, cmap=cmap, levels=levels)
+    out.set_title(pmap.name or "Dominant period")
+    if pmap.ndim == 2:
+        out.set_ylabel(pmap.dims[0])
+        out.set_xlabel(pmap.dims[1])
+    return out
 
 
 def _parse_slope(slope: str | float) -> float:

@@ -63,6 +63,8 @@ def test_cwt1d_recovers_synthetic_sine_period(period: float) -> None:
     spectrum = out["power_rect"].where(out["coi_mask"]).mean("time", skipna=True)
     peak_scale = spectrum.idxmax("scale")
     peak_period = out["period"].sel(scale=peak_scale)
+    sig = wavelet_significance(out["power_rect"], null="white")
+    assert bool(sig.sel(scale=peak_scale).any())
     assert float(peak_period) == pytest.approx(period, rel=0.07)
 
 
@@ -96,6 +98,24 @@ def test_wavelet_significance_and_dominant_period_map() -> None:
         out["power_rect"], coi_mask=out["coi_mask"], signif_mask=sig
     )
     assert float(pmap) == pytest.approx(8.0, rel=0.07)
+
+
+def test_red_noise_significance_is_stricter_for_ar1_signal() -> None:
+    rng = np.random.default_rng(0)
+    values = np.empty(128, dtype=float)
+    values[0] = 0.0
+    for i in range(1, values.size):
+        values[i] = 0.8 * values[i - 1] + rng.normal()
+    da = xr.DataArray(
+        values,
+        dims="time",
+        coords={"time": np.arange(values.size, dtype=float)},
+        name="signal",
+    )
+    out = cwt1d(da)
+    white = wavelet_significance(out["power_rect"], null="white")
+    red = wavelet_significance(out["power_rect"], null="red", alpha=0.8)
+    assert int(red.sum()) < int(white.sum())
 
 
 def test_cwt1d_pixelwise_over_outer_dimensions() -> None:
