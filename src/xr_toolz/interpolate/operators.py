@@ -1205,7 +1205,7 @@ class LowpassFilter(Operator):
     For ``btype`` in ``{"low", "high", "lowpass", "highpass"}`` ``cutoff``
     is a scalar in ``(0, 1)``. For ``btype`` in
     ``{"bandpass", "bandstop"}`` it is a length-2 sequence. Validation
-    is delegated to the Tier A kernel.
+    is delegated to the numpy kernel.
     """
 
     def __init__(

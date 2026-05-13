@@ -1,4 +1,8 @@
-"""Tier A — gap-tolerant segmented 1-D spectral kernels."""
+"""Private numpy kernels for gap-tolerant segmented 1-D spectral analysis.
+
+Used by :mod:`xr_toolz.metrics._src.segmented_psd` to assemble the
+per-segment PSD score from a 1-D track array.
+"""
 
 from __future__ import annotations
 

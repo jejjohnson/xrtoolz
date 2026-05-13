@@ -88,8 +88,8 @@ fig, axes = panel(score)
 
 | Capability | Current | This proposal |
 |---|---|---|
-| `1 − RMSE / RMS_ref` primitive | [`array_pixel.nrmse`](../../src/xr_toolz/metrics/_src/array_pixel.py) — exactly the upstream formula | reuse |
-| `rmse`, `mse`, `bias`, `correlation`, `r2_score` | [`array_pixel`](../../src/xr_toolz/metrics/_src/array_pixel.py) | reuse |
+| `1 − RMSE / RMS_ref` primitive | [`_pixel_kernels.nrmse`](../../src/xr_toolz/metrics/_src/_pixel_kernels.py) — exactly the upstream formula | reuse |
+| `rmse`, `mse`, `bias`, `correlation`, `r2_score` | [`_pixel_kernels`](../../src/xr_toolz/metrics/_src/_pixel_kernels.py) | reuse |
 | 2-D `psd_score(ds_pred, ds_ref, variable, psd_dims, avg_dims)` | [`spectral.py:92`](../../src/xr_toolz/metrics/_src/spectral.py) | reuse |
 | 1-D `resolved_scale` | [`spectral.py:131`](../../src/xr_toolz/metrics/_src/spectral.py) | reuse |
 | 2-D `find_intercept_2D` (skimage `find_contours`) | [`spectral.py:207`](../../src/xr_toolz/metrics/_src/spectral.py) | reuse |
@@ -212,7 +212,7 @@ a Sequential needs them.
 |---|---|
 | FFT for 2-D PSD | `xrft` (already used by `power_spectrum`) |
 | 2-D contour extraction | `skimage.measure.find_contours` (already a dep, wrapped via `find_intercept_2D`) |
-| RMSE / MSE / bias | existing `array_pixel` / `pixel` |
+| RMSE / MSE / bias | existing private kernel `_pixel_kernels` / Layer 0 `pixel` |
 | Std of a DataArray | xarray built-in |
 
 No new dependencies.

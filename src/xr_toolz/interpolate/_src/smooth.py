@@ -1,4 +1,4 @@
-"""Tier B — value-preserving smoothers on xarray Datasets (D12, F3.3).
+"""Value-preserving smoothers on xarray Datasets (D12, F3.3).
 
 Functions take an :class:`xr.Dataset`, a dimension name, and smoother
 parameters; they return a Dataset with the same shape and coords, every
@@ -9,7 +9,8 @@ Per D12 the smoothers are deterministic and parameter-free —
 ``KalmanSmoother`` is out of scope here and lives under future
 ``assimilate.smooth``.
 
-Tier A array kernels live at :mod:`xr_toolz.interpolate._src.array_smooth`.
+The numpy/scipy kernels live in
+:mod:`xr_toolz.interpolate._src._smooth_kernels`.
 """
 
 from __future__ import annotations
@@ -20,7 +21,7 @@ from typing import Any
 import numpy as np
 import xarray as xr
 
-from xr_toolz.interpolate._src import array_smooth as _array
+from xr_toolz.interpolate._src import _smooth_kernels as _kernels
 
 
 def _apply_along_dim(
@@ -28,7 +29,7 @@ def _apply_along_dim(
     dim: str,
     fn: Callable[..., Any],
 ) -> xr.Dataset:
-    """Apply a Tier A kernel to every numeric data variable that carries ``dim``."""
+    """Apply a numpy kernel to every numeric data variable that carries ``dim``."""
     if dim not in ds.dims:
         raise ValueError(f"dim {dim!r} not in Dataset dims {tuple(ds.dims)}")
 
@@ -59,12 +60,12 @@ def moving_average(
 ) -> xr.Dataset:
     """Sliding-window mean along ``dim``.
 
-    See :func:`xr_toolz.interpolate.array.moving_average` for the Tier A
-    kernel and parameter semantics.
+    See the kernel :func:`xr_toolz.interpolate._src._smooth_kernels.moving_average`
+    for parameter semantics.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
-        return _array.moving_average(
+        return _kernels.moving_average(
             arr,
             axis=axis,
             window=window,
@@ -85,7 +86,7 @@ def gaussian_smooth(
     """Gaussian smoothing along ``dim`` with standard deviation ``sigma``."""
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
-        return _array.gaussian_smooth(arr, axis=axis, sigma=sigma, truncate=truncate)
+        return _kernels.gaussian_smooth(arr, axis=axis, sigma=sigma, truncate=truncate)
 
     return _apply_along_dim(ds, dim, _fn)
 
@@ -145,7 +146,7 @@ def _gaussian_smooth_masked_dataarray(
         # `vectorize=True` ensures apply_ufunc only ever hands us a core-shaped
         # block, so we don't need a manual reshape / stack loop. That also
         # avoids the empty-leading-dim crash that the manual np.stack hit.
-        return _array.gaussian_smooth_nd(
+        return _kernels.gaussian_smooth_nd(
             arr,
             sigma=sigmas,
             truncate=truncate,
@@ -232,12 +233,12 @@ def lowpass_filter(
 
     ``cutoff`` is the normalized critical frequency (fraction of the
     Nyquist rate). For ``btype`` in ``{"bandpass", "bandstop"}`` pass a
-    length-2 ``(low, high)`` sequence. See
-    :func:`xr_toolz.interpolate.array.lowpass_filter`.
+    length-2 ``(low, high)`` sequence. See the kernel
+    :func:`xr_toolz.interpolate._src._smooth_kernels.lowpass_filter`.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
-        return _array.lowpass_filter(
+        return _kernels.lowpass_filter(
             arr, axis=axis, cutoff=cutoff, order=order, btype=btype
         )
 
@@ -256,12 +257,12 @@ def fir_filter(
 ) -> xr.Dataset:
     """Zero-phase FIR filter along ``dim``.
 
-    See :func:`xr_toolz.interpolate.array.fir_filter` for cutoff, window,
-    and tap-count semantics.
+    See the kernel :func:`xr_toolz.interpolate._src._smooth_kernels.fir_filter`
+    for cutoff, window, and tap-count semantics.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
-        return _array.fir_filter(
+        return _kernels.fir_filter(
             arr,
             axis=axis,
             cutoff=cutoff,

@@ -146,10 +146,10 @@ We ship **generic primitives** that compose into the Mercator pipeline
 (`first_day_datetime`, `lead_day_index`), MDT-subtraction, and
 variable-specific dispatch are operational-Mercator-specific.
 
-### 4.2 Tier A — vertical interp kernels
+### 4.2 Private numpy kernels — vertical interp
 
 ```python
-# src/xr_toolz/interpolate/_src/array_vertical.py — new module
+# src/xr_toolz/interpolate/_src/_vertical_kernels.py — new module (private)
 def interp_vertical_bracket(
     profiles: ArrayLike,            # shape (n_depths, n_obs)
     depths: ArrayLike,              # shape (n_depths,)
@@ -190,7 +190,7 @@ Both are pure-numpy / scipy, no xarray. The bitmask grouping trick
 observations share the same NaN pattern — typical for model output
 where `np.isnan(profiles[:, i])` patterns cluster by dataset gaps.
 
-### 4.3 Tier B — grid→profile interp
+### 4.3 Layer 0 — grid→profile interp
 
 ```python
 # src/xr_toolz/interpolate/_src/grid_to_profile.py — new module
@@ -341,8 +341,9 @@ class RMSDScoreboard(Operator):
                  label_format=...): ...
 ```
 
-Tier A array kernels are not Operator-promoted — they're
-shape-specific numpy functions, not Dataset-shaped.
+The private numpy kernels are not Operator-promoted — they're
+shape-specific numpy functions, not Dataset-shaped, and they're not
+part of the public surface.
 
 ### 4.7 Recipe page (not a baked-in driver)
 
@@ -399,12 +400,12 @@ No new top-level deps. scipy + pandas + numpy already in.
 ## 6. Public API surface
 
 ```python
-# Tier A — array kernels
-xr_toolz.interpolate.array.interp_vertical_bracket(profiles, depths, targets)
-xr_toolz.interpolate.array.interp_vertical_spline(profiles, depths, targets,
-                                                   *, bc_type="natural")
+# Private numpy kernels (implementation detail — not exported):
+# `interp_vertical_bracket` / `interp_vertical_spline` live in
+# `xr_toolz/interpolate/_src/_vertical_kernels.py` and are consumed by the
+# Layer 0 driver below.
 
-# Tier B — depth-aware grid→profile
+# Layer 0 — depth-aware grid→profile
 xr_toolz.interpolate.interp_grid_to_profiles(
     model_data, observations, *,
     vertical_method="linear", horizontal_method="linear",
@@ -475,9 +476,9 @@ Largest oceanbench item so far. Single PR.
 
 | Slice | LOC |
 |---|---|
-| `interp_vertical_bracket` (Tier A) | 30 |
-| `interp_vertical_spline` (NaN-bitmask grouping, Tier A) | 50 |
-| `interp_grid_to_profiles` (Tier B) | 60 |
+| `interp_vertical_bracket` (private numpy kernel) | 30 |
+| `interp_vertical_spline` (NaN-bitmask grouping, private numpy kernel) | 50 |
+| `interp_grid_to_profiles` (Layer 0 xarray) | 60 |
 | `assign_depth_bins` + `DEPTH_BINS_DEFAULT` | 15 |
 | `rmsd_scoreboard` + label formatter | 40 |
 | `InterpGridToProfiles`, `RMSDScoreboard` operators | 30 |
@@ -486,10 +487,10 @@ Largest oceanbench item so far. Single PR.
 
 ## 10. Risks / open questions
 
-1. **Where Tier A vertical kernels live.** New
-   `interpolate/_src/array_vertical.py`. Sibling of the existing
-   `array_smooth.py`, `array_coord_remap.py` — matches the
-   "tier A array kernels per concern" pattern.
+1. **Where the private numpy vertical kernels live.** New
+   `interpolate/_src/_vertical_kernels.py`. Sibling of the existing
+   `_smooth_kernels.py`, `_coord_remap_kernels.py` — matches the
+   "one private numpy-kernel module per concern" pattern.
 2. **`interp_grid_to_profiles` location.** New
    `interpolate/_src/grid_to_profile.py`. Sibling of
    `grid_to_points.py` (ODC-1.2). The two could share a module if
@@ -518,6 +519,6 @@ Largest oceanbench item so far. Single PR.
    covers standard ocean / atmospheric vars. Missing entries fall
    back to the raw column value with a logging warning (one-time
    per missing variable).
-9. **Operator promotion of Tier A kernels.** Skipped — kernels are
-   numpy-shape-specific; the Tier B `interp_grid_to_profiles`
+9. **Operator promotion of the private numpy kernels.** Skipped — kernels are
+   numpy-shape-specific; the Layer 0 `interp_grid_to_profiles`
    Operator is the right level of abstraction.

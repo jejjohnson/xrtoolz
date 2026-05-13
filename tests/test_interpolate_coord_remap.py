@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xr_toolz.interpolate import array as ia, remap_axis, to_phase
+from xr_toolz.interpolate import remap_axis, to_phase
 from xr_toolz.interpolate.operators import (
     FromSigma,
     RemapAxis,
@@ -20,10 +20,11 @@ from xr_toolz.transforms import (
     remap_axis as transforms_remap_axis,
     to_phase as transforms_to_phase,
 )
+from xr_toolz.transforms._src import _coord_remap_kernels as ia
 
 
 # ---------------------------------------------------------------------------
-# Tier A — remap_axis
+# Private numpy kernel — remap_axis
 # ---------------------------------------------------------------------------
 
 
@@ -108,7 +109,7 @@ def test_array_remap_non_monotonic_source_raises():
 
 
 # ---------------------------------------------------------------------------
-# Tier B — Dataset wrappers
+# Layer 0 — Dataset wrappers
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +160,7 @@ def test_tier_b_unknown_source_dim_raises(ds_profile):
 
 
 # ---------------------------------------------------------------------------
-# Tier B — to_phase
+# Layer 0 — to_phase
 # ---------------------------------------------------------------------------
 
 
@@ -190,7 +191,7 @@ def test_to_phase_invalid_args_raise():
 
 
 # ---------------------------------------------------------------------------
-# Tier B → C — round-trip identity (ToSigma → FromSigma)
+# Layer 0 → Layer 1 — round-trip identity (ToSigma → FromSigma)
 # ---------------------------------------------------------------------------
 
 
@@ -231,7 +232,7 @@ def test_to_sigma_from_sigma_round_trip():
 
 
 # ---------------------------------------------------------------------------
-# Tier C — Operator wrappers
+# Layer 1 — Operator wrappers
 # ---------------------------------------------------------------------------
 
 

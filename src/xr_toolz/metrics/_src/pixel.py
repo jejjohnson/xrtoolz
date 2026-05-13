@@ -7,9 +7,9 @@ return a :class:`xr.DataArray` with the remaining dimensions.
 Convention: positive ``bias`` means the prediction is larger than the
 reference. Correlation is Pearson's ``r``.
 
-Per design decision D11, the pointwise math lives in the Tier A array
-kernels at :mod:`xr_toolz.metrics._src.array_pixel`; the Tier B wrappers
-below delegate to those kernels via :func:`xr.apply_ufunc`.
+The pointwise reductions live as private numpy kernels in
+:mod:`xr_toolz.metrics._src._pixel_kernels` and are vectorized over the
+remaining dims via :func:`xr.apply_ufunc`.
 """
 
 from __future__ import annotations
@@ -21,7 +21,7 @@ import numpy as np
 import xarray as xr
 
 from xr_toolz.core import Operator, Signature
-from xr_toolz.metrics._src import array_pixel
+from xr_toolz.metrics._src import _pixel_kernels
 
 
 Dims = str | Sequence[str]
@@ -38,9 +38,9 @@ def _apply_pixel_kernel(
     variable: str,
     dims: Dims,
 ) -> xr.DataArray:
-    """Run a Tier A pixel kernel on the named variable, reducing ``dims``.
+    """Run a private pixel kernel on the named variable, reducing ``dims``.
 
-    Selects ``variable`` from each Dataset, then dispatches to the array
+    Selects ``variable`` from each Dataset, then dispatches to the numpy
     kernel via :func:`xr.apply_ufunc` with ``dims`` as the input core
     dimensions. The kernel sees a flattened trailing block of axes and
     reduces with ``axis=tuple(range(-len(core), 0))``.
@@ -80,7 +80,7 @@ def mse(
     dims: Dims,
 ) -> xr.DataArray:
     """Mean squared error reduced over ``dims``."""
-    return _apply_pixel_kernel(array_pixel.mse, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(_pixel_kernels.mse, ds_pred, ds_ref, variable, dims)
 
 
 def rmse(
@@ -90,7 +90,7 @@ def rmse(
     dims: Dims,
 ) -> xr.DataArray:
     """Root mean squared error reduced over ``dims``."""
-    return _apply_pixel_kernel(array_pixel.rmse, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(_pixel_kernels.rmse, ds_pred, ds_ref, variable, dims)
 
 
 def nrmse(
@@ -104,7 +104,7 @@ def nrmse(
     Returns a score in ``(-inf, 1]`` where 1 means a perfect match and 0
     means the prediction is as wrong as a zero prediction.
     """
-    return _apply_pixel_kernel(array_pixel.nrmse, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(_pixel_kernels.nrmse, ds_pred, ds_ref, variable, dims)
 
 
 def mae(
@@ -114,7 +114,7 @@ def mae(
     dims: Dims,
 ) -> xr.DataArray:
     """Mean absolute error reduced over ``dims``."""
-    return _apply_pixel_kernel(array_pixel.mae, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(_pixel_kernels.mae, ds_pred, ds_ref, variable, dims)
 
 
 def bias(
@@ -124,7 +124,7 @@ def bias(
     dims: Dims,
 ) -> xr.DataArray:
     """Mean bias ``<pred - ref>`` reduced over ``dims``."""
-    return _apply_pixel_kernel(array_pixel.bias, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(_pixel_kernels.bias, ds_pred, ds_ref, variable, dims)
 
 
 def correlation(
@@ -134,7 +134,9 @@ def correlation(
     dims: Dims,
 ) -> xr.DataArray:
     """Pearson correlation between prediction and reference over ``dims``."""
-    return _apply_pixel_kernel(array_pixel.correlation, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(
+        _pixel_kernels.correlation, ds_pred, ds_ref, variable, dims
+    )
 
 
 def r2_score(
@@ -144,7 +146,7 @@ def r2_score(
     dims: Dims,
 ) -> xr.DataArray:
     """Coefficient of determination: ``1 - SS_res / SS_tot``."""
-    return _apply_pixel_kernel(array_pixel.r2_score, ds_pred, ds_ref, variable, dims)
+    return _apply_pixel_kernel(_pixel_kernels.r2_score, ds_pred, ds_ref, variable, dims)
 
 
 # ---------- Layer-1 (Operator wrappers) -----------------------------------

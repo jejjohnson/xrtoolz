@@ -8,14 +8,14 @@ import xarray as xr
 from scipy.ndimage import gaussian_filter
 
 from xr_toolz.interpolate import (
-    array as ia,
     fir_filter,
     gaussian_smooth,
     gaussian_smooth_masked,
     lowpass_filter,
     moving_average,
 )
-from xr_toolz.interpolate._src.array_smooth import _fir_taps
+from xr_toolz.interpolate._src import _smooth_kernels as ia
+from xr_toolz.interpolate._src._smooth_kernels import _fir_taps
 from xr_toolz.interpolate.operators import (
     GaussianSmooth,
     GaussianSmoothMasked,
@@ -25,7 +25,7 @@ from xr_toolz.interpolate.operators import (
 
 
 # ---------------------------------------------------------------------------
-# Tier A — moving_average
+# Private numpy kernel — moving_average
 # ---------------------------------------------------------------------------
 
 
@@ -66,7 +66,7 @@ def test_array_moving_average_invalid_window_raises():
 
 
 # ---------------------------------------------------------------------------
-# Tier A — gaussian_smooth
+# Private numpy kernel — gaussian_smooth
 # ---------------------------------------------------------------------------
 
 
@@ -138,7 +138,7 @@ def test_array_gaussian_smooth_nd_min_weight_threshold():
 
 
 # ---------------------------------------------------------------------------
-# Tier A — lowpass_filter
+# Private numpy kernel — lowpass_filter
 # ---------------------------------------------------------------------------
 
 
@@ -159,7 +159,7 @@ def test_array_lowpass_attenuates_above_cutoff():
 
 
 # ---------------------------------------------------------------------------
-# Tier A — fir_filter
+# Private numpy kernel — fir_filter
 # ---------------------------------------------------------------------------
 
 
@@ -201,7 +201,7 @@ def test_array_fir_taps_are_zero_phase():
 
 
 # ---------------------------------------------------------------------------
-# Tier B — Dataset wrappers
+# Layer 0 — Dataset wrappers
 # ---------------------------------------------------------------------------
 
 
@@ -322,7 +322,7 @@ def test_tier_b_unknown_dim_raises(ds_signal):
 
 
 # ---------------------------------------------------------------------------
-# Tier C — Operator wrappers
+# Layer 1 — Operator wrappers
 # ---------------------------------------------------------------------------
 
 

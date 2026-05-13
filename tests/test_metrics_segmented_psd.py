@@ -11,6 +11,8 @@ from xr_toolz.metrics import (
     along_track_psd_score,
     psd_score_by_region,
     resolved_scale,
+)
+from xr_toolz.metrics._src._segmented_psd_kernels import (
     segment_signal,
     segmented_coherence,
     segmented_psd,
