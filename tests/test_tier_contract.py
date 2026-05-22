@@ -203,29 +203,29 @@ def test_interpolate_array_namespace_exports(name: str) -> None:
 
 
 def test_interpolate_smooth_tier_b_matches_tier_a() -> None:
-    """Tier B (Dataset, ``dim=``) numerically matches Tier A (``axis=``)."""
+    """Tier B (DataArray, ``dim=``) numerically matches Tier A (``axis=``)."""
     from xrtoolz.interpolate import array as ia
     from xrtoolz.interpolate._src import smooth as tier_b
 
     rng = np.random.default_rng(0)
     x = rng.standard_normal((3, 64))
-    ds = xr.Dataset({"x": (("a", "time"), x)})
+    da = xr.DataArray(x, dims=("a", "time"))
 
-    b_ma = tier_b.moving_average(ds, dim="time", window=5)["x"].values
+    b_ma = tier_b.moving_average(da, dim="time", window=5).values
     a_ma = ia.moving_average(x, axis=-1, window=5)
     np.testing.assert_allclose(a_ma, b_ma)
 
-    b_g = tier_b.gaussian_smooth(ds, dim="time", sigma=2.0)["x"].values
+    b_g = tier_b.gaussian_smooth(da, dim="time", sigma=2.0).values
     a_g = ia.gaussian_smooth(x, axis=-1, sigma=2.0)
     np.testing.assert_allclose(a_g, b_g)
 
-    b_lp = tier_b.lowpass_filter(ds, dim="time", cutoff=0.1)["x"].values
+    b_lp = tier_b.lowpass_filter(da, dim="time", cutoff=0.1).values
     a_lp = ia.lowpass_filter(x, axis=-1, cutoff=0.1)
     np.testing.assert_allclose(a_lp, b_lp)
 
 
 def test_interpolate_smooth_tier_c_matches_tier_b() -> None:
-    """Tier C ``Operator`` output equals Tier B function output."""
+    """Tier C operator equals Tier B output applied to a DataArray."""
     from xrtoolz.interpolate._src import smooth as tier_b
     from xrtoolz.interpolate.operators import (
         GaussianSmooth,
@@ -239,15 +239,15 @@ def test_interpolate_smooth_tier_c_matches_tier_b() -> None:
 
     np.testing.assert_allclose(
         MovingAverage("time", window=5)(ds)["x"].values,
-        tier_b.moving_average(ds, dim="time", window=5)["x"].values,
+        tier_b.moving_average(ds["x"], dim="time", window=5).values,
     )
     np.testing.assert_allclose(
         GaussianSmooth("time", sigma=2.0)(ds)["x"].values,
-        tier_b.gaussian_smooth(ds, dim="time", sigma=2.0)["x"].values,
+        tier_b.gaussian_smooth(ds["x"], dim="time", sigma=2.0).values,
     )
     np.testing.assert_allclose(
         LowpassFilter("time", cutoff=0.1)(ds)["x"].values,
-        tier_b.lowpass_filter(ds, dim="time", cutoff=0.1)["x"].values,
+        tier_b.lowpass_filter(ds["x"], dim="time", cutoff=0.1).values,
     )
 
 

@@ -39,9 +39,9 @@ def test_bandpass_wavelength_translates_cutoffs(monkeypatch):
     ds = _track_dataset()
     calls: dict[str, object] = {}
 
-    def fake_fir_filter(ds, **kwargs):
+    def fake_fir_filter(da, **kwargs):
         calls.update(kwargs)
-        return ds
+        return da
 
     monkeypatch.setattr(along_track, "fir_filter", fake_fir_filter)
 
@@ -53,7 +53,7 @@ def test_bandpass_wavelength_translates_cutoffs(monkeypatch):
         spacing_km=5.0,
     )
 
-    assert out is ds
+    assert isinstance(out, type(ds))
     assert calls["btype"] == "bandpass"
     assert calls["cutoff"] == pytest.approx((0.1, 0.5))
 
