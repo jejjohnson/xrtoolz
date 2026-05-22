@@ -19,7 +19,8 @@ The stable V5 object table fields are:
 ``area(event, time)``
     Count of active spatial cells per event/time slice.
 ``centroid_lon(event, time)``, ``centroid_lat(event, time)``
-    Cell-count centroid coordinates. Empty slices are NaN.
+    Cell-count centroid coordinates, assuming uniform grid-cell areas. Empty
+    slices are NaN.
 ``intensity_max(event, time)``, ``intensity_mean(event, time)``
     Per-slice extrema/mean of the detection field. ``label_objects`` has no
     intensity field, so these are NaN there.
@@ -102,7 +103,11 @@ def _require_label():
 
 
 def _label_connectivity(ndim: int, connectivity: int) -> int:
-    """Map common neighborhood names to scikit-image connectivity ranks."""
+    """Map common neighborhood names to scikit-image connectivity ranks.
+
+    ``4``/``6`` map to rank-1 face neighbors, ``8``/``18`` to rank-2
+    face+edge neighbors, and ``26`` to full-rank face+edge+vertex neighbors.
+    """
     if connectivity in (4, 6):
         return 1
     if connectivity in (8, 18):
@@ -300,7 +305,8 @@ def _threshold_value(field: xr.DataArray, threshold: float | str) -> float:
     if isinstance(threshold, str):
         if not threshold.startswith("p"):
             raise ValueError(
-                f"percentile thresholds must be strings like 'p90', got {threshold!r}."
+                "percentile thresholds must start with 'p' followed by a "
+                f"number (for example 'p90'), got {threshold!r}."
             )
         percentile = float(threshold[1:])
         if not 0.0 <= percentile <= 100.0:
@@ -412,14 +418,11 @@ def match_objects(
     elif method == "centroid":
         pred_centroids = _event_centroids(objects_pred)
         ref_centroids = _event_centroids(objects_ref)
-        distances = np.empty((pred_ids.size, ref_ids.size), dtype=float)
-        for i, pred_id in enumerate(pred_ids):
-            pred_lon, pred_lat = pred_centroids[int(pred_id)]
-            for j, ref_id in enumerate(ref_ids):
-                ref_lon, ref_lat = ref_centroids[int(ref_id)]
-                distances[i, j] = float(
-                    np.hypot(pred_lon - ref_lon, pred_lat - ref_lat)
-                )
+        pred_lonlat = np.array([pred_centroids[int(i)] for i in pred_ids])
+        ref_lonlat = np.array([ref_centroids[int(i)] for i in ref_ids])
+        distances = np.sqrt(
+            ((pred_lonlat[:, None, :] - ref_lonlat[None, :, :]) ** 2).sum(axis=2)
+        )
         best = np.argmin(distances, axis=1)
         centroid_distance = distances[np.arange(pred_ids.size), best]
         best_scores = centroid_distance
