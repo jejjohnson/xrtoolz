@@ -134,9 +134,11 @@ def encode_time_cyclical(
             )
         values = getattr(time.dt, name).values.astype(float)
         sin, cos = cyclical_encode(values, period=periods[name])
-        out_vars[f"{name}_sin"] = xr.DataArray(sin, dims=time.dims)
-        out_vars[f"{name}_cos"] = xr.DataArray(cos, dims=time.dims)
-    return xr.Dataset(out_vars)
+        out_vars[f"{name}_sin"] = xr.DataArray(sin, dims=time.dims, coords=time.coords)
+        out_vars[f"{name}_cos"] = xr.DataArray(cos, dims=time.dims, coords=time.coords)
+    # Carry the source time coords on the output Dataset so direct
+    # callers can still do label-based selection / alignment.
+    return xr.Dataset(out_vars, coords=time.coords)
 
 
 def encode_time_ordinal(
@@ -164,10 +166,12 @@ def encode_time_ordinal(
     )
     delta = pd.Timedelta(1, unit=unit)
     ordinal = ((time.values - ref) / delta).astype(np.float64)
+    # Keep every input coord (including the source timestamp coord at
+    # ``time.name``) so direct callers can still ``out.sel(time=...)``.
     return xr.DataArray(
         ordinal,
         dims=time.dims,
-        coords={cname: c for cname, c in time.coords.items() if cname != time.name},
+        coords=time.coords,
         name=f"{time.name}_ordinal" if time.name is not None else "time_ordinal",
     )
 

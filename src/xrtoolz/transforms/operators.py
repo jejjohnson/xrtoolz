@@ -644,13 +644,11 @@ class EncodeTimeCyclical(Operator):
         encoded = _coord_time.encode_time_cyclical(
             ds[self.time], components=self.components
         )
-        # The primitive returns a Dataset of sin/cos variables on the
-        # time dim; attach them as coords on the original Dataset to
-        # preserve the prior (pre-flip) ``encode_time_cyclical`` shape.
-        new_coords = {
-            name: (self.time, da.values) for name, da in encoded.data_vars.items()
-        }
-        return ds.assign_coords(new_coords)
+        # The primitive returns a Dataset of sin/cos DataArrays carrying
+        # ``ds[self.time].dims``; pass them through as DataArrays so
+        # ``assign_coords`` reads their dims directly (this handles
+        # multi-dim / auxiliary time coords too).
+        return ds.assign_coords({name: encoded[name] for name in encoded.data_vars})
 
     def get_config(self) -> dict[str, Any]:
         return {"components": list(self.components), "time": self.time}
@@ -675,7 +673,10 @@ class EncodeTimeOrdinal(Operator):
             reference_date=self.reference_date,
             unit=self.unit,
         )
-        return ds.assign_coords({f"{self.time}_ordinal": (self.time, ordinal.values)})
+        # Pass the DataArray directly so its dims (which may be
+        # multi-dim or auxiliary) are honoured rather than hardcoding
+        # ``(self.time,)``.
+        return ds.assign_coords({f"{self.time}_ordinal": ordinal})
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -707,7 +708,11 @@ class TimeRescale(Operator):
             freq_unit=self.freq_unit,
             t0=self.t0,
         )
-        ds = ds.assign_coords({self.time: rescaled.values})
+        # Replace the time coord values while keeping its existing dims —
+        # ``ds[self.time].dims`` covers the 1-D dimension-coord case as
+        # well as multi-dim / auxiliary time variables.
+        time_dims = ds[self.time].dims
+        ds = ds.assign_coords({self.time: (time_dims, rescaled.values)})
         ds[self.time].attrs.update(dict(rescaled.attrs))
         return ds
 
@@ -728,7 +733,11 @@ class TimeUnrescale(Operator):
 
     def _apply(self, ds: xr.Dataset) -> xr.Dataset:
         restored = _coord_time.time_unrescale(ds[self.time])
-        ds = ds.assign_coords({self.time: restored.values})
+        # Preserve the original time variable's dimensionality (handles
+        # multi-dim / auxiliary time coords) rather than hardcoding
+        # ``(self.time,)``.
+        time_dims = ds[self.time].dims
+        ds = ds.assign_coords({self.time: (time_dims, restored.values)})
         ds[self.time].attrs = {}
         return ds
 

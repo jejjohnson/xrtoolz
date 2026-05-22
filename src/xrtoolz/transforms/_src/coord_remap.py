@@ -142,11 +142,12 @@ def to_phase(
     counts = np.zeros((n_bins, flat.shape[1]), dtype=float)
     # A sample is valid only if its time coord is finite AND every data
     # value is finite. Excluding NaN-time rows keeps stale rows out of
-    # the phase means (P2 review).
+    # the phase means (P2 review). ``np.isfinite`` handles integer
+    # dtypes (treated as all-finite) where ``np.isnan`` would raise.
     valid_value = (
-        ~np.isnan(flat)
+        np.isfinite(flat)
         if not is_complex
-        else (~np.isnan(flat.real) & ~np.isnan(flat.imag))
+        else (np.isfinite(flat.real) & np.isfinite(flat.imag))
     )
     valid = finite_t[:, None] & valid_value
     for b in range(n_bins):

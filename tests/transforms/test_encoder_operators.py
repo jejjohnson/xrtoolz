@@ -134,6 +134,53 @@ def test_encode_time_ordinal_parity(ds_time: xr.Dataset) -> None:
     np.testing.assert_array_equal(out.coords["time_ordinal"].values, expected.values)
 
 
+def test_encode_time_cyclical_primitive_preserves_time_coord(
+    ds_time: xr.Dataset,
+) -> None:
+    """Regression: direct callers of the primitive must retain the source
+    time coord so label-based selection still works on the encoded
+    output."""
+    out = encode_time_cyclical(ds_time["time"], components=("hour",))
+    assert "time" in out.coords
+    np.testing.assert_array_equal(out.coords["time"].values, ds_time["time"].values)
+    # Each sin/cos DataArray inside the Dataset carries the time coord
+    # too, so ``.sel(time=...)`` works on individual variables.
+    assert "time" in out["hour_sin"].coords
+
+
+def test_encode_time_ordinal_primitive_preserves_time_coord(
+    ds_time: xr.Dataset,
+) -> None:
+    """Regression: ``encode_time_ordinal`` used to drop the source time
+    coord, breaking label-based alignment for direct callers."""
+    out = encode_time_ordinal(ds_time["time"], unit="h")
+    assert "time" in out.coords
+    np.testing.assert_array_equal(out.coords["time"].values, ds_time["time"].values)
+
+
+def test_encode_time_ordinal_operator_handles_aux_time_coord() -> None:
+    """Regression: when the time variable is an auxiliary 2-D coord (its
+    own ``dims`` is not just ``(self.time,)``), the operator must build
+    the output coord with the source variable's dims rather than
+    hardcoding ``(self.time,)``."""
+    # ``valid_time`` is a 2-D auxiliary coord on ``(forecast, lead)``;
+    # there is no top-level ``valid_time`` dimension.
+    forecast = np.array(["2020-01-01", "2020-01-02"], dtype="datetime64[ns]")
+    lead = pd.timedelta_range("0h", periods=3, freq="6h")
+    valid_time = forecast[:, None] + lead.to_numpy()[None, :]
+    ds = xr.Dataset(
+        {"x": (("forecast", "lead"), np.ones((2, 3)))},
+        coords={
+            "forecast": forecast,
+            "lead": lead,
+            "valid_time": (("forecast", "lead"), valid_time),
+        },
+    )
+    op = EncodeTimeOrdinal(time="valid_time", unit="h")
+    out = op(ds)
+    assert out.coords["valid_time_ordinal"].dims == ("forecast", "lead")
+
+
 def test_time_rescale_unrescale_round_trip(ds_time: xr.Dataset) -> None:
     rescale = TimeRescale(freq_dt=6.0, freq_unit="h")
     unrescale = TimeUnrescale()

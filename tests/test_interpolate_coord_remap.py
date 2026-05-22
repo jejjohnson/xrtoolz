@@ -405,6 +405,18 @@ def test_to_phase_drops_nan_time_samples():
     np.testing.assert_allclose(out.values, [15.0, 65.0])
 
 
+def test_to_phase_accepts_integer_dtype_input():
+    """Regression: ``to_phase`` used ``np.isnan`` for the finite check,
+    which raises ``TypeError`` on integer arrays. ``np.isfinite`` treats
+    integer dtypes as all-finite and is the documented contract."""
+    period = 1.0
+    t = np.array([0.1, 0.2, 0.6, 0.7])
+    values = np.array([10, 20, 60, 70], dtype=np.int64)
+    da = xr.DataArray(values, dims=("time",), coords={"time": t}, name="x")
+    out = to_phase(da, time_dim="time", period=period, n_bins=2)
+    np.testing.assert_allclose(out.values, [15.0, 65.0])
+
+
 def test_remap_axis_get_config_is_serializable():
     op = RemapAxis("depth", np.array([0.0, 50.0, 100.0]), target_name="z")
     cfg = op.get_config()
