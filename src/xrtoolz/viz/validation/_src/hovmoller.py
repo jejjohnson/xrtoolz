@@ -1,4 +1,4 @@
-"""Hovmöller validation panel."""
+"""Hovmoller validation panel."""
 
 from __future__ import annotations
 
@@ -54,7 +54,7 @@ class HovmollerPanel(_ValidationPanel):
         self.vmax = vmax
 
     def _default_title(self) -> str:
-        return self.var or "Hovmöller"
+        return self.var or "Hovmoller"
 
     def _select_var(self, obj: xr.DataArray | xr.Dataset) -> xr.DataArray:
         if isinstance(obj, xr.Dataset):

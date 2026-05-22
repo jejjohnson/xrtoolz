@@ -231,6 +231,7 @@ def test_hovmoller_panel_renders_time_lat_section():
 def test_hovmoller_panel_log_norm_positive_data():
     da = np.abs(_ssh_snapshot()) + 1.0
     fig = HovmollerPanel(var="ssh", norm="log")(da)
-    qm = next(c for c in fig.axes[0].collections)
+    assert fig.axes[0].collections
+    qm = fig.axes[0].collections[0]
     assert isinstance(qm.norm, mcolors.LogNorm)
     plt.close(fig)
