@@ -105,6 +105,21 @@ def test_bandpass_wavelength_raises_on_multidim_lon_lat_without_spacing():
         bandpass_wavelength(ds, dim="num_lines", lambda_min_km=20.0)
 
 
+def test_bandpass_wavelength_raises_on_misspelled_dim_with_explicit_spacing():
+    """Regression: a misspelled ``dim`` used to silently pass every variable
+    through after the PR β primitive flip (every var lacked the bad dim so
+    the loop continued); now it raises like the original Dataset-flavoured
+    ``fir_filter`` did."""
+    ds = _track_dataset()
+    with pytest.raises(ValueError, match="not in Dataset dims"):
+        bandpass_wavelength(
+            ds,
+            dim="num_linez",  # typo
+            lambda_min_km=20.0,
+            spacing_km=5.0,
+        )
+
+
 def test_bandpass_wavelength_raises_below_nyquist():
     ds = _track_dataset()
     with pytest.raises(ValueError, match="Nyquist"):

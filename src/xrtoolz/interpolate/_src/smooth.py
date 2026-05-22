@@ -44,29 +44,6 @@ def _apply_kernel_to_dataarray(
     )
 
 
-def _apply_dataset_loop(
-    ds: xr.Dataset,
-    dim: str,
-    fn: Callable[..., Any],
-) -> xr.Dataset:
-    """Apply ``fn`` to every numeric data variable carrying ``dim``.
-
-    Operator-side helper; primitives themselves are DataArray-only.
-    Variables that don't carry ``dim`` (or are non-numeric) pass
-    through untouched.
-    """
-    if dim not in ds.dims:
-        raise ValueError(f"dim {dim!r} not in Dataset dims {tuple(ds.dims)}")
-
-    out_vars: dict[str, xr.DataArray] = {}
-    for name, da in ds.data_vars.items():
-        if dim not in da.dims or not np.issubdtype(da.dtype, np.number):
-            out_vars[str(name)] = da
-            continue
-        out_vars[str(name)] = _apply_kernel_to_dataarray(da, dim, fn)
-    return xr.Dataset(out_vars, coords=ds.coords, attrs=dict(ds.attrs))
-
-
 def moving_average(
     da: xr.DataArray,
     *,

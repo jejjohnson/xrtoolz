@@ -222,4 +222,5 @@ __all__ = [
     "mse",
     "nrmse",
     "r2_score",
+    "rmse",
 ]

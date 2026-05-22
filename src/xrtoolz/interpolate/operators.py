@@ -465,7 +465,20 @@ class ResampleTime(Operator):
                     out_vars[str(name)] = da
                 else:
                     out_vars[str(name)] = _fn(da)
-            return xr.Dataset(out_vars, attrs=dict(ds.attrs))
+            out_ds = xr.Dataset(out_vars, attrs=dict(ds.attrs))
+            # Preserve standalone coordinates that the per-variable loop
+            # would otherwise drop — anything not riding on the resampled
+            # ``time`` dim is safe to re-attach; coords *on* time are
+            # replaced by the resampled grid carried through the
+            # per-variable outputs.
+            extra_coords = {
+                name: coord
+                for name, coord in ds.coords.items()
+                if name not in out_ds.coords and self.time not in coord.dims
+            }
+            if extra_coords:
+                out_ds = out_ds.assign_coords(extra_coords)
+            return out_ds
         return _fn(ds)
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:

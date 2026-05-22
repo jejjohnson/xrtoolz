@@ -97,6 +97,12 @@ def bandpass_wavelength(
         Dataset filtered along ``dim``. Variables without ``dim`` or with
         non-numeric dtype pass through unchanged.
     """
+    if dim not in ds.dims:
+        # The previous Dataset-flavoured ``fir_filter(ds, ...)`` raised on a
+        # missing dim; the new per-variable loop would otherwise pass every
+        # variable through unchanged when ``dim`` is misspelled — a quiet
+        # no-op that's worse than a clear failure for downstream metrics.
+        raise ValueError(f"dim {dim!r} not in Dataset dims {tuple(ds.dims)}")
     if lambda_min_km is None and lambda_max_km is None:
         raise ValueError("at least one of lambda_min_km or lambda_max_km is required")
     if (
