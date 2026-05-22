@@ -1,4 +1,4 @@
-"""Tests for :mod:`xr_toolz.geo.operators` — Layer-1 wrappers."""
+"""Tests for :mod:`xrtoolz.geo.operators` — Layer-1 wrappers."""
 
 from __future__ import annotations
 
@@ -7,8 +7,8 @@ import pandas as pd
 import pytest
 import xarray as xr
 
-from xr_toolz.core import Graph, Input, Sequential
-from xr_toolz.geo.operators import (
+from pipekit import Graph, Input, Sequential
+from xrtoolz.geo.operators import (
     MAE,
     NRMSE,
     RMSE,
@@ -29,8 +29,8 @@ from xr_toolz.geo.operators import (
     ValidateLongitude,
     ValidateTime,
 )
-from xr_toolz.interpolate.operators import ResampleTime
-from xr_toolz.transforms.operators import PowerSpectrum
+from xrtoolz.interpolate.operators import ResampleTime
+from xrtoolz.transforms.operators import PowerSpectrum
 
 
 @pytest.fixture
