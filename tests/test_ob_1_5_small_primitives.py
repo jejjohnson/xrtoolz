@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 
 import numpy as np
+import pytest
 import xarray as xr
 
 from xrtoolz.geo import get_dataset_resolution
@@ -99,6 +100,25 @@ def test_nrmse_score_operator_get_config_roundtrips() -> None:
     assert cfg == {"variable": "x", "dims": ["a", "time"]}
 
 
+def test_nrmse_score_constant_reference_returns_one_for_perfect_prediction() -> None:
+    """Regression (Copilot review): a constant reference (``std=0``) used
+    to drive ``0/0 → NaN``. The documented contract is that perfect
+    prediction yields 1 on any reference, so we branch explicitly on
+    the zero-std case."""
+    ref = np.full(32, 5.0)
+    score = array_nrmse_score(ref, ref, axis=-1)
+    np.testing.assert_allclose(score, 1.0)
+
+
+def test_nrmse_score_constant_reference_returns_neg_inf_for_nonzero_error() -> None:
+    """Non-zero error against a constant reference is infinitely bad —
+    no variability to normalise against."""
+    ref = np.full(32, 5.0)
+    pred = ref + 1.0
+    score = float(array_nrmse_score(pred, ref, axis=-1))
+    assert score == -np.inf
+
+
 # ---------- get_dataset_resolution ----------------------------------------
 
 
@@ -136,3 +156,34 @@ def test_get_dataset_resolution_respects_rtol() -> None:
     ds = _grid(1.05)
     assert get_dataset_resolution(ds, rtol=0.10) == "one_degree"
     assert get_dataset_resolution(ds, rtol=0.01) == "other"
+
+
+def test_get_dataset_resolution_rejects_anisotropic_grid() -> None:
+    """Regression (Codex P2 review): a grid with ``dlon=1.1`` and
+    ``dlat=0.9`` averages to ``1.0`` but neither axis is canonical —
+    must classify as ``"other"`` rather than ``"one_degree"``."""
+    lat = np.arange(-4.5, 4.5, 0.9)
+    lon = np.arange(0.0, 11.0, 1.1)
+    ds = xr.Dataset(
+        {"x": (("lat", "lon"), np.zeros((lat.size, lon.size)))},
+        coords={"lat": lat, "lon": lon},
+    )
+    assert get_dataset_resolution(ds) == "other"
+
+
+def test_get_dataset_resolution_rejects_curvilinear_grid() -> None:
+    """Regression (Copilot review): a 2-D lon/lat coord used to silently
+    classify via ``np.diff`` running along the last axis. Now raises
+    ``ValueError`` so the caller knows to regrid first."""
+    n = 6
+    lon2d = np.tile(np.arange(n, dtype=float), (n, 1))
+    lat2d = np.tile(np.arange(n, dtype=float)[:, None], (1, n))
+    ds = xr.Dataset(
+        {"x": (("y", "x"), np.zeros((n, n)))},
+        coords={
+            "lon": (("y", "x"), lon2d),
+            "lat": (("y", "x"), lat2d),
+        },
+    )
+    with pytest.raises(ValueError, match="1-D"):
+        get_dataset_resolution(ds)

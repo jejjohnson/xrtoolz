@@ -132,32 +132,58 @@ def get_dataset_resolution(
 
     Returns one of ``"one_degree"``, ``"quarter_degree"``,
     ``"twelfth_degree"``, or ``"other"`` (no canonical resolution
-    matches within ``rtol`` of the inferred spacing). Useful for
-    dispatch — e.g. picking the right MDT URL or the right reference
-    dataset for a given grid.
+    matches within ``rtol`` of *both* axes). Useful for dispatch — e.g.
+    picking the right MDT URL or the right reference dataset for a
+    given grid.
 
-    The classifier averages the median absolute spacing of the ``lon``
-    and ``lat`` coordinates; an irregular grid will likely fall into
-    ``"other"``. ``rtol`` is the relative tolerance on the match.
+    The classifier checks the median absolute spacing of the ``lon``
+    and ``lat`` coordinates **independently** — an anisotropic grid
+    (e.g. ``dlon=1.1`` but ``dlat=0.9``) is rejected even though its
+    averaged spacing would round to 1°. Curvilinear (2-D) lon/lat
+    coordinates are rejected with a ``ValueError``: ``np.diff`` on a
+    multi-dim array would silently mix endpoints across rows and
+    misclassify the grid.
 
     Args:
         ds: Dataset carrying 1-D ``lon`` / ``lat`` coordinates.
         lon: Longitude coordinate name.
         lat: Latitude coordinate name.
-        rtol: Relative tolerance for the canonical-resolution match.
+        rtol: Relative tolerance for the canonical-resolution match,
+            applied per-axis.
 
     Returns:
         Resolution label as a ``Literal[...]`` string.
+
+    Raises:
+        ValueError: If ``ds[lon]`` or ``ds[lat]`` is not 1-D — the
+            classifier only operates on rectilinear grids; curvilinear
+            datasets should be regridded first.
     """
-    dlon = float(np.median(np.abs(np.diff(np.asarray(ds[lon].values, dtype=float)))))
-    dlat = float(np.median(np.abs(np.diff(np.asarray(ds[lat].values, dtype=float)))))
-    spacing = (dlon + dlat) / 2.0
+    lon_da = ds[lon]
+    lat_da = ds[lat]
+    if lon_da.ndim != 1:
+        raise ValueError(
+            f"get_dataset_resolution expects a 1-D {lon!r} coord, got "
+            f"shape {tuple(lon_da.shape)}. Curvilinear / 2-D grids are not "
+            "supported — regrid onto a rectilinear axis first."
+        )
+    if lat_da.ndim != 1:
+        raise ValueError(
+            f"get_dataset_resolution expects a 1-D {lat!r} coord, got "
+            f"shape {tuple(lat_da.shape)}. Curvilinear / 2-D grids are not "
+            "supported — regrid onto a rectilinear axis first."
+        )
+    dlon = float(np.median(np.abs(np.diff(np.asarray(lon_da.values, dtype=float)))))
+    dlat = float(np.median(np.abs(np.diff(np.asarray(lat_da.values, dtype=float)))))
     candidates: list[tuple[GridResolution, float]] = [
         ("one_degree", 1.0),
         ("quarter_degree", 0.25),
         ("twelfth_degree", 1.0 / 12.0),
     ]
     for label, target in candidates:
-        if abs(spacing - target) < rtol * target:
+        # Require BOTH axes to match the canonical target — averaging
+        # would let an anisotropic grid (dlon=1.1, dlat=0.9 → mean=1.0)
+        # masquerade as canonical even though neither axis is.
+        if abs(dlon - target) < rtol * target and abs(dlat - target) < rtol * target:
             return label
     return "other"
