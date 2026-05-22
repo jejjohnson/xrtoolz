@@ -446,13 +446,27 @@ class ResampleTime(Operator):
         self.interp_method = interp_method
 
     def _apply(self, ds):
-        return _resample.resample_time(
-            ds,
-            freq=self.freq,
-            method=self.method,
-            time=self.time,
-            interp_method=self.interp_method,
-        )
+        def _fn(da: xr.DataArray) -> xr.DataArray:
+            return _resample.resample_time(
+                da,
+                freq=self.freq,
+                method=self.method,
+                time=self.time,
+                interp_method=self.interp_method,
+            )
+
+        if isinstance(ds, xr.Dataset):
+            # Map per-variable so non-time variables pass through
+            # untouched, mirroring the smoother operators after the PR β
+            # primitive flip.
+            out_vars: dict[str, xr.DataArray] = {}
+            for name, da in ds.data_vars.items():
+                if self.time not in da.dims:
+                    out_vars[str(name)] = da
+                else:
+                    out_vars[str(name)] = _fn(da)
+            return xr.Dataset(out_vars, attrs=dict(ds.attrs))
+        return _fn(ds)
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         return input_signature.replace_dims({self.time: None})
