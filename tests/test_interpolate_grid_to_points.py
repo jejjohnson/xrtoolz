@@ -8,9 +8,9 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xrtoolz.signature import Signature
 from xrtoolz.interpolate import along_track, sample_at_points
 from xrtoolz.interpolate.operators import AlongTrack, SampleAtPoints
+from xrtoolz.signature import Signature
 
 
 def _surface() -> xr.DataArray:

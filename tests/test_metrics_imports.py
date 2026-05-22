@@ -257,8 +257,7 @@ def test_metrics_view_stub_submodules_are_importable(submodule):
     mod = importlib.import_module(f"xrtoolz.metrics.{submodule}")
     public_names = [n for n in dir(mod) if not n.startswith("_")]
     assert public_names == [], (
-        f"xrtoolz.metrics.{submodule} unexpectedly exports public names: "
-        f"{public_names}"
+        f"xrtoolz.metrics.{submodule} unexpectedly exports public names: {public_names}"
     )
 
 

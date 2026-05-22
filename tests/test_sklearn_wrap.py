@@ -12,11 +12,11 @@ import xarray as xr
 pytest.importorskip("sklearn")
 
 
+from pipekit import Sequential
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 
-from pipekit import Sequential
 from xrtoolz.geo.operators import ValidateCoords
 from xrtoolz.transforms import SklearnOp
 from xrtoolz.utils import XarrayEstimator

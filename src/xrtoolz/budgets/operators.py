@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import xarray as xr
+from pipekit import Operator
 
 from xrtoolz.budgets._src.flux import boundary_flux
 from xrtoolz.budgets._src.heat import heat_budget_residual
@@ -14,7 +15,6 @@ from xrtoolz.budgets._src.residual import budget_residual
 from xrtoolz.budgets._src.salt import salt_budget_residual
 from xrtoolz.budgets._src.volume import control_volume_integral
 from xrtoolz.budgets._src.volume_budget import volume_budget_residual
-from pipekit import Operator
 
 
 class ControlVolumeIntegral(Operator):

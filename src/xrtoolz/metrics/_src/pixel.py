@@ -19,10 +19,10 @@ from typing import Any
 
 import numpy as np
 import xarray as xr
-
 from pipekit import Operator
-from xrtoolz.signature import Signature
+
 from xrtoolz.metrics._src import array_pixel
+from xrtoolz.signature import Signature
 
 
 Dims = str | Sequence[str]

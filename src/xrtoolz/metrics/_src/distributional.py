@@ -22,9 +22,8 @@ from typing import Any, cast
 import numpy as np
 import xarray as xr
 import xskillscore as xs
-from scipy.stats import energy_distance as _scipy_energy_distance, wasserstein_distance
-
 from pipekit import Operator
+from scipy.stats import energy_distance as _scipy_energy_distance, wasserstein_distance
 
 
 def _check_member_dim(da: xr.DataArray, dim: str) -> None:

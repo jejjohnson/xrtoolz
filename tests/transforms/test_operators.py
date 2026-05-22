@@ -6,8 +6,8 @@ import numpy as np
 import pandas as pd
 import pytest
 import xarray as xr
-
 from pipekit import Sequential
+
 from xrtoolz.transforms.operators import (
     DCT,
     STFT,

@@ -14,9 +14,8 @@ from typing import Any, Literal
 
 import numpy as np
 import xarray as xr
-
 from pipekit import Operator
-from xrtoolz.signature import Signature
+
 from xrtoolz.interpolate._src import (
     binning as _binning,
     downscale as _downscale,
@@ -28,6 +27,7 @@ from xrtoolz.interpolate._src import (
     resample as _resample,
     smooth as _smooth,
 )
+from xrtoolz.signature import Signature
 from xrtoolz.transforms._src import (
     coord_remap as _coord_remap,
     morphology as _mask_ops,

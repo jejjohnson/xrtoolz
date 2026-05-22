@@ -41,6 +41,4 @@ def __getattr__(name: str) -> Any:
             stacklevel=2,
         )
         return getattr(import_module(target), name)
-    raise AttributeError(
-        f"module 'xrtoolz.geo._src.metrics' has no attribute {name!r}"
-    )
+    raise AttributeError(f"module 'xrtoolz.geo._src.metrics' has no attribute {name!r}")

@@ -7,8 +7,8 @@ import json
 import numpy as np
 import pytest
 import xarray as xr
-
 from pipekit import Sequential
+
 from xrtoolz.geo import (
     WaveletPowerSpectrum,
     WaveletScalogram,

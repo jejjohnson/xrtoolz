@@ -321,4 +321,4 @@ def _has_serialized_operator_record(value: Any) -> bool:
     return False
 
 
-__all__ = ["ApplyToEach", "Augment", "Tap"]
+__all__ = ["ApplyToEach", "Augment"]

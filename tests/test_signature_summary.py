@@ -5,9 +5,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 import xarray as xr
+from pipekit import Operator
 
-from pipekit import Graph, Input, Operator, Sequential
-from xrtoolz.signature import Signature
 from xrtoolz.geo.operators import (
     CalculateClimatology,
     Reduce,
@@ -19,6 +18,7 @@ from xrtoolz.geo.operators import (
 )
 from xrtoolz.interpolate.operators import Coarsen, Refine, RegridLike, ResampleTime
 from xrtoolz.metrics.operators import RMSE
+from xrtoolz.signature import Signature
 
 
 def test_signature_renders_unknown_dimensions() -> None:

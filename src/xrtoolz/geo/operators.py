@@ -19,9 +19,8 @@ from typing import Any, Literal
 
 import regionmask
 import xarray as xr
-
 from pipekit import Operator
-from xrtoolz.signature import Signature
+
 from xrtoolz.geo._src import (
     along_track as _along_track,
     detrend as _detrend,
@@ -32,6 +31,7 @@ from xrtoolz.geo._src import (
     wavelet as _wavelet,
     wavelet1d as _wavelet1d,
 )
+from xrtoolz.signature import Signature
 
 
 # ---------- validation -----------------------------------------------------
