@@ -280,6 +280,7 @@ def test_viz_validation_top_level_imports():
         "EulerianLagrangianPanel",
         "ProcessBudgetPanel",
         "EventVerificationPanel",
+        "HovmollerPanel",
         "PSDIsotropicPanel",
         "PSDIsotropicScorePanel",
         "PSDSpaceTimePanel",
