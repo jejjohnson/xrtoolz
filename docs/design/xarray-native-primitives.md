@@ -1,9 +1,19 @@
 ---
-status: draft
-version: 0.1.0
+status: in-progress
+version: 0.1.1
 ---
 
 # Xarray-Native Primitives — Two-Layer Public Contract
+
+> **Implementation status.** PR α (Core + DataTree dispatch) is
+> implemented in `src/xrtoolz/_operator.py` and re-exported as
+> `xrtoolz.Operator`. The architecture differs slightly from the
+> original sketch: since the composition core lives in carrier-agnostic
+> `pipekit`, the DataTree branch lives on an xarray-aware
+> `xrtoolz.Operator` subclass rather than on `pipekit.Operator`
+> itself. `pipekit.Sequential` and `pipekit.Graph` thread the
+> resulting `DataTree`s through without changes — they are
+> carrier-agnostic. PRs β and γ remain to be done.
 
 A follow-on refactor to D11 (revised). Flips every primitive in the
 package to an xarray-only public signature, keeping user-authored
