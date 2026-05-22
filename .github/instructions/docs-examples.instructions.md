@@ -124,7 +124,7 @@ if IN_COLAB:
             "pip",
             "install",
             "-q",
-            "xr_toolz @ git+https://github.com/OWNER/REPO@main",
+            "xrtoolz @ git+https://github.com/OWNER/REPO@main",
         ],
         check=True,
     )
@@ -164,7 +164,7 @@ if ipython is not None and importlib.util.find_spec("watermark") is not None:
     ipython.run_line_magic("load_ext", "watermark")
     ipython.run_line_magic(
         "watermark",
-        "-v -m -p numpy,matplotlib,xr_toolz",
+        "-v -m -p numpy,matplotlib,xrtoolz",
     )
 else:
     print("watermark extension not installed; skipping reproducibility readout.")

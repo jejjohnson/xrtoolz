@@ -1,8 +1,8 @@
-site_name: xr_toolz
+site_name: xrtoolz
 site_description: Composable operator library for geoprocessing Earth System Data Cubes.
 site_author: J. Emmanuel Johnson
-repo_url: https://github.com/jejjohnson/xr_toolz
-repo_name: jejjohnson/xr_toolz
+repo_url: https://github.com/jejjohnson/xrtoolz
+repo_name: jejjohnson/xrtoolz
 
 theme:
   name: material

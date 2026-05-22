@@ -1,5 +1,5 @@
 [project]
-name = "xr_toolz"
+name = "xrtoolz"
 version = "0.0.7"
 description = "Composable operator library for geoprocessing Earth System Data Cubes."
 authors = [
@@ -36,12 +36,17 @@ dependencies = [
     "finitediffx>=0.1.0",
     "matplotlib>=3.8",
     "cartopy>=0.22",
+    # The Operator / Sequential / Graph composition layer lives in pipekit
+    # (formerly xrtoolz.core). Every per-domain operator subclasses
+    # `pipekit.Operator`; the dependency is load-bearing. See
+    # [tool.uv.sources] below for the dev-time source.
+    "pipekit>=0.0.1",
 ]
 
 [project.optional-dependencies]
-# ``pip install xr_toolz[aemet]`` — runtime deps for the AEMET adapter
-# and the GeoParquet-backed archive. ``xr_toolz.data.AemetSource`` and
-# ``xr_toolz.data.AemetArchive`` import these lazily and surface a
+# ``pip install xrtoolz[aemet]`` — runtime deps for the AEMET adapter
+# and the GeoParquet-backed archive. ``xrtoolz.data.AemetSource`` and
+# ``xrtoolz.data.AemetArchive`` import these lazily and surface a
 # pointer to this extra in their ImportError messages.
 aemet = [
     "httpx>=0.28.1",
@@ -50,9 +55,9 @@ aemet = [
     "loguru>=0.7.3",
 ]
 
-# ``pip install xr_toolz[cds-insitu]`` — runtime deps for the CDS
+# ``pip install xrtoolz[cds-insitu]`` — runtime deps for the CDS
 # in-situ surface-land / surface-marine adapters + GeoParquet archive.
-# ``xr_toolz.data.CDSSource`` falls back to no-extras usage for the
+# ``xrtoolz.data.CDSSource`` falls back to no-extras usage for the
 # gridded reanalysis datasets (cdsapi only).
 cds-insitu = [
     "cdsapi>=0.7",
@@ -61,15 +66,15 @@ cds-insitu = [
     "loguru>=0.7.3",
 ]
 
-# ``pip install xr_toolz[wavelets]`` — PyWavelets backend for the
+# ``pip install xrtoolz[wavelets]`` — PyWavelets backend for the
 # continuous + discrete wavelet transforms in
-# :mod:`xr_toolz.transforms.wavelet`. Imported lazily; missing the extra
+# :mod:`xrtoolz.transforms.wavelet`. Imported lazily; missing the extra
 # only breaks ``cwt`` / ``dwt``, not the rest of the transforms module.
 wavelets = [
     "PyWavelets>=1.4",
 ]
 
-# ``pip install xr_toolz[image]`` — image-processing backends for
+# ``pip install xrtoolz[image]`` — image-processing backends for
 # biharmonic inpainting and structural image metrics. Imported lazily so
 # core interpolation and metrics remain usable without scikit-image.
 image = [
@@ -77,7 +82,7 @@ image = [
 ]
 
 [project.urls]
-Repository = "https://github.com/jejjohnson/xr_toolz"
+Repository = "https://github.com/jejjohnson/xrtoolz"
 
 [dependency-groups]
 dev = [
@@ -119,8 +124,16 @@ docs = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.uv.sources]
+# Dev-time source for the core `pipekit` dependency: pull from the
+# monorepo on GitHub until the first PyPI release lands. This stanza
+# affects `uv lock` / `uv sync` only — published wheel metadata still
+# carries the PyPI-flavoured `pipekit` requirement from `dependencies`
+# above.
+pipekit = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit" }
+
 [tool.hatch.build.targets.wheel]
-packages = ["src/xr_toolz"]
+packages = ["src/xrtoolz"]
 
 [tool.ruff]
 target-version = "py312"
@@ -160,10 +173,10 @@ unresolved-attribute = "warn"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src/xr_toolz --cov-report=term-missing --cov-report=xml:coverage.xml"
+addopts = "--cov=src/xrtoolz --cov-report=term-missing --cov-report=xml:coverage.xml"
 
 [tool.coverage.run]
-source = ["src/xr_toolz"]
+source = ["src/xrtoolz"]
 omit = ["tests/*"]
 
 [tool.coverage.report]
