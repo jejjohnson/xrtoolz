@@ -107,12 +107,12 @@ def energy_distance(
     _check_member_dim(da_b, sample_dim_b)
 
     # Move sample dims to the leading axis for clarity.
-    a = da_a.transpose(sample_dim_a, ...).values  # (n, *rest)
-    b = da_b.transpose(sample_dim_b, ...).values  # (m, *rest)
-    rest_shape = a.shape[1:]
+    arr_a = da_a.transpose(sample_dim_a, ...).values  # (n, *rest)
+    arr_b = da_b.transpose(sample_dim_b, ...).values  # (m, *rest)
+    rest_shape = arr_a.shape[1:]
 
-    a_flat = a.reshape(a.shape[0], -1)  # (n, K)
-    b_flat = b.reshape(b.shape[0], -1)  # (m, K)
+    a_flat = arr_a.reshape(arr_a.shape[0], -1)  # (n, K)
+    b_flat = arr_b.reshape(arr_b.shape[0], -1)  # (m, K)
 
     # Per-pixel energy distance via scipy: O(n+m) per pixel rather than
     # O((n+m)^2), and uses the unbiased self-distance estimator (excludes
@@ -164,11 +164,11 @@ def wasserstein_1(
     _check_member_dim(da_a, sample_dim_a)
     _check_member_dim(da_b, sample_dim_b)
 
-    a = da_a.transpose(sample_dim_a, ...).values
-    b = da_b.transpose(sample_dim_b, ...).values
-    rest_shape = a.shape[1:]
-    a_flat = a.reshape(a.shape[0], -1)
-    b_flat = b.reshape(b.shape[0], -1)
+    arr_a = da_a.transpose(sample_dim_a, ...).values
+    arr_b = da_b.transpose(sample_dim_b, ...).values
+    rest_shape = arr_a.shape[1:]
+    a_flat = arr_a.reshape(arr_a.shape[0], -1)
+    b_flat = arr_b.reshape(arr_b.shape[0], -1)
 
     out_flat = np.array(
         [
