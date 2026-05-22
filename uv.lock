@@ -3325,7 +3325,7 @@ requires-dist = [
     { name = "scikit-image", marker = "extra == 'image'", specifier = ">=0.21" },
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "scipy", specifier = ">=1.12" },
-    { name = "xarray", specifier = ">=2024.2" },
+    { name = "xarray", specifier = ">=2024.10" },
     { name = "xrft", specifier = ">=1.0" },
     { name = "xskillscore", specifier = ">=0.0.26" },
 ]
