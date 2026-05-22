@@ -17,7 +17,6 @@ from xrtoolz.transforms.encoders import (
     positional_encoding,
     random_fourier_features,
     time_rescale,
-    time_unrescale,
 )
 from xrtoolz.transforms.operators import (
     CyclicalEncode,
@@ -119,15 +118,20 @@ def test_positional_encoding_parity(ds_scalar: xr.Dataset) -> None:
 def test_encode_time_cyclical_parity(ds_time: xr.Dataset) -> None:
     op = EncodeTimeCyclical(components=("hour", "dayofyear"))
     out = op(ds_time)
-    expected = encode_time_cyclical(ds_time, components=("hour", "dayofyear"))
-    xr.testing.assert_identical(out, expected)
+    # After the PR γ flip the primitive returns a Dataset of the new
+    # sin/cos variables only; the operator attaches them as coords on
+    # the input Dataset. Check the values match what the primitive
+    # produced for each component.
+    encoded = encode_time_cyclical(ds_time["time"], components=("hour", "dayofyear"))
+    for name in ("hour_sin", "hour_cos", "dayofyear_sin", "dayofyear_cos"):
+        np.testing.assert_array_equal(out.coords[name].values, encoded[name].values)
 
 
 def test_encode_time_ordinal_parity(ds_time: xr.Dataset) -> None:
     op = EncodeTimeOrdinal(unit="h")
     out = op(ds_time)
-    expected = encode_time_ordinal(ds_time, unit="h")
-    xr.testing.assert_identical(out, expected)
+    expected = encode_time_ordinal(ds_time["time"], unit="h")
+    np.testing.assert_array_equal(out.coords["time_ordinal"].values, expected.values)
 
 
 def test_time_rescale_unrescale_round_trip(ds_time: xr.Dataset) -> None:
@@ -135,7 +139,7 @@ def test_time_rescale_unrescale_round_trip(ds_time: xr.Dataset) -> None:
     unrescale = TimeUnrescale()
     rescaled = rescale(ds_time)
     np.testing.assert_array_equal(
-        time_rescale(ds_time, freq_dt=6.0, freq_unit="h")["time"].values,
+        time_rescale(ds_time["time"], freq_dt=6.0, freq_unit="h").values,
         rescaled["time"].values,
     )
     restored = unrescale(rescaled)
@@ -143,9 +147,6 @@ def test_time_rescale_unrescale_round_trip(ds_time: xr.Dataset) -> None:
         restored["time"].astype("datetime64[ns]").astype(np.int64),
         ds_time["time"].astype("datetime64[ns]").astype(np.int64),
     )
-    # And via direct round-trip:
-    direct = time_unrescale(time_rescale(ds_time, freq_dt=6.0, freq_unit="h"))
-    xr.testing.assert_identical(restored, direct)
 
 
 # ---------- get_config ----------------------------------------------------

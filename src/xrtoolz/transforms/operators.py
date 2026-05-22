@@ -276,6 +276,56 @@ class EnstrophySpectralFlux(Operator):
         }
 
 
+class RotarySpectrum(Operator):
+    """Rotary power spectrum from ``ds[u]`` / ``ds[v]`` along ``dim``.
+
+    The operator selects the named velocity variables from the input
+    Dataset and calls :func:`rotary_spectrum` on the resulting
+    DataArrays.
+
+    Args:
+        u: Name of the zonal velocity variable in the input Dataset.
+        v: Name of the meridional velocity variable in the input Dataset.
+        dim: Dimension to Fourier transform.
+        avg_dims: Optional dimension or dimensions to average in each
+            output.
+    """
+
+    def __init__(
+        self,
+        u: str,
+        v: str,
+        dim: str,
+        *,
+        avg_dims: str | Sequence[str] | None = None,
+    ) -> None:
+        self.u = u
+        self.v = v
+        self.dim = dim
+        self.avg_dims = avg_dims
+
+    def _apply(self, ds: xr.Dataset) -> xr.Dataset:
+        return _fourier.rotary_spectrum(
+            ds[self.u],
+            ds[self.v],
+            dim=self.dim,
+            avg_dims=self.avg_dims,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        avg_dims = (
+            list(self.avg_dims)
+            if self.avg_dims is not None and not isinstance(self.avg_dims, str)
+            else self.avg_dims
+        )
+        return {
+            "u": self.u,
+            "v": self.v,
+            "dim": self.dim,
+            "avg_dims": avg_dims,
+        }
+
+
 class STFT(Operator):
     """Short-time Fourier transform of ``ds[variable]`` along ``dim``."""
 
@@ -591,9 +641,16 @@ class EncodeTimeCyclical(Operator):
         self.time = time
 
     def _apply(self, ds: xr.Dataset) -> xr.Dataset:
-        return _coord_time.encode_time_cyclical(
-            ds, components=self.components, time=self.time
+        encoded = _coord_time.encode_time_cyclical(
+            ds[self.time], components=self.components
         )
+        # The primitive returns a Dataset of sin/cos variables on the
+        # time dim; attach them as coords on the original Dataset to
+        # preserve the prior (pre-flip) ``encode_time_cyclical`` shape.
+        new_coords = {
+            name: (self.time, da.values) for name, da in encoded.data_vars.items()
+        }
+        return ds.assign_coords(new_coords)
 
     def get_config(self) -> dict[str, Any]:
         return {"components": list(self.components), "time": self.time}
@@ -613,12 +670,12 @@ class EncodeTimeOrdinal(Operator):
         self.unit = unit
 
     def _apply(self, ds: xr.Dataset) -> xr.Dataset:
-        return _coord_time.encode_time_ordinal(
-            ds,
+        ordinal = _coord_time.encode_time_ordinal(
+            ds[self.time],
             reference_date=self.reference_date,
-            time=self.time,
             unit=self.unit,
         )
+        return ds.assign_coords({f"{self.time}_ordinal": (self.time, ordinal.values)})
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -644,13 +701,15 @@ class TimeRescale(Operator):
         self.time = time
 
     def _apply(self, ds: xr.Dataset) -> xr.Dataset:
-        return _coord_time.time_rescale(
-            ds,
+        rescaled = _coord_time.time_rescale(
+            ds[self.time],
             freq_dt=self.freq_dt,
             freq_unit=self.freq_unit,
             t0=self.t0,
-            time=self.time,
         )
+        ds = ds.assign_coords({self.time: rescaled.values})
+        ds[self.time].attrs.update(dict(rescaled.attrs))
+        return ds
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -668,7 +727,10 @@ class TimeUnrescale(Operator):
         self.time = time
 
     def _apply(self, ds: xr.Dataset) -> xr.Dataset:
-        return _coord_time.time_unrescale(ds, time=self.time)
+        restored = _coord_time.time_unrescale(ds[self.time])
+        ds = ds.assign_coords({self.time: restored.values})
+        ds[self.time].attrs = {}
+        return ds
 
     def get_config(self) -> dict[str, Any]:
         return {"time": self.time}
@@ -690,6 +752,7 @@ __all__ = [
     "PositionalEncoding",
     "PowerSpectrum",
     "RandomFourierFeatures",
+    "RotarySpectrum",
     "TimeRescale",
     "TimeUnrescale",
 ]
