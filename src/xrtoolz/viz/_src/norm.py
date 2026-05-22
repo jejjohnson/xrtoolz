@@ -72,6 +72,8 @@ def shared_norm(
     pieces = [_flatten(_coerce_to_dataarray(a)) for a in arrays]
     combined = xr.concat(pieces, dim=_FLAT_DIM)
 
+    # ``skipna=True`` reductions return NaN for all-missing inputs; avoid
+    # materialising a separate dask-backed count just to detect that case.
     if q is None:
         lo = float(combined.min(skipna=True).values)
         hi = float(combined.max(skipna=True).values)

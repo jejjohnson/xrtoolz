@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from typing import Literal
+from typing import Literal, cast
 
 import pytest
 import xarray as xr
@@ -16,8 +16,7 @@ MaybeChunk = Callable[
 
 @pytest.fixture(params=["numpy", "dask"])
 def array_backend(request: pytest.FixtureRequest) -> ArrayBackend:
-    assert request.param in {"numpy", "dask"}
-    return request.param
+    return cast(ArrayBackend, request.param)
 
 
 def _maybe_chunk(
