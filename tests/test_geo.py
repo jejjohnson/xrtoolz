@@ -345,9 +345,7 @@ def _pair(values_pred, values_ref):
 def test_mse_and_rmse_known_values():
     p, r = _pair([1.0, 2.0, 3.0], [0.0, 0.0, 0.0])
     assert float(mse(p["x"], r["x"], dim="i")) == pytest.approx(14.0 / 3.0)
-    assert float(rmse(p["x"], r["x"], dim="i")) == pytest.approx(
-        (14.0 / 3.0) ** 0.5
-    )
+    assert float(rmse(p["x"], r["x"], dim="i")) == pytest.approx((14.0 / 3.0) ** 0.5)
 
 
 def test_mae_known_value():
