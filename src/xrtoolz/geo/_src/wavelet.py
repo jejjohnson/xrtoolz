@@ -144,7 +144,7 @@ def wvlt_power_spectrum(
     """Return the 2-D Morlet wavelet power spectrum of ``da``."""
     s = _as_scale_dataarray(s)
     coeffs = cwt2(da, s, dim=dim, x0=x0, ntheta=ntheta, k0=k0)
-    power = xr.apply_ufunc(np.abs, coeffs) ** 2
+    power = xr.apply_ufunc(np.abs, coeffs, dask="allowed") ** 2
     power = _normalize_power(power, da)
     power.name = f"{da.name or 'field'}_wpsd"
     power.attrs.update({"long_name": "2-D Morlet wavelet power spectrum"})

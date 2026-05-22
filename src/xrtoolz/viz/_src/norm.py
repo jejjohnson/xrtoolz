@@ -71,10 +71,6 @@ def shared_norm(
 
     pieces = [_flatten(_coerce_to_dataarray(a)) for a in arrays]
     combined = xr.concat(pieces, dim=_FLAT_DIM)
-    # Bail out early when every value is NaN — the quantile / min / max
-    # below would otherwise return NaN in a less obvious way.
-    if int(combined.count().values) == 0:
-        return (float("nan"), float("nan"))
 
     if q is None:
         lo = float(combined.min(skipna=True).values)

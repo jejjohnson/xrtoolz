@@ -3236,6 +3236,7 @@ version = "0.0.8"
 source = { editable = "." }
 dependencies = [
     { name = "cartopy" },
+    { name = "dask", extra = ["array"] },
     { name = "finitediffx" },
     { name = "matplotlib" },
     { name = "numpy" },
@@ -3305,6 +3306,7 @@ typecheck = [
 requires-dist = [
     { name = "cartopy", specifier = ">=0.22" },
     { name = "cdsapi", marker = "extra == 'cds-insitu'", specifier = ">=0.7" },
+    { name = "dask", extras = ["array"], specifier = ">=2024.10" },
     { name = "finitediffx", specifier = ">=0.1.0" },
     { name = "geopandas", marker = "extra == 'aemet'", specifier = ">=1.1.3" },
     { name = "geopandas", marker = "extra == 'cds-insitu'", specifier = ">=1.1.3" },

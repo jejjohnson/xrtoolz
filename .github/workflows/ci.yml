@@ -36,3 +36,14 @@ jobs:
         with:
           files: ./coverage.xml
           fail_ci_if_error: false
+  dask:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --group dev --extra image
+      - name: Run dask compatibility tests
+        run: uv run pytest -m dask -v -o addopts=
