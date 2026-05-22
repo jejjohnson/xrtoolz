@@ -143,13 +143,14 @@ def test_fillnan_spatial_preserves_chunked_backend(array_backend):
         if array_backend == "dask"
         else eager
     )
+    expected = fillnan_spatial(eager, method="linear")
 
     filled = fillnan_spatial(da, method="linear")
 
     if array_backend == "dask":
         assert filled.chunks is not None
         filled = filled.compute()
-    xr.testing.assert_allclose(filled, fillnan_spatial(eager, method="linear"))
+    xr.testing.assert_allclose(filled, expected)
 
 
 def test_fillnan_rbf_preserves_finite_values():
@@ -194,13 +195,14 @@ def test_fillnan_rbf_preserves_chunked_backend(array_backend):
         if array_backend == "dask"
         else eager
     )
+    expected = fillnan_rbf(eager)
 
     filled = fillnan_rbf(da)
 
     if array_backend == "dask":
         assert filled.chunks is not None
         filled = filled.compute()
-    xr.testing.assert_allclose(filled, fillnan_rbf(eager))
+    xr.testing.assert_allclose(filled, expected)
 
 
 def test_fillnan_temporal_uses_xarray_native():
@@ -421,13 +423,14 @@ def test_point_process_counts_preserves_chunked_backend(ds_grid_daily, array_bac
         if array_backend == "dask"
         else eager
     )
+    expected = pp_counts(eager, quantile=0.9, block_size=10)
 
     counts = pp_counts(da, quantile=0.9, block_size=10)
 
     if array_backend == "dask":
         assert counts.chunks is not None
         counts = counts.compute()
-    xr.testing.assert_allclose(counts, pp_counts(eager, quantile=0.9, block_size=10))
+    xr.testing.assert_allclose(counts, expected)
 
 
 # ============== discretize =================================================
