@@ -111,7 +111,7 @@ class Augment(Operator):
             variables.
     """
 
-    def __init__(self, inner: Operator) -> None:
+    def __init__(self, inner: _PipekitOperator) -> None:
         # Accept any pipekit Operator (xrtoolz.Operator is a subclass), so
         # users can wrap composites like ``Sequential`` that still live on
         # pipekit's carrier-agnostic base.
@@ -236,7 +236,7 @@ class ApplyToEach(Operator):
 
     def __init__(
         self,
-        prototype: Operator,
+        prototype: _PipekitOperator,
         *,
         kwarg: str,
         values: Sequence[Any],

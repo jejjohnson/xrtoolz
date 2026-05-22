@@ -53,6 +53,24 @@ class _Diff(Operator):
         return xr.Dataset({self.variable: pred[self.variable] - ref[self.variable]})
 
 
+class _DiffArray(Operator):
+    """Two-input op that returns a DataArray (e.g. an RMSE-style metric)."""
+
+    def __init__(self, variable: str) -> None:
+        self.variable = variable
+
+    def _apply(self, pred: xr.Dataset, ref: xr.Dataset) -> xr.DataArray:
+        out = pred[self.variable] - ref[self.variable]
+        return out.rename("delta")
+
+
+class _ReturnsObject(Operator):
+    """Op that returns a non-xarray object (stand-in for terminal viz)."""
+
+    def _apply(self, ds: xr.Dataset) -> object:
+        return object()
+
+
 # ---------- fixtures -------------------------------------------------------
 
 
@@ -178,3 +196,44 @@ def test_node_construction_still_works() -> None:
     inp = Input("ds")
     result = _ScaleVar("x", factor=2.0)(inp)
     assert isinstance(result, Node)
+
+
+# ---------- DataArray returns get wrapped into a Dataset -------------------
+
+
+def test_datatree_dispatch_wraps_dataarray_returns(dt: xr.DataTree) -> None:
+    """A metric returning DataArray maps cleanly over a DataTree."""
+    op = _DiffArray("x")
+    out = op(dt, dt)
+    assert isinstance(out, xr.DataTree)
+    for path in ("a", "b"):
+        ds_leaf = out[path].dataset
+        assert "delta" in ds_leaf.data_vars
+        np.testing.assert_array_equal(ds_leaf["delta"].values, np.zeros(4, dtype=float))
+
+
+# ---------- non-Dataset / non-DataArray returns are rejected ---------------
+
+
+def test_datatree_dispatch_rejects_non_xarray_return(dt: xr.DataTree) -> None:
+    op = _ReturnsObject()
+    with pytest.raises(TypeError, match="DataTree dispatch"):
+        op(dt)
+
+
+# ---------- partial-empty multi-input surfaces a real error ----------------
+
+
+def test_partial_empty_multi_input_surfaces_apply_error() -> None:
+    """If one tree has data and the other does not, ``_apply`` runs and
+    its KeyError surfaces rather than being silently swallowed.
+    """
+    ds_full = xr.Dataset(
+        {"x": (("t",), np.arange(4, dtype=float))},
+        coords={"t": np.arange(4)},
+    )
+    tree_full = xr.DataTree.from_dict({"a": ds_full})
+    tree_empty = xr.DataTree.from_dict({"a": xr.Dataset()})
+    op = _Diff("x")
+    with pytest.raises(KeyError):
+        op(tree_full, tree_empty)

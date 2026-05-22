@@ -37,7 +37,7 @@ from __future__ import annotations
 from typing import Any
 
 import xarray as xr
-from pipekit import Operator as _PipekitOperator
+from pipekit import Node, Operator as _PipekitOperator
 
 
 class Operator(_PipekitOperator):
@@ -71,31 +71,43 @@ class Operator(_PipekitOperator):
           ``xr.map_over_datasets``; the operator is applied to every
           matching ``Dataset`` leaf and the resulting leaves are
           reassembled into a ``DataTree`` with the input's structure.
-          Empty-payload nodes (notably the implicit root of a tree
-          built from ``DataTree.from_dict``) are skipped via a
-          ``None``-return passthrough — there's nothing to operate on
-          and most ``_apply`` implementations would raise a ``KeyError``
-          trying to look up their variable.
+          A node is skipped (via ``None`` return) only when **every**
+          input leaf at that path is empty — this handles the synthetic
+          root of a tree assembled from a flat ``{path: Dataset}`` dict
+          without silently swallowing a real / empty mismatch in
+          multi-input mode. ``DataArray`` returns are wrapped into a
+          single-variable ``Dataset`` so ``map_over_datasets`` can stitch
+          them into a result tree; anything other than ``Dataset`` /
+          ``DataArray`` (e.g. a ``Figure`` from a terminal viz op) is
+          rejected with a clear ``TypeError`` — terminal/visualisation
+          operators are not meaningful in DataTree mode.
         - Otherwise → eager ``_apply`` via the pipekit base class.
         """
-        # Lazy import — Node lives in pipekit but pulling it eagerly at
-        # module import would create a strict load order between the
-        # base classes.
-        from pipekit._base.graph import Node
-
         if any(isinstance(a, Node) for a in args):
             return super().__call__(*args, **kwargs)
         if any(isinstance(a, xr.DataTree) for a in args):
             apply = self._apply
+            cls_name = type(self).__name__
 
             def _leaf(*leaves: xr.Dataset) -> xr.Dataset | None:
-                # Skip empty-payload nodes (e.g. the synthetic root of
-                # a tree assembled from a flat ``{path: Dataset}`` dict).
-                # Returning ``None`` tells ``map_over_datasets`` to keep
-                # the node in place without rewriting its contents.
-                if any(len(leaf.data_vars) == 0 for leaf in leaves):
+                # Only skip when *every* input leaf is empty (synthetic
+                # root of a ``from_dict`` tree). Partial emptiness should
+                # fall through to ``_apply`` so the user sees a real
+                # error rather than a silent no-op.
+                if all(len(leaf.data_vars) == 0 for leaf in leaves):
                     return None
-                return apply(*leaves, **kwargs)
+                result = apply(*leaves, **kwargs)
+                if isinstance(result, xr.Dataset) or result is None:
+                    return result
+                if isinstance(result, xr.DataArray):
+                    name = result.name if result.name is not None else "value"
+                    return result.to_dataset(name=name)
+                raise TypeError(
+                    f"{cls_name}: DataTree dispatch requires _apply to return "
+                    f"a Dataset or DataArray, got {type(result).__name__}. "
+                    "Terminal / visualisation operators are not supported in "
+                    "DataTree mode — call them on a single Dataset leaf."
+                )
 
             return xr.map_over_datasets(_leaf, *args)
         return super().__call__(*args, **kwargs)
