@@ -1084,6 +1084,42 @@ class AlongTrack(Operator):
 # ---------- smoothers ------------------------------------------------------
 
 
+def _map_over_dataset_or_dataarray(
+    data: xr.Dataset | xr.DataArray,
+    dim: str | Sequence[str],
+    fn,
+) -> xr.Dataset | xr.DataArray:
+    """Apply a DataArray-only smoother kernel to a Dataset or DataArray.
+
+    Variables that don't carry every requested dim (or aren't numeric)
+    pass through unchanged; everything else is run through ``fn``. The
+    Dataset must itself carry every requested dim.
+    """
+    if isinstance(data, xr.DataArray):
+        return fn(data)
+
+    dims_required: tuple[str, ...] = (
+        (dim,) if isinstance(dim, str) else tuple(dim)
+    )
+    missing = tuple(d for d in dims_required if d not in data.dims)
+    if missing:
+        if len(missing) == 1:
+            raise ValueError(
+                f"dim {missing[0]!r} not in Dataset dims {tuple(data.dims)}"
+            )
+        raise ValueError(
+            f"dim entries {missing} not in Dataset dims {tuple(data.dims)}"
+        )
+    out_vars: dict[str, xr.DataArray] = {}
+    for name, da in data.data_vars.items():
+        carries_all = all(d in da.dims for d in dims_required)
+        if not carries_all or not np.issubdtype(da.dtype, np.number):
+            out_vars[str(name)] = da
+            continue
+        out_vars[str(name)] = fn(da)
+    return xr.Dataset(out_vars, coords=data.coords, attrs=dict(data.attrs))
+
+
 class MovingAverage(Operator):
     """Wrap :func:`xrtoolz.interpolate._src.smooth.moving_average`."""
 
@@ -1111,13 +1147,16 @@ class MovingAverage(Operator):
         self.min_periods = min_periods
 
     def _apply(self, ds):
-        return _smooth.moving_average(
-            ds,
-            dim=self.dim,
-            window=self.window,
-            center=self.center,
-            min_periods=self.min_periods,
-        )
+        def _fn(da: xr.DataArray) -> xr.DataArray:
+            return _smooth.moving_average(
+                da,
+                dim=self.dim,
+                window=self.window,
+                center=self.center,
+                min_periods=self.min_periods,
+            )
+
+        return _map_over_dataset_or_dataarray(ds, self.dim, _fn)
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -1139,9 +1178,12 @@ class GaussianSmooth(Operator):
         self.truncate = float(truncate)
 
     def _apply(self, ds):
-        return _smooth.gaussian_smooth(
-            ds, dim=self.dim, sigma=self.sigma, truncate=self.truncate
-        )
+        def _fn(da: xr.DataArray) -> xr.DataArray:
+            return _smooth.gaussian_smooth(
+                da, dim=self.dim, sigma=self.sigma, truncate=self.truncate
+            )
+
+        return _map_over_dataset_or_dataarray(ds, self.dim, _fn)
 
     def get_config(self) -> dict[str, Any]:
         return {"dim": self.dim, "sigma": self.sigma, "truncate": self.truncate}
@@ -1179,15 +1221,18 @@ class GaussianSmoothMasked(Operator):
         self.min_weight = float(min_weight)
 
     def _apply(self, ds):
-        return _smooth.gaussian_smooth_masked(
-            ds,
-            dim=self.dim,
-            sigma=self.sigma,
-            truncate=self.truncate,
-            mode=self.mode,
-            nan_aware=self.nan_aware,
-            min_weight=self.min_weight,
-        )
+        def _fn(da: xr.DataArray) -> xr.DataArray:
+            return _smooth.gaussian_smooth_masked(
+                da,
+                dim=self.dim,
+                sigma=self.sigma,
+                truncate=self.truncate,
+                mode=self.mode,
+                nan_aware=self.nan_aware,
+                min_weight=self.min_weight,
+            )
+
+        return _map_over_dataset_or_dataarray(ds, self.dim, _fn)
 
     def get_config(self) -> dict[str, Any]:
         return {
@@ -1231,13 +1276,16 @@ class LowpassFilter(Operator):
         self.btype = btype
 
     def _apply(self, ds):
-        return _smooth.lowpass_filter(
-            ds,
-            dim=self.dim,
-            cutoff=self.cutoff,
-            order=self.order,
-            btype=self.btype,
-        )
+        def _fn(da: xr.DataArray) -> xr.DataArray:
+            return _smooth.lowpass_filter(
+                da,
+                dim=self.dim,
+                cutoff=self.cutoff,
+                order=self.order,
+                btype=self.btype,
+            )
+
+        return _map_over_dataset_or_dataarray(ds, self.dim, _fn)
 
     def get_config(self) -> dict[str, Any]:
         return {

@@ -143,15 +143,24 @@ def bandpass_wavelength(
             _cutoff_from_wavelength(lambda_min_km, spacing_km),
         )
 
-    return fir_filter(
-        ds,
-        dim=dim,
-        cutoff=cutoff,
-        method=method,
-        btype=btype,
-        num_taps=num_taps,
-        attenuation_db=attenuation_db,
-    )
+    # ``fir_filter`` is DataArray-only after the PR β primitive flip. Loop
+    # over numeric data variables that carry the filter dim and pass other
+    # variables through unchanged.
+    out_vars: dict[str, xr.DataArray] = {}
+    for name, da in ds.data_vars.items():
+        if dim not in da.dims or not np.issubdtype(da.dtype, np.number):
+            out_vars[str(name)] = da
+            continue
+        out_vars[str(name)] = fir_filter(
+            da,
+            dim=dim,
+            cutoff=cutoff,
+            method=method,
+            btype=btype,
+            num_taps=num_taps,
+            attenuation_db=attenuation_db,
+        )
+    return xr.Dataset(out_vars, coords=ds.coords, attrs=dict(ds.attrs))
 
 
 __all__ = ["bandpass_wavelength", "median_dx_km"]
