@@ -48,4 +48,4 @@ jobs:
       - name: Run dask compatibility tests
         # Disable coverage for this focused marker job; the matrix test job
         # above owns coverage collection and upload.
-        run: uv run pytest -m dask -v -o addopts=
+        run: uv run pytest -m dask -v --no-cov

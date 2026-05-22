@@ -133,16 +133,14 @@ def test_fillnan_laplacian_fills_each_leading_slice_independently() -> None:
 
 
 @pytest.mark.dask
-def test_fillnan_laplacian_preserves_chunked_backend(array_backend) -> None:
+def test_fillnan_laplacian_preserves_chunked_backend(
+    array_backend, maybe_chunk
+) -> None:
     base = _harmonic_da().isel(lat=slice(8, 13), lon=slice(10, 15))
     eager = xr.concat([base, base + 10.0], dim=xr.IndexVariable("time", [0, 1]))
     masked = eager.copy()
     masked.values[:, 2, 2] = np.nan
-    da = (
-        masked.chunk({"time": 1, "lat": -1, "lon": -1})
-        if array_backend == "dask"
-        else masked
-    )
+    da = maybe_chunk(masked, array_backend, {"time": 1, "lat": -1, "lon": -1})
 
     filled = fillnan_laplacian(da, max_iter=1000, tol=1e-8)
 

@@ -124,7 +124,7 @@ def test_fillnan_spatial_fills_interior_nans():
 
 
 @pytest.mark.dask
-def test_fillnan_spatial_preserves_chunked_backend(array_backend):
+def test_fillnan_spatial_preserves_chunked_backend(array_backend, maybe_chunk):
     lat = np.linspace(0.0, 1.0, 7)
     lon = np.linspace(0.0, 1.0, 7)
     vals = np.add.outer(lat, lon).astype(float)
@@ -138,11 +138,7 @@ def test_fillnan_spatial_preserves_chunked_backend(array_backend):
         ],
         dim=xr.IndexVariable("time", [0, 1]),
     )
-    da = (
-        eager.chunk({"time": 1, "lat": -1, "lon": -1})
-        if array_backend == "dask"
-        else eager
-    )
+    da = maybe_chunk(eager, array_backend, {"time": 1, "lat": -1, "lon": -1})
     expected = fillnan_spatial(eager, method="linear")
 
     filled = fillnan_spatial(da, method="linear")
@@ -174,7 +170,7 @@ def test_fillnan_rbf_preserves_finite_values():
 
 
 @pytest.mark.dask
-def test_fillnan_rbf_preserves_chunked_backend(array_backend):
+def test_fillnan_rbf_preserves_chunked_backend(array_backend, maybe_chunk):
     from xrtoolz.interpolate import fillnan_rbf
 
     lat = np.linspace(0.0, 1.0, 6)
@@ -190,11 +186,7 @@ def test_fillnan_rbf_preserves_chunked_backend(array_backend):
         ],
         dim=xr.IndexVariable("time", [0, 1]),
     )
-    da = (
-        eager.chunk({"time": 1, "lat": -1, "lon": -1})
-        if array_backend == "dask"
-        else eager
-    )
+    da = maybe_chunk(eager, array_backend, {"time": 1, "lat": -1, "lon": -1})
     expected = fillnan_rbf(eager)
 
     filled = fillnan_rbf(da)
@@ -414,15 +406,13 @@ def test_pp_stats_supports_gridded_input(ds_grid_daily):
 
 
 @pytest.mark.dask
-def test_point_process_counts_preserves_chunked_backend(ds_grid_daily, array_backend):
+def test_point_process_counts_preserves_chunked_backend(
+    ds_grid_daily, array_backend, maybe_chunk
+):
     eager = ds_grid_daily["ssh"].isel(
         time=slice(0, 60), lat=slice(0, 3), lon=slice(0, 4)
     )
-    da = (
-        eager.chunk({"time": 30, "lat": -1, "lon": -1})
-        if array_backend == "dask"
-        else eager
-    )
+    da = maybe_chunk(eager, array_backend, {"time": 30, "lat": -1, "lon": -1})
     expected = pp_counts(eager, quantile=0.9, block_size=10)
 
     counts = pp_counts(da, quantile=0.9, block_size=10)
