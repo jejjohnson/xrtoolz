@@ -19,7 +19,7 @@ The stable V5 object table fields are:
 ``area(event, time)``
     Count of active spatial cells per event/time slice.
 ``centroid_lon(event, time)``, ``centroid_lat(event, time)``
-    Area-weighted-by-cell-count centroid coordinates. Empty slices are NaN.
+    Cell-count centroid coordinates. Empty slices are NaN.
 ``intensity_max(event, time)``, ``intensity_mean(event, time)``
     Per-slice extrema/mean of the detection field. ``label_objects`` has no
     intensity field, so these are NaN there.
@@ -102,6 +102,7 @@ def _require_label():
 
 
 def _label_connectivity(ndim: int, connectivity: int) -> int:
+    """Map common neighborhood names to scikit-image connectivity ranks."""
     if connectivity in (4, 6):
         return 1
     if connectivity in (8, 18):
@@ -230,6 +231,8 @@ def _summarize_objects(
             spatial_sel = event_sel[t]
             lat_idx, lon_idx = np.where(spatial_sel)
             area[i, t] = float(spatial_sel.sum())
+            # Cell-count centroid; callers with unequal cell areas should
+            # preweight or regrid before object detection.
             centroid_lat[i, t] = float(lat_values[lat_idx].mean())
             centroid_lon[i, t] = float(lon_values[lon_idx].mean())
             if intensity_values is not None:
@@ -293,6 +296,7 @@ def label_objects(
 
 
 def _threshold_value(field: xr.DataArray, threshold: float | str) -> float:
+    """Resolve numeric and percentile thresholds, including p0 and p100."""
     if isinstance(threshold, str):
         if not threshold.startswith("p"):
             raise ValueError(

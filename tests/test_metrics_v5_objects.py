@@ -27,13 +27,15 @@ EXPECTED_OBJECT_FIELDS = {
     "end_time",
     "duration",
 }
+GAUSSIAN_WIDTH = 8.0
 
 
 def _blob(center_lat: float, center_lon: float) -> xr.DataArray:
     lat = np.arange(-10.0, 11.0)
     lon = np.arange(-10.0, 11.0)
     lon2d, lat2d = np.meshgrid(lon, lat, indexing="xy")
-    values = np.exp(-(((lat2d - center_lat) ** 2) + ((lon2d - center_lon) ** 2)) / 8.0)
+    radius2 = ((lat2d - center_lat) ** 2) + ((lon2d - center_lon) ** 2)
+    values = np.exp(-(radius2 / GAUSSIAN_WIDTH))
     return xr.DataArray(values, coords={"lat": lat, "lon": lon}, dims=("lat", "lon"))
 
 
