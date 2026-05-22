@@ -225,7 +225,7 @@ def test_interpolate_smooth_tier_b_matches_tier_a() -> None:
 
 
 def test_interpolate_smooth_tier_c_matches_tier_b() -> None:
-    """Tier C ``Operator`` output equals Tier B function output applied to a DataArray."""
+    """Tier C operator equals Tier B output applied to a DataArray."""
     from xrtoolz.interpolate._src import smooth as tier_b
     from xrtoolz.interpolate.operators import (
         GaussianSmooth,

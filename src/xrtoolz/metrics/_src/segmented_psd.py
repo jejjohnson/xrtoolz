@@ -390,7 +390,7 @@ class SegmentedPSDScore(Operator):
         for name in (self.var_ref, self.var_pred, self.lon, self.lat):
             if name not in ds_track:
                 raise ValueError(f"{name!r} is not present in the track Dataset.")
-        time_da = ds_track[self.time] if self.time in ds_track else None
+        time_da = ds_track.get(self.time, None)
         if self.max_gap is not None and time_da is None:
             raise ValueError(f"{self.time!r} is required when max_gap is not None.")
         return along_track_psd_score(

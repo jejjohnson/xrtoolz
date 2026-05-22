@@ -74,9 +74,7 @@ def _ensure_datetime_like_time(da: xr.DataArray, *, time: str) -> None:
         ) from exc
 
 
-def _target_is_coarser_than_source(
-    da: xr.DataArray, *, freq: str, time: str
-) -> bool:
+def _target_is_coarser_than_source(da: xr.DataArray, *, freq: str, time: str) -> bool:
     coord = da[time]
     if coord.size < 2:
         return False

@@ -124,9 +124,7 @@ def psd_score(
         isotropic=isotropic,
         **kwargs,
     )
-    ref_psd = power_spectrum(
-        ref, dim=list(psd_dims), isotropic=isotropic, **kwargs
-    )
+    ref_psd = power_spectrum(ref, dim=list(psd_dims), isotropic=isotropic, **kwargs)
     ref_name = ref.name if ref.name is not None else "ref"
     ref_ds = ref_psd.rename(ref_name).to_dataset()
     if avg_dims is not None:

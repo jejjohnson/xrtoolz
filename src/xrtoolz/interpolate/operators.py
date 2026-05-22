@@ -1112,9 +1112,7 @@ def _map_over_dataset_or_dataarray(
     if isinstance(data, xr.DataArray):
         return fn(data)
 
-    dims_required: tuple[str, ...] = (
-        (dim,) if isinstance(dim, str) else tuple(dim)
-    )
+    dims_required: tuple[str, ...] = (dim,) if isinstance(dim, str) else tuple(dim)
     missing = tuple(d for d in dims_required if d not in data.dims)
     if missing:
         if len(missing) == 1:
