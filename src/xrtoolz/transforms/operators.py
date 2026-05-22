@@ -276,6 +276,56 @@ class EnstrophySpectralFlux(Operator):
         }
 
 
+class RotarySpectrum(Operator):
+    """Rotary power spectrum from ``ds[u]`` / ``ds[v]`` along ``dim``.
+
+    The operator selects the named velocity variables from the input
+    Dataset and calls :func:`rotary_spectrum` on the resulting
+    DataArrays.
+
+    Args:
+        u: Name of the zonal velocity variable in the input Dataset.
+        v: Name of the meridional velocity variable in the input Dataset.
+        dim: Dimension to Fourier transform.
+        avg_dims: Optional dimension or dimensions to average in each
+            output.
+    """
+
+    def __init__(
+        self,
+        u: str,
+        v: str,
+        dim: str,
+        *,
+        avg_dims: str | Sequence[str] | None = None,
+    ) -> None:
+        self.u = u
+        self.v = v
+        self.dim = dim
+        self.avg_dims = avg_dims
+
+    def _apply(self, ds: xr.Dataset) -> xr.Dataset:
+        return _fourier.rotary_spectrum(
+            ds[self.u],
+            ds[self.v],
+            dim=self.dim,
+            avg_dims=self.avg_dims,
+        )
+
+    def get_config(self) -> dict[str, Any]:
+        avg_dims = (
+            list(self.avg_dims)
+            if self.avg_dims is not None and not isinstance(self.avg_dims, str)
+            else self.avg_dims
+        )
+        return {
+            "u": self.u,
+            "v": self.v,
+            "dim": self.dim,
+            "avg_dims": avg_dims,
+        }
+
+
 class STFT(Operator):
     """Short-time Fourier transform of ``ds[variable]`` along ``dim``."""
 
@@ -702,6 +752,7 @@ __all__ = [
     "PositionalEncoding",
     "PowerSpectrum",
     "RandomFourierFeatures",
+    "RotarySpectrum",
     "TimeRescale",
     "TimeUnrescale",
 ]
