@@ -7,11 +7,15 @@ reprojection / raster I/O, delegate to ``rioxarray`` directly.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import Literal
 
 import numpy as np
 import rioxarray  # noqa: F401  — needed so ds.rio is populated
 import xarray as xr
 from pyproj import CRS, Transformer
+
+
+GridResolution = Literal["one_degree", "quarter_degree", "twelfth_degree", "other"]
 
 
 def assign_crs(ds: xr.Dataset, crs: str = "EPSG:4326") -> xr.Dataset:
@@ -115,3 +119,45 @@ def calc_latlon(ds: xr.Dataset) -> xr.Dataset:
     ds["longitude"].attrs["units"] = "degrees_east"
     ds["latitude"].attrs["units"] = "degrees_north"
     return ds
+
+
+def get_dataset_resolution(
+    ds: xr.Dataset,
+    *,
+    lon: str = "lon",
+    lat: str = "lat",
+    rtol: float = 0.05,
+) -> GridResolution:
+    """Classify a regular lat/lon grid against canonical OceanBench resolutions.
+
+    Returns one of ``"one_degree"``, ``"quarter_degree"``,
+    ``"twelfth_degree"``, or ``"other"`` (no canonical resolution
+    matches within ``rtol`` of the inferred spacing). Useful for
+    dispatch — e.g. picking the right MDT URL or the right reference
+    dataset for a given grid.
+
+    The classifier averages the median absolute spacing of the ``lon``
+    and ``lat`` coordinates; an irregular grid will likely fall into
+    ``"other"``. ``rtol`` is the relative tolerance on the match.
+
+    Args:
+        ds: Dataset carrying 1-D ``lon`` / ``lat`` coordinates.
+        lon: Longitude coordinate name.
+        lat: Latitude coordinate name.
+        rtol: Relative tolerance for the canonical-resolution match.
+
+    Returns:
+        Resolution label as a ``Literal[...]`` string.
+    """
+    dlon = float(np.median(np.abs(np.diff(np.asarray(ds[lon].values, dtype=float)))))
+    dlat = float(np.median(np.abs(np.diff(np.asarray(ds[lat].values, dtype=float)))))
+    spacing = (dlon + dlat) / 2.0
+    candidates: list[tuple[GridResolution, float]] = [
+        ("one_degree", 1.0),
+        ("quarter_degree", 0.25),
+        ("twelfth_degree", 1.0 / 12.0),
+    ]
+    for label, target in candidates:
+        if abs(spacing - target) < rtol * target:
+            return label
+    return "other"
