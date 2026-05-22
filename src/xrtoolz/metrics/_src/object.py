@@ -209,8 +209,8 @@ def _summarize_objects(
     else:
         intensity_values = None
 
-    start_time: list[Any] = []
-    end_time: list[Any] = []
+    start_time: list[object] = []
+    end_time: list[object] = []
     duration: list[int] = []
 
     for i, event_id in enumerate(event_ids):
@@ -325,11 +325,13 @@ def detect_anomaly_objects(ds: xr.Dataset, definition: EventDefinition) -> xr.Da
         intensity=field,
     )
 
-    keep = xr.ones_like(objects["duration"], dtype=bool)
+    duration_ok = xr.ones_like(objects["duration"], dtype=bool)
     if definition.min_duration is not None:
-        keep = keep & (objects["duration"] >= int(definition.min_duration))
+        duration_ok = objects["duration"] >= int(definition.min_duration)
+    area_ok = xr.ones_like(objects["duration"], dtype=bool)
     if definition.min_area is not None:
-        keep = keep & (objects["area"].max("time") >= float(definition.min_area))
+        area_ok = objects["area"].max("time") >= float(definition.min_area)
+    keep = duration_ok & area_ok
     objects = objects.sel(event=objects["event"].where(keep, drop=True))
     return objects.assign_attrs(event_definition=definition.to_json())
 

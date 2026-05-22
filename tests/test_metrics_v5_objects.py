@@ -17,6 +17,18 @@ from xrtoolz.metrics import (
 )
 
 
+EXPECTED_OBJECT_FIELDS = {
+    "area",
+    "centroid_lon",
+    "centroid_lat",
+    "intensity_max",
+    "intensity_mean",
+    "start_time",
+    "end_time",
+    "duration",
+}
+
+
 def _blob(center_lat: float, center_lon: float) -> xr.DataArray:
     lat = np.arange(-10.0, 11.0)
     lon = np.arange(-10.0, 11.0)
@@ -51,18 +63,7 @@ def test_gaussian_blob_above_threshold_detected_at_expected_location_and_area():
     assert float(objects["centroid_lon"].isel(event=0, time=0)) == pytest.approx(-3.0)
     assert float(objects["area"].isel(event=0, time=0)) == pytest.approx(expected_area)
     assert float(objects["intensity_max"].isel(event=0, time=0)) == pytest.approx(1.0)
-    assert set(
-        [
-            "area",
-            "centroid_lon",
-            "centroid_lat",
-            "intensity_max",
-            "intensity_mean",
-            "start_time",
-            "end_time",
-            "duration",
-        ]
-    ) <= set(objects.data_vars)
+    assert set(objects.data_vars) >= EXPECTED_OBJECT_FIELDS
 
 
 def test_label_objects_and_operator_match_layer0():
