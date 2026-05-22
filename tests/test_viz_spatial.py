@@ -235,3 +235,10 @@ def test_hovmoller_panel_log_norm_positive_data():
     qm = fig.axes[0].collections[0]
     assert isinstance(qm.norm, mcolors.LogNorm)
     plt.close(fig)
+
+
+def test_hovmoller_panel_log_norm_masks_non_positive_data():
+    fig = HovmollerPanel(var="ssh", norm="log")(_ssh_snapshot())
+    qm = fig.axes[0].collections[0]
+    assert np.ma.is_masked(qm.get_array())
+    plt.close(fig)

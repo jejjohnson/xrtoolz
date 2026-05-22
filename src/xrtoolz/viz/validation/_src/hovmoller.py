@@ -93,7 +93,9 @@ class HovmollerPanel(_ValidationPanel):
             pcm_kw["vmax"] = self.vmax
         else:
             pcm_kw["norm"] = color_norm
-            vals = np.ma.masked_less_equal(vals, 0.0)
+            vals = np.ma.masked_less_equal(
+                vals, self.vmin if self.vmin is not None else 0.0
+            )
         im = ax.pcolormesh(
             section[self.time_dim].values,
             section[self.keep_dim].values,
