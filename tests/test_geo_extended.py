@@ -75,7 +75,7 @@ def ds_grid_daily() -> xr.Dataset:
 
 def test_psd_score_perfect_prediction_is_one(ds_grid_daily):
     ds_small = ds_grid_daily.isel(time=slice(0, 64), lat=4)
-    score = psd_score(ds_small, ds_small, "ssh", psd_dims=["time", "lon"])
+    score = psd_score(ds_small["ssh"], ds_small["ssh"], psd_dims=["time", "lon"])
     # error is zero everywhere -> score is 1 everywhere
     np.testing.assert_allclose(
         score["score"].values, np.ones_like(score["score"].values), atol=1e-10

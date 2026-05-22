@@ -60,7 +60,7 @@ def test_metrics_tier_b_matches_tier_a(name: str) -> None:
     a_out = getattr(ma, name)(pred, ref, axis=-1)
     ds_pred = xr.Dataset({"x": (("a", "b"), pred)})
     ds_ref = xr.Dataset({"x": (("a", "b"), ref)})
-    b_out = getattr(tier_b, name)(ds_pred, ds_ref, "x", "b").values
+    b_out = getattr(tier_b, name)(ds_pred["x"], ds_ref["x"], dim="b").values
 
     np.testing.assert_allclose(a_out, b_out, rtol=1e-12, atol=1e-12)
 
@@ -90,7 +90,7 @@ def test_metrics_tier_c_matches_tier_b(op_name: str, fn_name: str) -> None:
 
     op = getattr(ops, op_name)(variable="x", dims="b")
     c_out = op(ds_pred, ds_ref).values
-    b_out = getattr(tier_b, fn_name)(ds_pred, ds_ref, "x", "b").values
+    b_out = getattr(tier_b, fn_name)(ds_pred["x"], ds_ref["x"], dim="b").values
 
     np.testing.assert_allclose(c_out, b_out, rtol=1e-12, atol=1e-12)
 
