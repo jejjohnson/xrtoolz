@@ -59,6 +59,24 @@ nav:
           - Components: design/examples/components.md
           - Models: design/examples/models.md
           - Integration: design/examples/integration.md
+      - Bridge Modules:
+          - Overview: design/bridges/README.md
+          - Cross-cutting: design/bridges/overview.md
+          - einx (named-tensor algebra):
+              - Vision: design/bridges/einx/vision.md
+              - Architecture: design/bridges/einx/architecture.md
+              - API: design/bridges/einx/api.md
+              - Decisions: design/bridges/einx/decisions.md
+          - linalg (structured linear algebra):
+              - Vision: design/bridges/linalg/vision.md
+              - Architecture: design/bridges/linalg/architecture.md
+              - API: design/bridges/linalg/api.md
+              - Decisions: design/bridges/linalg/decisions.md
+          - prob (probabilistic distributions):
+              - Vision: design/bridges/prob/vision.md
+              - Architecture: design/bridges/prob/architecture.md
+              - API: design/bridges/prob/api.md
+              - Decisions: design/bridges/prob/decisions.md
   - Tutorials:
       - Core:
           - Operators & Pipelines: notebooks/operators_pipeline_demo.ipynb
