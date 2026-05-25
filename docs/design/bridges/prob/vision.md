@@ -54,15 +54,22 @@ DataArray's natural "this dim is the batch" interpretation. Used
 incorrectly (wrong axis, missing `dim=` kwarg), it silently changes
 which axis is shared and which is independent.
 
-The bridge attaches plate semantics to dim names. A user writes:
+The bridge attaches plate semantics to dim names. ``plate`` is only
+meaningful inside a numpyro model trace (``numpyro.plate`` scopes
+``numpyro.sample`` sites, not free distribution ``.sample()`` calls),
+so the model-facing form is:
 
 ```python
-with xpr.plate("ensemble"):
-    obs = xpr.Normal(loc=mu_da, scale=sigma_da).sample(...)
+def model(mu_da, sigma_da):
+    with xpr.plate("ensemble"):
+        obs = xpr.sample("obs", xpr.Normal(loc=mu_da, scale=sigma_da))
 ```
 
-and the bridge maps `"ensemble"` to numpyro's `dim=` argument by
-finding the position of `"ensemble"` in the parameter DataArrays.
+and the bridge maps ``"ensemble"`` to numpyro's ``dim=`` argument by
+finding the position of ``"ensemble"`` in the parameter DataArrays.
+For free draws outside a trace, just call ``.sample(key, ...)``
+directly without ``plate`` — the bridge labels the output axes from
+the parameter dims either way.
 
 ### Pain 3 — Sample-shape labels
 

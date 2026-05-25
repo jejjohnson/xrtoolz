@@ -85,7 +85,10 @@ class DistributionBridge:
     def __init__(self, **params: xr.DataArray | float | jax.Array) -> None: ...
     def to_numpyro(self) -> numpyro.distributions.Distribution: ...
     def sample(
-        self, key: jax.Array, *, sample_shape: tuple[str, ...] = (),
+        self,
+        key: jax.Array,
+        *,
+        sample_shape: tuple[str, ...] | tuple[int, ...] = (),
     ) -> xr.DataArray: ...
     def log_prob(self, x: xr.DataArray) -> jax.Array: ...
     @property
@@ -143,9 +146,16 @@ def _parse_sample_shape(
     """
 ```
 
-The sampled DataArray's dims are `(*sample_dim_names, *batch_dims)`,
-and coords are forwarded from the parameter DataArrays (for batch
-dims) plus whatever the caller passed for sample dims.
+The sampled DataArray's dims are `(*sample_dim_names, *batch_dims,
+*event_dims)` — the leading sample axes carry user-named draws, then
+the broadcast batch axes, then any event axes for multivariate
+distributions (`MultivariateNormal` → ``("event",)``, ``Dirichlet`` →
+``("category",)``, etc.). Univariate distributions have an empty
+``event_dims`` so the tail collapses to `(*sample_dim_names,
+*batch_dims)`. Coords are forwarded from the parameter DataArrays
+(for batch dims) and from the multivariate parameter (for event
+dims, when present); sample-dim coords come from whatever the caller
+passed.
 
 ## `plate` semantics
 

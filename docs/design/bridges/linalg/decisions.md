@@ -69,6 +69,8 @@ pipeline composition; the function-level API stays scalar.
 This means a user can build composite operators inline:
 
 ```python
+import xrtoolz.linalg as xla
+
 K = (K_prior + K_obs).materialize()           # if needed for debug
 posterior = xla.solve(K_prior + K_obs, y)
 ```
@@ -86,8 +88,9 @@ posterior = xla.solve(K_prior + K_obs, y)
   loop.
 
 They convert into one another via constructors (`from_numpyro`,
-`to_numpyro_dist`). See `prob/decisions.md` D6 for the symmetric
-explanation. Two surfaces is a deliberate cost.
+`to_numpyro_dist`). See `prob/decisions.md` D4 ("Two MVN classes
+coexist") for the symmetric explanation. Two surfaces is a deliberate
+cost.
 
 ### D7 — `sample_shape` accepts named tokens
 

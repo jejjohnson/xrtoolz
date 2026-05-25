@@ -120,8 +120,8 @@ K_space = xrtoolz.linalg.NamedOperator(
 )
 K_time = xrtoolz.linalg.NamedOperator(K_t, dims=("time",))
 
-alpha = xrtoolz.linalg.solve(K_time, observations, dims=("time",))
-posterior_mean = xrtoolz.linalg.solve(K_space, alpha, dims=("lat", "lon"))
+alpha = xrtoolz.linalg.solve(K_time, observations)
+posterior_mean = xrtoolz.linalg.solve(K_space, alpha)
 ```
 
 Solve at each factor, no flatten in sight.

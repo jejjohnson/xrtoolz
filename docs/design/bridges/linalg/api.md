@@ -239,7 +239,8 @@ flatten/reshape loop.
   `xrtoolz.linalg` *and* `xrtoolz.prob`. Two distribution surfaces
   is one too many; `xrtoolz.prob.Normal` (numpyro-backed) and
   `xrtoolz.linalg.MultivariateNormal` (gaussx-backed) coexist with
-  documented boundaries (see `prob/decisions.md` D6).
+  documented boundaries (see `prob/decisions.md` D4 — "Two MVN classes
+  coexist").
 - **Automatic strategy selection**. gaussx has `AutoSolver`; users
   who want auto-dispatch pass it explicitly. The bridge does not
   guess.

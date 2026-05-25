@@ -86,8 +86,11 @@ These hold for all three modules; see `overview.md` for the reasoning.
    is duplicated; the `Operator` calls the function in `_apply`.
 5. **Backend deps are lazy and opt-in.** Following the existing
    `xrtoolz.inference` pattern (D4): backends are imported inside
-   functions, never at module load. Each module ships as a `pip install
-   xrtoolz[einx|linalg|prob]` extra.
+   functions, never at module load. Each module ships as a separate
+   extra — install one at a time with ``pip install xrtoolz[einx]``,
+   ``pip install xrtoolz[linalg]``, or ``pip install xrtoolz[prob]``,
+   or combine them in a single command (``pip install
+   "xrtoolz[einx,linalg,prob]"``).
 6. **No reimplementation.** einx owns named-tensor semantics, gaussx
    owns linear-algebra dispatch, numpyro owns inference. These bridges
    only translate between labeled and array carriers.

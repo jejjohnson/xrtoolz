@@ -147,8 +147,10 @@ def solve(
         strategy: gaussx solver strategy. Forwarded as-is to
             ``gaussx.solve``. If omitted, gaussx picks its default.
         batch_dims: optional explicit list of batch dim names. If
-            omitted, batch dims are inferred as ``set(y.dims) -
-            set(K.dims)``.
+            omitted, batch dims are inferred as ``[d for d in y.dims
+            if d not in K.dims]`` — preserving the original axis order
+            of ``y`` so reshape and coord restore stay deterministic
+            when ``y`` carries several batch dims.
 
     Returns:
         DataArray with the same dims as ``y`` (post any
@@ -241,7 +243,7 @@ import JAX or gaussx.
 
 | Condition                                                     | Behaviour                                                                                                                |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Input DataArray wraps numpy (not JAX)                          | Raise `TypeError("xrtoolz.linalg requires JAX-backed DataArrays; use jnp.asarray(da) or da.as_numpy=False before solve")` |
+| Input DataArray wraps numpy (not JAX)                          | Raise `TypeError("xrtoolz.linalg requires JAX-backed DataArrays; rebuild the DataArray with JAX-backed data, e.g. `xr.DataArray(jnp.asarray(da.data), dims=da.dims, coords=da.coords)`")`. |
 | Missing dim on input that `K.dims` references                  | Raise `KeyError` naming the missing dim.                                                                                  |
 | Coord on shared dim differs from `NamedOperator.coords`        | Raise `CoordMismatch` (same exception type as `xrtoolz.einx`).                                                            |
 | `K.dims` size disagrees with input dim size                    | Raise `ValueError` showing the mismatch.                                                                                  |
