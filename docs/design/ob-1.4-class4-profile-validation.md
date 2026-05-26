@@ -341,7 +341,7 @@ class RMSDScoreboard(Operator):
                  label_format=...): ...
 ```
 
-private numpy/scipy kernels are not Operator-promoted — they're
+Private numpy/scipy kernels are not Operator-promoted — they're
 shape-specific numpy functions, not Dataset-shaped.
 
 ### 4.7 Recipe page (not a baked-in driver)

@@ -246,11 +246,13 @@ def fir_filter(
     ``cutoff`` is the normalized critical frequency (fraction of the
     Nyquist rate); for ``btype`` in ``{"bandpass", "bandstop"}`` pass a
     length-2 ``(low, high)`` sequence. ``method`` selects the window
-    family used to taper the ideal sinc response (``"lanczos"``,
-    ``"hamming"``, ``"hann"``, ``"blackman"``, ``"kaiser"``). The number
-    of taps is set explicitly via ``num_taps`` or computed from
-    ``attenuation_db`` (Kaiser only); exactly one must be specified. The
-    filter is applied with ``scipy.signal.filtfilt`` for zero phase.
+    family used to taper the ideal sinc response — ``"lanczos"`` or
+    ``"kaiser"``. ``num_taps`` is an odd FIR tap count; if omitted, a
+    conservative default is chosen (Lanczos picks from ``cutoff``;
+    Kaiser estimates from ``attenuation_db``). ``attenuation_db`` is the
+    Kaiser stop-band attenuation target in decibels (default ``60.0``)
+    and is ignored when ``method="lanczos"``. The filter is applied with
+    ``scipy.signal.filtfilt`` for zero phase.
     """
 
     def _fn(arr: np.ndarray, *, axis: int) -> np.ndarray:
