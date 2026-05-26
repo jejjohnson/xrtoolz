@@ -13,6 +13,7 @@ from xrtoolz.metrics._src.distributional import (
 from xrtoolz.metrics._src.forecast import SkillByLeadTime
 from xrtoolz.metrics._src.masked import MaskedMetric
 from xrtoolz.metrics._src.multiscale import EvaluateByRegion
+from xrtoolz.metrics._src.object import DetectAnomalyObjects, LabelObjects, MatchObjects
 from xrtoolz.metrics._src.physical import (
     DensityInversionFraction,
     DivergenceError,
@@ -64,6 +65,7 @@ __all__ = [
     "CentroidDisplacement",
     "Correlation",
     "DensityInversionFraction",
+    "DetectAnomalyObjects",
     "DivergenceError",
     "EnergyDistance",
     "EnsembleCoverage",
@@ -71,7 +73,9 @@ __all__ = [
     "FrequencyBandSkill",
     "GeostrophicBalanceError",
     "GradientDifference",
+    "LabelObjects",
     "MaskedMetric",
+    "MatchObjects",
     "NRMSEScore",
     "PSDScore",
     "PVConservationError",
