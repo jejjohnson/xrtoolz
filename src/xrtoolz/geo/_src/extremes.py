@@ -182,4 +182,6 @@ def _pp_apply(
         input_core_dims=[["_block"], []],
         output_core_dims=[[]],
         vectorize=True,
+        dask="parallelized",
+        output_dtypes=[da.dtype],
     )

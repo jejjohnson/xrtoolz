@@ -96,6 +96,8 @@ def fillnan_spatial(
         input_core_dims=[[lat, lon]],
         output_core_dims=[[lat, lon]],
         vectorize=True,
+        dask="parallelized",
+        output_dtypes=[da.dtype],
     )
 
 
@@ -306,6 +308,8 @@ def fillnan_laplacian(
         input_core_dims=[[lat, lon]],
         output_core_dims=[[lat, lon]],
         vectorize=True,
+        dask="parallelized",
+        output_dtypes=[da.dtype],
     )
 
 
@@ -433,4 +437,6 @@ def fillnan_rbf(
         input_core_dims=[[lat, lon]],
         output_core_dims=[[lat, lon]],
         vectorize=True,
+        dask="parallelized",
+        output_dtypes=[da.dtype],
     )

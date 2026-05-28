@@ -100,7 +100,7 @@ def cwt1d(
     # series with different amplitudes.
     source_variance = da.var(dim, skipna=True)
     wave = wave.assign_coords(source_variance=source_variance)
-    power = (xr.apply_ufunc(np.abs, wave) ** 2).rename("power")
+    power = (xr.apply_ufunc(np.abs, wave, dask="allowed") ** 2).rename("power")
     power.attrs.update(wave.attrs)
     power_rect = (
         power / xr.DataArray(scale, dims=("scale",), coords={"scale": scale})

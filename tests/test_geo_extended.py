@@ -123,6 +123,32 @@ def test_fillnan_spatial_fills_interior_nans():
     assert np.isfinite(filled.values).all()
 
 
+@pytest.mark.dask
+def test_fillnan_spatial_preserves_chunked_backend(array_backend, maybe_chunk):
+    lat = np.linspace(0.0, 1.0, 7)
+    lon = np.linspace(0.0, 1.0, 7)
+    vals = np.add.outer(lat, lon).astype(float)
+    vals[3, 3] = np.nan
+    eager = xr.concat(
+        [
+            xr.DataArray(vals, dims=("lat", "lon"), coords={"lat": lat, "lon": lon}),
+            xr.DataArray(
+                vals + 1.0, dims=("lat", "lon"), coords={"lat": lat, "lon": lon}
+            ),
+        ],
+        dim=xr.IndexVariable("time", [0, 1]),
+    )
+    da = maybe_chunk(eager, array_backend, {"time": 1, "lat": -1, "lon": -1})
+    expected = fillnan_spatial(eager, method="linear")
+
+    filled = fillnan_spatial(da, method="linear")
+
+    if array_backend == "dask":
+        assert filled.chunks is not None
+        filled = filled.compute()
+    xr.testing.assert_allclose(filled, expected)
+
+
 def test_fillnan_rbf_preserves_finite_values():
     """Regression: the RBF filler must only patch NaNs, not overwrite
     valid observations."""
@@ -141,6 +167,34 @@ def test_fillnan_rbf_preserves_finite_values():
     np.testing.assert_array_equal(filled.values[preserved], original[preserved])
     # And the masked-out cell is now finite.
     assert np.isfinite(filled.isel(lat=2, lon=3).values)
+
+
+@pytest.mark.dask
+def test_fillnan_rbf_preserves_chunked_backend(array_backend, maybe_chunk):
+    from xrtoolz.interpolate import fillnan_rbf
+
+    lat = np.linspace(0.0, 1.0, 6)
+    lon = np.linspace(0.0, 1.0, 6)
+    vals = np.add.outer(lat, lon).astype(float)
+    vals[2, 3] = np.nan
+    eager = xr.concat(
+        [
+            xr.DataArray(vals, dims=("lat", "lon"), coords={"lat": lat, "lon": lon}),
+            xr.DataArray(
+                vals + 0.5, dims=("lat", "lon"), coords={"lat": lat, "lon": lon}
+            ),
+        ],
+        dim=xr.IndexVariable("time", [0, 1]),
+    )
+    da = maybe_chunk(eager, array_backend, {"time": 1, "lat": -1, "lon": -1})
+    expected = fillnan_rbf(eager)
+
+    filled = fillnan_rbf(da)
+
+    if array_backend == "dask":
+        assert filled.chunks is not None
+        filled = filled.compute()
+    xr.testing.assert_allclose(filled, expected)
 
 
 def test_fillnan_temporal_uses_xarray_native():
@@ -349,6 +403,24 @@ def test_pp_stats_supports_gridded_input(ds_grid_daily):
     assert stats.sizes["time"] == ds_grid_daily.sizes["time"] // 30
     # At least one grid cell has exceedances across all blocks.
     assert np.any(np.isfinite(stats.values))
+
+
+@pytest.mark.dask
+def test_point_process_counts_preserves_chunked_backend(
+    ds_grid_daily, array_backend, maybe_chunk
+):
+    eager = ds_grid_daily["ssh"].isel(
+        time=slice(0, 60), lat=slice(0, 3), lon=slice(0, 4)
+    )
+    da = maybe_chunk(eager, array_backend, {"time": 30, "lat": -1, "lon": -1})
+    expected = pp_counts(eager, quantile=0.9, block_size=10)
+
+    counts = pp_counts(da, quantile=0.9, block_size=10)
+
+    if array_backend == "dask":
+        assert counts.chunks is not None
+        counts = counts.compute()
+    xr.testing.assert_allclose(counts, expected)
 
 
 # ============== discretize =================================================

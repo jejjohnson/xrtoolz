@@ -132,6 +132,24 @@ def test_fillnan_laplacian_fills_each_leading_slice_independently() -> None:
     xr.testing.assert_allclose(filled, stacked, atol=1e-6)
 
 
+@pytest.mark.dask
+def test_fillnan_laplacian_preserves_chunked_backend(
+    array_backend, maybe_chunk
+) -> None:
+    base = _harmonic_da().isel(lat=slice(8, 13), lon=slice(10, 15))
+    eager = xr.concat([base, base + 10.0], dim=xr.IndexVariable("time", [0, 1]))
+    masked = eager.copy()
+    masked.values[:, 2, 2] = np.nan
+    da = maybe_chunk(masked, array_backend, {"time": 1, "lat": -1, "lon": -1})
+
+    filled = fillnan_laplacian(da, max_iter=1000, tol=1e-8)
+
+    if array_backend == "dask":
+        assert filled.chunks is not None
+        filled = filled.compute()
+    xr.testing.assert_allclose(filled, eager, atol=1e-6)
+
+
 def test_fillnan_laplacian_operator_round_trips_and_skips_non_spatial_vars() -> None:
     da = _harmonic_da()
     masked = da.copy()
