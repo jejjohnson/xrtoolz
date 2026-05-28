@@ -57,14 +57,14 @@ def dm_test(
         raise ValueError("alternative must be 'two-sided', 'less', or 'greater'.")
 
     if dim is None:
-        if errors_a.shape != errors_b.shape:
-            raise ValueError(
-                f"errors_a and errors_b must have matching shapes; got "
-                f"{errors_a.shape} and {errors_b.shape}."
-            )
+        # Flatten everything to a single paired sequence. Align first so
+        # mismatched coordinate labels or dimension orders are caught (or
+        # reconciled) by xarray rather than silently paired positionally.
+        aligned_a, aligned_b = xr.align(errors_a, errors_b, join="exact")
+        aligned_b = aligned_b.transpose(*aligned_a.dims)
         stat, p_value = _dm_stat_pvalue(
-            errors_a.values,
-            errors_b.values,
+            aligned_a.values,
+            aligned_b.values,
             h=h,
             alternative=alternative,
             power=power,
@@ -80,6 +80,9 @@ def dm_test(
         input_core_dims=[core, core],
         output_core_dims=[[], []],
         vectorize=True,
+        dask="parallelized",
+        output_dtypes=[float, float],
+        dask_gufunc_kwargs={"allow_rechunk": True},
         kwargs={
             "h": h,
             "alternative": alternative,
