@@ -8,6 +8,7 @@ import matplotlib
 matplotlib.use("Agg")
 
 import cartopy.crs as ccrs
+import matplotlib.colors as mcolors
 import matplotlib.pyplot as plt
 import numpy as np
 import pytest
@@ -32,7 +33,7 @@ from xrtoolz.types._src.variable import (
     Variable,
 )
 from xrtoolz.viz import PRESETS, cmap_for, make_axes
-from xrtoolz.viz.validation import SpatialMapPanel
+from xrtoolz.viz.validation import HovmollerPanel, SpatialMapPanel
 
 
 # ---------- Variable.cmap registry -----------------------------------------
@@ -214,3 +215,30 @@ def test_panel_get_config_round_trip():
     assert cfg["var"] == "sst"
     assert cfg["projection"] == "north_atlantic"
     assert cfg["cbar_label"] == "K"
+
+
+# ---------- HovmollerPanel -------------------------------------------------
+
+
+def test_hovmoller_panel_renders_time_lat_section():
+    fig = HovmollerPanel(var="ssh")(_ssh_snapshot())
+    ax = fig.axes[0]
+    assert "time" in ax.get_xlabel().lower()
+    assert "lat" in ax.get_ylabel().lower()
+    plt.close(fig)
+
+
+def test_hovmoller_panel_log_norm_positive_data():
+    da = np.abs(_ssh_snapshot()) + 1.0
+    fig = HovmollerPanel(var="ssh", norm="log")(da)
+    assert fig.axes[0].collections
+    qm = fig.axes[0].collections[0]
+    assert isinstance(qm.norm, mcolors.LogNorm)
+    plt.close(fig)
+
+
+def test_hovmoller_panel_log_norm_masks_non_positive_data():
+    fig = HovmollerPanel(var="ssh", norm="log")(_ssh_snapshot())
+    qm = fig.axes[0].collections[0]
+    assert np.ma.is_masked(qm.get_array())
+    plt.close(fig)
