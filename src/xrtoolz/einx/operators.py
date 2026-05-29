@@ -33,6 +33,28 @@ def _as_sigs(
     return tuple(input_signature)
 
 
+def _coords_config(coords: Mapping[str, Any] | None) -> dict[str, Any] | None:
+    """JSON-safe, round-trippable form of a ``coords`` mapping.
+
+    Array-like coord values are converted to plain lists so the config
+    survives ``json.dumps`` and ``cls(**get_config())`` reconstructs an
+    equivalent operator (xarray accepts list coords).
+    """
+    if coords is None:
+        return None
+    import numpy as np
+
+    out: dict[str, Any] = {}
+    for name, value in coords.items():
+        if isinstance(value, np.ndarray):
+            out[name] = value.tolist()
+        elif hasattr(value, "values"):
+            out[name] = np.asarray(value.values).tolist()
+        else:
+            out[name] = value
+    return out
+
+
 class Einsum(Operator):
     """Layer-1 wrapper around :func:`xrtoolz.einx.einsum` (variadic)."""
 
@@ -59,7 +81,11 @@ class Einsum(Operator):
         )
 
     def get_config(self) -> dict[str, Any]:
-        return {"pattern": self.pattern, "align": self.align, **self.shape_kwargs}
+        cfg: dict[str, Any] = {"pattern": self.pattern, "align": self.align}
+        cfg.update(self.shape_kwargs)
+        if self.coords is not None:
+            cfg["coords"] = _coords_config(self.coords)
+        return cfg
 
     def __repr__(self) -> str:
         return f"Einsum({self.pattern!r})"
@@ -90,7 +116,11 @@ class Rearrange(Operator):
         return rearrange(self.pattern, da, coords=self.coords, **self.shape_kwargs)
 
     def get_config(self) -> dict[str, Any]:
-        return {"pattern": self.pattern, **self.shape_kwargs}
+        cfg: dict[str, Any] = {"pattern": self.pattern}
+        cfg.update(self.shape_kwargs)
+        if self.coords is not None:
+            cfg["coords"] = _coords_config(self.coords)
+        return cfg
 
     def __repr__(self) -> str:
         return f"Rearrange({self.pattern!r})"
@@ -157,7 +187,11 @@ class Repeat(Operator):
         return repeat(self.pattern, da, coords=self.coords, **self.shape_kwargs)
 
     def get_config(self) -> dict[str, Any]:
-        return {"pattern": self.pattern, **self.shape_kwargs}
+        cfg: dict[str, Any] = {"pattern": self.pattern}
+        cfg.update(self.shape_kwargs)
+        if self.coords is not None:
+            cfg["coords"] = _coords_config(self.coords)
+        return cfg
 
     def __repr__(self) -> str:
         return f"Repeat({self.pattern!r})"

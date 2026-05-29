@@ -51,3 +51,16 @@ def test_unpack_requires_dim() -> None:
     da = xr.DataArray(np.ones((2, 2)), dims=("lat", "lon"))
     with pytest.raises(ValueError, match="not on input"):
         xnx.unpack_dataset(da)
+
+
+def test_pack_rejects_mismatched_dims() -> None:
+    # Variables in one Dataset share dim-coords, but may differ in *which*
+    # dims they carry; packing those would misalign under outer join.
+    ds = xr.Dataset(
+        {
+            "u": (("lat", "lon"), np.ones((2, 3))),
+            "v": (("lat",), np.ones(2)),
+        }
+    )
+    with pytest.raises(ValueError, match="share dims"):
+        xnx.pack_dataset(ds)

@@ -93,7 +93,25 @@ def test_compute_output_signature_reduce() -> None:
     assert dict(out.dims) == {"lat": 2, "lon": 3}
 
 
-def test_compute_output_signature_matmul() -> None:
+def test_config_round_trips_coords() -> None:
+    """coords passed to __init__ must survive get_config (JSON-safe) and
+    cls(**get_config()) must reproduce the operator."""
+    op = Repeat("lat lon -> month lat lon", month=3, coords={"month": [1, 2, 3]})
+    cfg = op.get_config()
+    assert json.loads(json.dumps(cfg)) == cfg
+    assert cfg["coords"] == {"month": [1, 2, 3]}
+
+    mask = xr.DataArray(np.ones((2, 3)), dims=("lat", "lon"))
+    rebuilt = Repeat(**cfg)
+    xr.testing.assert_identical(rebuilt(mask), op(mask))
+
+
+def test_config_round_trips_numpy_coords() -> None:
+    """numpy-array coord values are serialized to lists for JSON safety."""
+    op = Repeat("lat lon -> month lat lon", month=2, coords={"month": np.array([5, 6])})
+    cfg = op.get_config()
+    assert cfg["coords"] == {"month": [5, 6]}
+    assert json.loads(json.dumps(cfg)) == cfg
     op = Matmul(dim="k")
     sigs = (
         Signature({"time": 3, "k": 2}),

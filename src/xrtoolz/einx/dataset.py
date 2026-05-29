@@ -46,12 +46,20 @@ def pack_dataset(
     if not names:
         raise ValueError("pack_dataset: no variables to stack.")
     arrays = [ds[name] for name in names]
+    first_dims = tuple(arrays[0].dims)
     for name, arr in zip(names, arrays, strict=True):
         if new_dim in arr.dims:
             raise ValueError(
                 f"pack_dataset: new_dim {new_dim!r} already a dim of {name!r}."
             )
-    stacked = xr.concat(arrays, dim=new_dim)
+        if tuple(arr.dims) != first_dims:
+            raise ValueError(
+                f"pack_dataset: variable {name!r} has dims {tuple(arr.dims)} but "
+                f"{names[0]!r} has {first_dims}; all variables must share dims."
+            )
+    # join="exact" rejects misaligned coords rather than silently NaN-filling
+    # an outer-joined union grid, keeping pack/unpack lossless.
+    stacked = xr.concat(arrays, dim=new_dim, join="exact")
     return stacked.assign_coords({new_dim: np.array(names)})
 
 
