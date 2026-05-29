@@ -60,8 +60,8 @@ def mask_iou_matrix(
     n_p, n_r = pred.shape[0], ref.shape[0]
     if n_p == 0 or n_r == 0:
         return np.zeros((n_p, n_r), dtype=np.float64)
-    flat_pred = einx.rearrange("n h w -> n (h w)", pred).astype(np.int64)
-    flat_ref = einx.rearrange("n h w -> n (h w)", ref).astype(np.int64)
+    flat_pred = einx.id("n h w -> n (h w)", pred).astype(np.int64)
+    flat_ref = einx.id("n h w -> n (h w)", ref).astype(np.int64)
     # ``inter[i, j] = sum(pred_i AND ref_j)`` computed via boolean matmul
     # over int64 (named: contract the flattened-pixel axis). For typical
     # N ~ 1e2-1e3 and HW ~ 1e6 this is the cheap path.

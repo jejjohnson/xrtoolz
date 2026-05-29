@@ -112,8 +112,8 @@ def energy_distance(
     arr_b = da_b.transpose(sample_dim_b, ...).values  # (m, *rest)
     rest_shape = arr_a.shape[1:]
 
-    a_flat = einx.rearrange("n ... -> n (...)", arr_a)  # (n, K)
-    b_flat = einx.rearrange("n ... -> n (...)", arr_b)  # (m, K)
+    a_flat = einx.id("n ... -> n (...)", arr_a)  # (n, K)
+    b_flat = einx.id("n ... -> n (...)", arr_b)  # (m, K)
 
     # Per-pixel energy distance via scipy: O(n+m) per pixel rather than
     # O((n+m)^2), and uses the unbiased self-distance estimator (excludes
@@ -168,8 +168,8 @@ def wasserstein_1(
     arr_a = da_a.transpose(sample_dim_a, ...).values
     arr_b = da_b.transpose(sample_dim_b, ...).values
     rest_shape = arr_a.shape[1:]
-    a_flat = einx.rearrange("n ... -> n (...)", arr_a)
-    b_flat = einx.rearrange("n ... -> n (...)", arr_b)
+    a_flat = einx.id("n ... -> n (...)", arr_a)
+    b_flat = einx.id("n ... -> n (...)", arr_b)
 
     out_flat = np.array(
         [
