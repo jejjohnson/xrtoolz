@@ -56,7 +56,7 @@ dependencies = [
     # xrreader's core is light (numpy/pandas/xarray) and its heavy service
     # clients are optional extras, so this stays a lightweight dependency.
     # See [tool.uv.sources] below for the dev-time source.
-    "xrreader>=0.0.1",
+    "xrreader>=0.0.2",
 ]
 
 [project.optional-dependencies]
@@ -125,10 +125,9 @@ build-backend = "hatchling.build"
 # carries the PyPI-flavoured `pipekit` requirement from `dependencies`
 # above.
 pipekit = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit" }
-# Dev-time source for `xrreader`. Pinned to the migration branch until the
-# xrreader migration PR (jejjohnson/xrreader#7) merges to main; repoint to
-# the default branch / PyPI release once it lands.
-xrreader = { git = "https://github.com/jejjohnson/xrreader", branch = "claude/xrtoolz-xrreader-migration-bDUlA" }
+# Dev-time source for `xrreader`: pull the published GitHub release tag
+# until xrreader lands on PyPI. Bump the tag on each xrreader release.
+xrreader = { git = "https://github.com/jejjohnson/xrreader", tag = "v0.0.2" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/xrtoolz"]

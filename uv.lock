@@ -3211,8 +3211,8 @@ wheels = [
 
 [[package]]
 name = "xrreader"
-version = "0.0.1"
-source = { git = "https://github.com/jejjohnson/xrreader?branch=claude%2Fxrtoolz-xrreader-migration-bDUlA#f41f2b6b686242fd981503645fb7e7f1b919d802" }
+version = "0.0.2"
+source = { git = "https://github.com/jejjohnson/xrreader?tag=v0.0.2#358c69ef2bb52399e41d678d26726d1216dbc25a" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
@@ -3299,7 +3299,7 @@ requires-dist = [
     { name = "scipy", specifier = ">=1.12" },
     { name = "xarray", specifier = ">=2024.10" },
     { name = "xrft", specifier = ">=1.0" },
-    { name = "xrreader", git = "https://github.com/jejjohnson/xrreader?branch=claude%2Fxrtoolz-xrreader-migration-bDUlA" },
+    { name = "xrreader", git = "https://github.com/jejjohnson/xrreader?tag=v0.0.2" },
     { name = "xskillscore", specifier = ">=0.0.26" },
 ]
 provides-extras = ["wavelets", "image"]
