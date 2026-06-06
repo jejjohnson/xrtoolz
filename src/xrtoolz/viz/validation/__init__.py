@@ -13,10 +13,12 @@ Shipped:
 - :class:`ProcessBudgetPanel` — V4 budget term breakdown.
 - :class:`EventVerificationPanel` — V5 event match overlay +
   contingency stats.
+- :class:`HovmollerPanel` — time × spatial-axis field cross-sections.
 """
 
 from xrtoolz.viz.validation._src.budgets import ProcessBudgetPanel
 from xrtoolz.viz.validation._src.events import EventVerificationPanel
+from xrtoolz.viz.validation._src.hovmoller import HovmollerPanel
 from xrtoolz.viz.validation._src.lagrangian import EulerianLagrangianPanel
 from xrtoolz.viz.validation._src.palette import method_palette
 from xrtoolz.viz.validation._src.psd import (
@@ -38,6 +40,7 @@ from xrtoolz.viz.validation._src.spatial import SpatialMapPanel
 __all__ = [
     "EulerianLagrangianPanel",
     "EventVerificationPanel",
+    "HovmollerPanel",
     "LeadTimeSkillPanel",
     "PSDIsotropicPanel",
     "PSDIsotropicScorePanel",

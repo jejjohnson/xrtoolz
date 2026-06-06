@@ -41,6 +41,8 @@ from [`xrtoolz.transforms.rotary_spectrum`](metrics.md).
 
 ::: xrtoolz.viz.validation.SpatialMapPanel
 
+::: xrtoolz.viz.validation.HovmollerPanel
+
 ### Cartopy presets
 
 The `projection` kwarg of `SpatialMapPanel` accepts preset names from
