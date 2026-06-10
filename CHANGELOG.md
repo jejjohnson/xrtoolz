@@ -28,6 +28,13 @@
 
 * `xrtoolz.geo.{cyclical_encode, fourier_features, positional_encoding, random_fourier_features, lat_90_to_180, lat_180_to_90, lon_180_to_360, lon_360_to_180, encode_time_cyclical, encode_time_ordinal, time_rescale, time_unrescale}` — moved to `xrtoolz.transforms.encoders` (D8). The legacy paths still resolve via PEP-562 with a `DeprecationWarning` for one release; removal scheduled for the next minor.
 
+## [0.1.1](https://github.com/jejjohnson/xrtoolz/compare/v0.1.0...v0.1.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **interpolate:** make gap-fill operators dask-lazy ([#240](https://github.com/jejjohnson/xrtoolz/issues/240)) ([b7a1212](https://github.com/jejjohnson/xrtoolz/commit/b7a12125858f4b4194a97bbef3fc4c398a33229a))
+
 ## [0.1.0](https://github.com/jejjohnson/xrtoolz/compare/v0.0.8...v0.1.0) (2026-06-10)
 
 
