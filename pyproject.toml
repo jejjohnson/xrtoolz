@@ -153,10 +153,12 @@ ignore = [
     # ambiguous-character warnings that would force us to ASCII-ify
     # every equation.
     "RUF002", "RUF003",
-    # jaxtyping shape strings (e.g. Float[np.ndarray, "*shape"]) are
-    # parsed by pyflakes as forward annotations and trip F722 on the
-    # variadic "*" axis. This is the jaxtyping-recommended config.
-    "F722",
+    # jaxtyping shape strings (e.g. Float[np.ndarray, "lat lon"]) are read
+    # by pyflakes/pyupgrade as forward-ref annotations, so the named axes
+    # trip F722 (multi-axis "syntax error"), F821 (undefined axis name),
+    # and UP037 (would strip the required quotes). This is the jaxtyping-
+    # recommended config; `ty` remains the undefined-name safety net.
+    "F722", "F821", "UP037",
 ]
 
 [tool.ruff.lint.isort]
