@@ -1,6 +1,6 @@
 [project]
 name = "xrtoolz"
-version = "0.0.8"
+version = "0.1.0"
 description = "Composable operator library for geoprocessing Earth System Data Cubes."
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
@@ -54,31 +54,16 @@ dependencies = [
     # `pipekit.Operator`; the dependency is load-bearing. See
     # [tool.uv.sources] below for the dev-time source.
     "pipekit>=0.0.1",
+    # The data-acquisition layer (CMEMS/CDS/AEMET readers) and the shared
+    # typed request vocabulary + CF Variable registry moved to `xrreader`.
+    # `xrtoolz.geo` / `xrtoolz.viz` import the registry from `xrreader.types`;
+    # xrreader's core is light (numpy/pandas/xarray) and its heavy service
+    # clients are optional extras, so this stays a lightweight dependency.
+    # See [tool.uv.sources] below for the dev-time source.
+    "xrreader>=0.0.2",
 ]
 
 [project.optional-dependencies]
-# ``pip install xrtoolz[aemet]`` — runtime deps for the AEMET adapter
-# and the GeoParquet-backed archive. ``xrtoolz.data.AemetSource`` and
-# ``xrtoolz.data.AemetArchive`` import these lazily and surface a
-# pointer to this extra in their ImportError messages.
-aemet = [
-    "httpx>=0.28.1",
-    "geopandas>=1.1.3",
-    "pyarrow>=24.0.0",
-    "loguru>=0.7.3",
-]
-
-# ``pip install xrtoolz[cds-insitu]`` — runtime deps for the CDS
-# in-situ surface-land / surface-marine adapters + GeoParquet archive.
-# ``xrtoolz.data.CDSSource`` falls back to no-extras usage for the
-# gridded reanalysis datasets (cdsapi only).
-cds-insitu = [
-    "cdsapi>=0.7",
-    "geopandas>=1.1.3",
-    "pyarrow>=24.0.0",
-    "loguru>=0.7.3",
-]
-
 # ``pip install xrtoolz[wavelets]`` — PyWavelets backend for the
 # continuous + discrete wavelet transforms in
 # :mod:`xrtoolz.transforms.wavelet`. Imported lazily; missing the extra
@@ -144,6 +129,9 @@ build-backend = "hatchling.build"
 # carries the PyPI-flavoured `pipekit` requirement from `dependencies`
 # above.
 pipekit = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit" }
+# Dev-time source for `xrreader`: pull the published GitHub release tag
+# until xrreader lands on PyPI. Bump the tag on each xrreader release.
+xrreader = { git = "https://github.com/jejjohnson/xrreader", tag = "v0.0.2" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/xrtoolz"]
