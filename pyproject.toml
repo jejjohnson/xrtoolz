@@ -23,6 +23,10 @@ classifiers = [
 ]
 dependencies = [
     "numpy>=1.26",
+    # Lazy/chunked xarray backend. Operators stay lazy where their kernel is
+    # naturally per-chunk; the rest accept dask input and materialise
+    # internally. See the Dask page in the docs for the per-operator tiers.
+    "dask[array]>=2024.10",
     # Shape-and-dtype annotations for the numpy kernels (Layer 0). Used as
     # documentation/static types only — no runtime enforcement — so it adds
     # negligible weight. See docs/design/conventions/array-typing.md.
@@ -181,6 +185,9 @@ unresolved-attribute = "warn"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "--cov=src/xrtoolz --cov-report=term-missing --cov-report=xml:coverage.xml"
+markers = [
+    "dask: exercises dask-backed (chunked) xarray inputs",
+]
 
 [tool.coverage.run]
 source = ["src/xrtoolz"]

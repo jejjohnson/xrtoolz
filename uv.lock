@@ -3246,6 +3246,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "cartopy" },
+    { name = "dask", extra = ["array"] },
     { name = "einx" },
     { name = "finitediffx" },
     { name = "jaxtyping" },
@@ -3305,6 +3306,7 @@ typecheck = [
 [package.metadata]
 requires-dist = [
     { name = "cartopy", specifier = ">=0.22" },
+    { name = "dask", extras = ["array"], specifier = ">=2024.10" },
     { name = "einx", specifier = ">=0.4" },
     { name = "finitediffx", specifier = ">=0.1.0" },
     { name = "jaxtyping", specifier = ">=0.2.34" },
