@@ -34,8 +34,21 @@ plugins:
           paths: [src]
           options:
             docstring_style: google
+            docstring_section_style: table
+            docstring_options:
+              warn_unknown_params: false
+            merge_init_into_class: true
             show_source: true
             show_root_heading: true
+            show_root_full_path: false
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            members_order: source
+            filters: ["!^_"]
+            heading_level: 3
   - mkdocs-jupyter:
       execute: false
       ignore_h1_titles: true
@@ -83,35 +96,51 @@ nav:
           - Structural Summaries: notebooks/sequential_summary_demo.ipynb
           - Sklearn patch-wise Recipe: notebooks/sklearn_patchwise_recipe.ipynb
           - NaN-aware Smoothing: notebooks/nan_aware_smoothing.ipynb
+          - Inference with ModelOp: notebooks/inference_modelop_demo.ipynb
+      - Ocean:
+          - Kinematics — GLORYS vs DUACS: notebooks/ocean_kinematics_glorys_duacs.ipynb
+          - Along-track SSH: notebooks/ocean_alongtrack_ssh.ipynb
+          - Stratification — GLORYS 3D: notebooks/ocean_stratification_glorys.ipynb
+      - Gridding & Binning:
+          - SST — Binning L3 onto a Grid: notebooks/cmems_sst_products.ipynb
+          - SSS — Binning L3 onto a Grid: notebooks/cmems_sss_products.ipynb
+          - SSH — Binning Along-track: notebooks/cmems_ssh_products.ipynb
+          - Ocean Colour — Binning: notebooks/cmems_oc_products.ipynb
       - Validation:
           - V1 — Scales of Evaluation: notebooks/validation_v1_scales.ipynb
           - V1.5 — PSD Plots & Resolved Scale: notebooks/validation_v1_psd_plots.ipynb
           - V2 — Data Representation: notebooks/validation_v2_data_representation.ipynb
           - V4 — Process Evaluation: notebooks/validation_v4_process.ipynb
           - V6 — Capstone: notebooks/validation_v6_capstone.ipynb
-      - Ocean:
-          - Kinematics — GLORYS vs DUACS: notebooks/ocean_kinematics_glorys_duacs.ipynb
-          - Along-track SSH: notebooks/ocean_alongtrack_ssh.ipynb
-          - Stratification — GLORYS 3D: notebooks/ocean_stratification_glorys.ipynb
-      - Data — CMEMS:
-          - SST Products: notebooks/cmems_sst_products.ipynb
-          - SSS Products: notebooks/cmems_sss_products.ipynb
-          - SSH Products: notebooks/cmems_ssh_products.ipynb
-          - Ocean Colour: notebooks/cmems_oc_products.ipynb
-      - Data — CDS In-situ:
-          - Surface Land: notebooks/cds_insitu_land_demo.ipynb
-          - Surface Marine: notebooks/cds_insitu_marine_demo.ipynb
-      - Data — AEMET:
-          - Smoke Demo: notebooks/aemet_smoke.ipynb
-          - Comunidad Valenciana: notebooks/aemet_valencia.ipynb
-          - National Climatology: notebooks/aemet_national.ipynb
   - API Reference:
-      - Overview: api/reference.md
-      - Core: api/core.md
-      - Metrics: api/metrics.md
-      - Validation Panels: api/validation.md
+      - Overview: api/index.md
+      - Composition: api/composition.md
+      - Geoprocessing:
+          - Validation & Coordinates: api/geo/coords.md
+          - Subsetting, Regions & Masks: api/geo/subset.md
+          - CRS & Reprojection: api/geo/crs.md
+          - Climatology & Anomalies: api/geo/climatology.md
+          - Wavelet Analysis: api/geo/wavelet.md
+          - Extremes: api/geo/extremes.md
+      - Numerics:
+          - Calculus: api/calc.md
+          - Transforms: api/transforms.md
+          - Encoders: api/encoders.md
+          - Interpolation: api/interpolate.md
+      - Domain Physics:
+          - Oceanography: api/ocn.md
+          - Atmosphere: api/atm.md
+          - Remote Sensing: api/rs.md
+      - Diagnostics:
+          - Metrics: api/metrics.md
+          - Budgets: api/budgets.md
+      - Bridges & Integration:
+          - Named-tensor Algebra (einx): api/einx.md
+          - Inference: api/inference.md
+          - Visualization: api/viz.md
+          - Utilities: api/utils.md
   - Contributing: contributing.md
-  - Changelog: CHANGELOG.md
+  - Changelog: changelog.md
 
 markdown_extensions:
   - admonition
@@ -120,8 +149,14 @@ markdown_extensions:
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: ["."]
+      check_paths: true
   - pymdownx.tabbed:
       alternate_style: true
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.details
   - attr_list
   - md_in_html
