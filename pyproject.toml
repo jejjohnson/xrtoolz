@@ -184,9 +184,14 @@ unresolved-attribute = "warn"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=src/xrtoolz --cov-report=term-missing --cov-report=xml:coverage.xml"
+addopts = "--cov=src/xrtoolz --cov-report=term-missing --cov-report=xml:coverage.xml --strict-markers"
+# Tier markers. The default CI run excludes `slow` and `integration`
+# (see .github/workflows/ci.yml); the extended tiers run manually via
+# the "Extended Tests" workflow_dispatch workflow or `make test-slow`.
 markers = [
     "dask: exercises dask-backed (chunked) xarray inputs",
+    "slow: long-running tests (subprocess isolation checks, heavy optional deps) — excluded from the default CI run",
+    "integration: tests that touch external services or real remote data — run manually, never in automatic CI",
 ]
 
 [tool.coverage.run]

@@ -30,18 +30,18 @@ xarray-specific operator families on top.
 import xrtoolz
 from xrtoolz import Sequential
 from xrtoolz.geo import RemoveMean
-from xrtoolz.ocn.operators import Streamfunction, GeostrophicVelocities
+from xrtoolz.ocn import Streamfunction, GeostrophicVelocities
 from xrtoolz.viz.validation import SpatialMapPanel
 
 # Geostrophic surface currents from sea-surface height, as one pipeline
 pipeline = Sequential(
-    RemoveMean(var="ssh"),       # de-mean the SSH field
+    RemoveMean(dim=("lat", "lon")),  # subtract the spatial mean
     Streamfunction(),            # ψ = g·η / f
     GeostrophicVelocities(),     # (u_g, v_g) from ψ
 )
 
 currents = pipeline(ds)          # xr.Dataset in → xr.Dataset out
-fig = SpatialMapPanel(var="u")(currents)
+fig = SpatialMapPanel(variable="u")(currents)
 ```
 
 Need branching or shared intermediates? Wire the *same* operators as a DAG
