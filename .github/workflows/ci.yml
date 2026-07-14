@@ -23,7 +23,9 @@ jobs:
       - name: Install dependencies
         run: uv sync --group dev --extra image
       - name: Run tests with coverage
-        run: uv run pytest -v
+        # Fast tier only. The `slow` and `integration` tiers run manually
+        # via the "Extended Tests" workflow (tests-extended.yml).
+        run: uv run pytest -v -m "not slow and not integration"
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7
