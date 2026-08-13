@@ -5,7 +5,7 @@ description = "Labeled named-tensor algebra bridging xarray and einx — einsum/
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
-license = { file = "../../LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["xarray", "einx", "einsum", "named-tensors", "operators"]
 requires-python = ">=3.12"

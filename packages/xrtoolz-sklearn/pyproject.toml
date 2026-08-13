@@ -5,7 +5,7 @@ description = "scikit-learn ↔ xarray bridge — XarrayEstimator, the .sklearn 
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
-license = { file = "../../LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["xarray", "scikit-learn", "estimator", "operators", "pipelines"]
 requires-python = ">=3.12"

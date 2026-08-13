@@ -5,7 +5,7 @@ description = "xarray-aware Operator base (DataTree dispatch) and Signature shap
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
-license = { file = "../../LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["xarray", "operators", "pipelines", "datatree"]
 requires-python = ">=3.12"

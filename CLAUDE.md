@@ -16,7 +16,7 @@ The packages (distribution name → import name):
 | `xrtoolz-einx` | `xreinx` | xarray ↔ einx named-tensor bridge (functions + Operators; einx loads lazily) |
 | `xrtoolz-sklearn` | `xrsklearn` | scikit-learn ↔ xarray bridge (`XarrayEstimator`, `.sklearn` accessors, `SklearnOp`) |
 
-`xrtoolz` depends on the other four, so `pip install xrtoolz` behaves exactly as the pre-split package (minus JAX). Deprecation shims keep `xrtoolz.calc` / `xrtoolz.einx` / `xrtoolz.signature` / `xrtoolz.utils.XarrayEstimator` / `xrtoolz.transforms.SklearnOp` importable through 0.x; new code imports `xrgrad` / `xreinx` / `xrcore` / `xrsklearn` directly.
+`xrtoolz` depends on the other four, so `pip install xrtoolz` behaves exactly as the pre-split package. Deprecation shims keep `xrtoolz.calc` / `xrtoolz.einx` / `xrtoolz.signature` / `xrtoolz.utils.XarrayEstimator` / `xrtoolz.transforms.SklearnOp` importable through 0.x; new code imports `xrgrad` / `xreinx` / `xrcore` / `xrsklearn` directly.
 
 ## Architecture
 
@@ -85,7 +85,7 @@ Design rules:
 | `xskillscore` | Verification metrics |
 | `einx` | Named-tensor backend for the einx-based kernels still in this package (`transforms.encoders.basis`, `metrics.instance`, `metrics.distributional`); the bridge itself is `xreinx` |
 
-JAX, PyTorch, sklearn models are **not** transitive dependencies of `xrtoolz` itself — `ModelOp` uses duck typing so the user installs only what they need. The finitediffx/JAX stack rides exclusively in `xrtoolz-grad`.
+The finitediffx/JAX stack rides exclusively in `xrtoolz-grad`, so it still reaches a full `xrtoolz` install transitively (ocn/budgets/metrics call `xrgrad` eagerly) — but the scoped packages (`xrtoolz-core`, `xrtoolz-einx`, `xrtoolz-sklearn`) install without it, and making `xrtoolz-grad` optional later is now a packaging decision, not a refactor. PyTorch and sklearn *models* remain non-dependencies — `ModelOp` uses duck typing so the user installs only what they need.
 
 ## Common Commands
 

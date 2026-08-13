@@ -5,7 +5,7 @@ description = "Composable operator library for geoprocessing Earth System Data C
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
-license = { file = "../../LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["xarray", "earth-science", "geoprocessing", "climate", "oceanography"]
 requires-python = ">=3.12"

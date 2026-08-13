@@ -40,6 +40,15 @@ def test_einx_shim_warns_and_reexports() -> None:
     assert shim.Einsum is xreinx.Einsum
 
 
+def test_einx_shim_keeps_public_submodule_paths() -> None:
+    import xreinx
+    from xrtoolz.einx.dataset import pack_dataset
+    from xrtoolz.einx.operators import Einsum
+
+    assert pack_dataset is xreinx.pack_dataset
+    assert Einsum is xreinx.Einsum
+
+
 def test_core_and_sklearn_names_keep_resolving() -> None:
     import xrcore
     import xrsklearn

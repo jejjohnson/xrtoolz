@@ -5,7 +5,7 @@ description = "Finite-difference calculus on labeled xarray grids — gradient, 
 authors = [
     {name="J. Emmanuel Johnson", email="jemanjohnson34@gmail.com"},
 ]
-license = { file = "../../LICENSE" }
+license = { file = "LICENSE" }
 readme = "README.md"
 keywords = ["xarray", "finite-differences", "gradient", "vector-calculus", "earth-science"]
 requires-python = ">=3.12"

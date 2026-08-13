@@ -84,14 +84,28 @@ re-exported from `pipekit` at the top level.
 uv add xrtoolz
 ```
 
-`xrtoolz` depends on [`pipekit`](https://github.com/jejjohnson/pipekit) and
-[`xrreader`](https://github.com/jejjohnson/xrreader) (both pre-PyPI),
-resolved via `[tool.uv.sources]`. A plain `pip install git+https://…` will
-fail until those reach PyPI — use `uv`:
+The repository is a uv workspace; the installable distributions live
+under `packages/*` (the repo root itself ships no code). `xrtoolz`
+depends on its four workspace siblings plus
+[`pipekit`](https://github.com/jejjohnson/pipekit) and
+[`xrreader`](https://github.com/jejjohnson/xrreader) — all pre-PyPI —
+so a Git install must name each of them explicitly:
 
 ```bash
-uv pip install "git+https://github.com/jejjohnson/xrtoolz@main"
+uv pip install \
+  "xrtoolz @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz" \
+  "xrtoolz-core @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-core" \
+  "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
+  "xrtoolz-einx @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-einx" \
+  "xrtoolz-sklearn @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-sklearn" \
+  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \
+  "xrreader @ git+https://github.com/jejjohnson/xrreader@v0.0.2"
 ```
+
+For development, clone and let the workspace resolve everything instead
+(see below). A scoped package installs on its own — e.g.
+`"xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad"`
+needs nothing else from the stack.
 
 ### From source
 
