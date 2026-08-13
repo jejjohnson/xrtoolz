@@ -124,8 +124,23 @@ class BBox:
             )
         return [self.lat_max, self.lon_min, self.lat_min, self.lon_max]
 
-    def as_xarray_sel(self, lon: str = "lon", lat: str = "lat") -> dict[str, slice]:
+    def as_xarray_sel(
+        self,
+        lon: str = "lon",
+        lat: str = "lat",
+        lat_descending: bool = False,
+    ) -> dict[str, slice]:
         """``ds.sel(**bbox.as_xarray_sel())`` selector.
+
+        Args:
+            lon: Name of the longitude coordinate.
+            lat: Name of the latitude coordinate.
+            lat_descending: Set when the dataset's latitude index runs
+                north-to-south (ERA5 and most CDS reanalysis output do).
+                ``sel`` requires slice bounds in index order, so an
+                ascending ``slice(lat_min, lat_max)`` selects **zero**
+                points on such a grid. Infer it with
+                ``bool(ds[lat][0] > ds[lat][-1])``.
 
         Raises:
             ValueError: if the box crosses the antimeridian — a single
@@ -139,7 +154,12 @@ class BBox:
                 "represent the wrap. Split the box at ±180° and sel() "
                 "each half, or call .to_360() first."
             )
+        lat_slice = (
+            slice(self.lat_max, self.lat_min)
+            if lat_descending
+            else slice(self.lat_min, self.lat_max)
+        )
         return {
             lon: slice(self.lon_min, self.lon_max),
-            lat: slice(self.lat_min, self.lat_max),
+            lat: lat_slice,
         }

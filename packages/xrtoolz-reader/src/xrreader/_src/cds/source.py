@@ -66,7 +66,7 @@ class CDSSource(DataSource):
         except ImportError as exc:  # pragma: no cover - defensive
             raise ImportError(
                 "CDSSource requires the 'cdsapi' package. "
-                "Install with: pip install 'xrreader[cds]'"
+                "Install with: pip install 'xrtoolz-reader[cds]'"
             ) from exc
         kwargs: dict[str, str] = {}
         if self.credentials is not None:
@@ -189,7 +189,24 @@ class CDSSource(DataSource):
                 **extras,
             )
         engine = _engine_for_format(resolved_format)
-        ds = xr.open_dataset(path, engine=engine) if engine else xr.open_dataset(path)
+        try:
+            ds = (
+                xr.open_dataset(path, engine=engine)
+                if engine
+                else xr.open_dataset(path)
+            )
+        except (ImportError, ValueError) as exc:
+            # cfgrib is not in the `cds` extra — it drags in the ecCodes
+            # binaries and the CDS profiles default to NetCDF. Point at
+            # the extra that provides it rather than at xarray's
+            # "unrecognized engine" wording.
+            if engine == "cfgrib":
+                raise ImportError(
+                    f"Reading {resolved_format} output requires the 'cfgrib' "
+                    "backend (and the ecCodes binaries it wraps). Install "
+                    "with: pip install 'xrtoolz-reader[grib]'"
+                ) from exc
+            raise
         # CDS may over-fetch (year/month/day cartesian); trim to the window.
         return _trim_to_time(ds, time)
 

@@ -40,6 +40,7 @@ service client is an optional extra, imported lazily at first use:
 | `cds` | `cdsapi`, `netcdf4` | Climate Data Store gridded reanalysis (ERA5) — `CDSSource` |
 | `cds-insitu` | + `geopandas`, `pyarrow`, `loguru` | CDS in-situ surface-land / surface-marine + `CDSInsituArchive` |
 | `aemet` | `httpx`, `geopandas`, `pyarrow`, `loguru`, `netcdf4` | AEMET OpenData — `AemetSource`, `AemetArchive` |
+| `grib` | `cfgrib` | GRIB reader backend, for `CDSSource(format="grib")` |
 
 That light core is load-bearing for the workspace: `xrtoolz` depends on
 `xrtoolz-reader` for the shared typed request vocabulary and the CF `Variable`

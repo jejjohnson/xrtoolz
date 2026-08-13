@@ -143,11 +143,20 @@ def validate_variable(
     if check_range and var.valid_range is not None:
         lo, hi = var.valid_range
         finite_vals = da.where(np.isfinite(da))
-        # Scalarize the count so the `if` doesn't try to bool-check a
-        # DataArray (unambiguous on 0-d in practice, but brittle).
-        n_finite = int(finite_vals.count().item())
-        mn = float(finite_vals.min().values) if n_finite > 0 else None
-        mx = float(finite_vals.max().values) if n_finite > 0 else None
+        # Reduce once, eagerly. `.item()` is not implemented for dask
+        # arrays, and lazily opened reader output is routinely
+        # dask-backed, so compute the three reductions together rather
+        # than scalarizing a lazy 0-d DataArray.
+        counted, lo_val, hi_val = (
+            finite_vals.count(),
+            finite_vals.min(),
+            finite_vals.max(),
+        )
+        if counted.chunks is not None:  # dask-backed
+            counted, lo_val, hi_val = (v.compute() for v in (counted, lo_val, hi_val))
+        n_finite = int(counted.values)
+        mn = float(lo_val.values) if n_finite > 0 else None
+        mx = float(hi_val.values) if n_finite > 0 else None
         if mn is not None and (mn < lo or (mx is not None and mx > hi)):
             report.add(
                 Issue(

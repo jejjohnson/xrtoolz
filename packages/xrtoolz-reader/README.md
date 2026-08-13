@@ -1,13 +1,15 @@
-# xrreader
+# xrtoolz-reader
 
-[![Tests](https://github.com/jejjohnson/xrreader/actions/workflows/ci.yml/badge.svg)](https://github.com/jejjohnson/xrreader/actions/workflows/ci.yml)
-[![Lint](https://github.com/jejjohnson/xrreader/actions/workflows/lint.yml/badge.svg)](https://github.com/jejjohnson/xrreader/actions/workflows/lint.yml)
-[![Type Check](https://github.com/jejjohnson/xrreader/actions/workflows/typecheck.yml/badge.svg)](https://github.com/jejjohnson/xrreader/actions/workflows/typecheck.yml)
+[![Tests](https://github.com/jejjohnson/xrtoolz/actions/workflows/ci.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/ci.yml)
+[![Lint](https://github.com/jejjohnson/xrtoolz/actions/workflows/lint.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/lint.yml)
+[![Type Check](https://github.com/jejjohnson/xrtoolz/actions/workflows/typecheck.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/typecheck.yml)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Author: J. Emmanuel Johnson · Repo: <https://github.com/jejjohnson/xrreader>
+Authenticated archive readers for xarray geodata (import name: `xrreader`).
+
+Author: J. Emmanuel Johnson · Repo: <https://github.com/jejjohnson/xrtoolz>
 
 **Authenticated archive readers for xarray geodata.** `xrreader` turns a typed
 *request* — variables, a bounding box, a time window — into the exact payload a
@@ -32,10 +34,11 @@ The core stays light (`numpy` / `pandas` / `xarray`); each service client is an
 optional extra and is imported lazily:
 
 ```bash
-pip install 'xrreader[cmems]'        # Copernicus Marine (copernicusmarine)
-pip install 'xrreader[cds]'          # Climate Data Store / ERA5 (cdsapi)
-pip install 'xrreader[cds-insitu]'   # CDS in-situ + GeoParquet archive
-pip install 'xrreader[aemet]'        # AEMET OpenData + GeoParquet archive
+pip install 'xrtoolz-reader[cmems]'        # Copernicus Marine (copernicusmarine)
+pip install 'xrtoolz-reader[cds]'          # Climate Data Store / ERA5 (cdsapi)
+pip install 'xrtoolz-reader[cds-insitu]'   # CDS in-situ + GeoParquet archive
+pip install 'xrtoolz-reader[aemet]'        # AEMET OpenData + GeoParquet archive
+pip install 'xrtoolz-reader[grib]'         # GRIB reader backend (cfgrib/ecCodes)
 ```
 
 While the ecosystem is pre-PyPI, install from source with `uv`.
@@ -56,7 +59,7 @@ sel = dict(
 )
 
 src.list_datasets()                                   # discovery (no download)
-src.describe("glorys12.daily")
+src.describe(entry.dataset_id)                        # full metadata for the id
 ds   = src.open(entry.dataset_id, **sel)              # lazy xr.Dataset
 path = src.download(entry.dataset_id, "glorys.nc", **sel)   # NetCDF on disk
 ```

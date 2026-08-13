@@ -173,7 +173,11 @@ class CDSInsituArchive:
         year_chunks = _year_chunks(start, end)
 
         manifest = self._load_manifest()
-        current_scope = _scope_fingerprint(bbox, self.variables)
+        current_scope = _scope_fingerprint(
+            bbox,
+            self.variables,
+            self.time_aggregation if self.preset == "cds_insitu_land" else None,
+        )
         stored_scope = manifest.get("scope")
         scope_changed = stored_scope is not None and stored_scope != current_scope
         if scope_changed and not overwrite:
@@ -263,6 +267,12 @@ class CDSInsituArchive:
                 variables=variables,
                 bbox=bbox,
                 time=time_range,
+                # Force CSV explicitly. `_parse_zip_to_long` only
+                # understands zip-of-CSV, but a `CDSSource(format=...)`
+                # override outranks the in-situ profile default — a
+                # source configured for netcdf would otherwise write
+                # NetCDF bytes to this `.zip` and raise `BadZipFile`.
+                data_format="csv",
                 **extras,
             )
             return _parse_zip_to_long(tmp_zip)
@@ -402,13 +412,22 @@ def _as_utc(value: str | pd.Timestamp) -> pd.Timestamp:
     return cast("pd.Timestamp", ts)
 
 
-def _scope_fingerprint(bbox: BBox | None, variables) -> str:
-    """Stable short digest of (bbox, variables) for manifest equality.
+def _scope_fingerprint(
+    bbox: BBox | None, variables, time_aggregation: str | None = None
+) -> str:
+    """Stable short digest of the sync scope, for manifest equality.
 
     Used to catch callers that change the ``sync()`` scope mid-archive
     — the stored partitions would no longer be a faithful mirror of
     that scope, so we refuse to append rather than silently leave the
     archive partial.
+
+    ``time_aggregation`` participates only where it changes the request
+    (the land preset). Two land archives sharing a root and preset but
+    built ``daily`` then ``monthly`` would otherwise share one manifest,
+    and the second would trust the first's ``completed_chunks`` and
+    serve daily rows as monthly. Marine ignores the setting, so passing
+    ``None`` there keeps otherwise-identical archives reusable.
     """
     bbox_part: Any
     if bbox is None:
@@ -420,7 +439,12 @@ def _scope_fingerprint(bbox: BBox | None, variables) -> str:
         name = v if isinstance(v, str) else v.name
         var_part.append(str(name))
     payload = json.dumps(
-        {"bbox": bbox_part, "variables": sorted(var_part)}, sort_keys=True
+        {
+            "bbox": bbox_part,
+            "variables": sorted(var_part),
+            "time_aggregation": time_aggregation,
+        },
+        sort_keys=True,
     )
     return hashlib.sha256(payload.encode("utf-8")).hexdigest()[:12]
 

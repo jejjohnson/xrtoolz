@@ -169,7 +169,7 @@ class AemetSource(DataSource):
         except ImportError as exc:  # pragma: no cover - defensive
             raise ImportError(
                 "AemetSource requires optional AEMET dependencies. "
-                "Install with: pip install 'xrreader[aemet]'"
+                "Install with: pip install 'xrtoolz-reader[aemet]'"
             ) from exc
         self._client = httpx.Client(timeout=self.timeout_s)
         return self._client

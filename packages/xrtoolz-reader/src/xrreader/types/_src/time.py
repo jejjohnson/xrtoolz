@@ -24,6 +24,12 @@ class TimeRange:
     freq: str | None = None
 
     def __post_init__(self) -> None:
+        # UTC-awareness is a class invariant, not a `parse()` detail:
+        # downstream paths (AEMET hourly `tz_convert`, pollution
+        # filtering against aware payload timestamps) assume it. Coerce
+        # here so direct construction behaves like `parse()`.
+        object.__setattr__(self, "start", _as_ts(self.start))
+        object.__setattr__(self, "end", _as_ts(self.end))
         if self.start > self.end:
             raise ValueError(f"start ({self.start}) must be <= end ({self.end})")
 

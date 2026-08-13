@@ -54,7 +54,7 @@ class CMEMSSource(DataSource):
         except ImportError as exc:  # pragma: no cover - defensive
             raise ImportError(
                 "CMEMSSource requires the 'copernicusmarine' package. "
-                "Install with: pip install 'xrreader[cmems]'"
+                "Install with: pip install 'xrtoolz-reader[cmems]'"
             ) from exc
         self._client = copernicusmarine
         return self._client

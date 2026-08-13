@@ -47,6 +47,14 @@ cds = [
     "netcdf4>=1.6",
 ]
 
+# ``pip install 'xrtoolz-reader[grib]'`` — GRIB reader backend. Kept
+# separate from ``cds`` because cfgrib pulls the ecCodes binary stack,
+# and the CDS profiles default to NetCDF; only ``format="grib"`` needs
+# it (see _FORMAT_ENGINE in _src/cds/source.py).
+grib = [
+    "cfgrib>=0.9",
+]
+
 # ``pip install 'xrtoolz-reader[cds-insitu]'`` — CDS in-situ surface-land /
 # surface-marine adapters + the GeoParquet-backed CDSInsituArchive.
 cds-insitu = [

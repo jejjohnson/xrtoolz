@@ -62,6 +62,7 @@ from xrreader._src.credentials import (
     load_cmems,
 )
 from xrreader.types import (
+    REGISTRY,
     BBox,
     DepthRange,
     Issue,
@@ -87,6 +88,7 @@ __all__ = [
     "CATALOG",
     "INSITU",
     "REANALYSIS",
+    "REGISTRY",
     "AEMETCredentials",
     "AemetArchive",
     "AemetAuthError",
