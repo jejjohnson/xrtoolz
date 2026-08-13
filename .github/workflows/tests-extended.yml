@@ -31,17 +31,22 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --all-extras --group dev
+        run: uv sync --all-packages --group dev --all-extras
       # Coverage is disabled: a marker-filtered subset can't meet the
-      # repo-wide fail_under floor. pytest exit code 5 (nothing collected
-      # for the marker) is treated as success so an empty tier stays green.
+      # per-package fail_under floors. pytest exit code 5 (nothing
+      # collected for the marker) is treated as success so an empty tier
+      # stays green.
       - name: Run extended tests
         run: |
-          set +e
-          uv run pytest -v --no-cov -m "${{ inputs.marker }}"
-          rc=$?
-          if [ "$rc" -eq 5 ]; then
-            echo "No tests collected for marker '${{ inputs.marker }}' — OK"
-            exit 0
-          fi
-          exit $rc
+          for pkg in xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn xrtoolz; do
+            echo "--- $pkg ---"
+            set +e
+            (cd "packages/$pkg" && uv run pytest -v --no-cov -m "${{ inputs.marker }}")
+            rc=$?
+            set -e
+            if [ "$rc" -eq 5 ]; then
+              echo "No tests collected for marker '${{ inputs.marker }}' in $pkg — OK"
+            elif [ "$rc" -ne 0 ]; then
+              exit "$rc"
+            fi
+          done

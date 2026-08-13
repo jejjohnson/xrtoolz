@@ -31,7 +31,12 @@ plugins:
   - mkdocstrings:
       handlers:
         python:
-          paths: [src]
+          paths:
+            - packages/xrtoolz/src
+            - packages/xrtoolz-core/src
+            - packages/xrtoolz-grad/src
+            - packages/xrtoolz-einx/src
+            - packages/xrtoolz-sklearn/src
           options:
             docstring_style: google
             docstring_section_style: table

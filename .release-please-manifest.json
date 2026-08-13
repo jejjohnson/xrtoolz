@@ -1,3 +1,7 @@
 {
-  ".": "0.1.0"
+  "packages/xrtoolz": "0.1.0",
+  "packages/xrtoolz-core": "0.1.0",
+  "packages/xrtoolz-grad": "0.1.0",
+  "packages/xrtoolz-einx": "0.1.0",
+  "packages/xrtoolz-sklearn": "0.1.0"
 }

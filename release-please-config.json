@@ -1,6 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
-  "include-component-in-tag": false,
+  "include-component-in-tag": true,
+  "separate-pull-requests": false,
   "changelog-sections": [
     {"type": "feat", "section": "Features", "hidden": false},
     {"type": "fix", "section": "Bug Fixes", "hidden": false},
@@ -15,14 +16,59 @@
     {"type": "chore", "section": "Miscellaneous", "hidden": true}
   ],
   "packages": {
-    ".": {
+    "packages/xrtoolz": {
       "release-type": "python",
       "package-name": "xrtoolz",
+      "component": "xrtoolz",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
-        "pyproject.toml"
+        "src/xrtoolz/__init__.py"
+      ]
+    },
+    "packages/xrtoolz-core": {
+      "release-type": "python",
+      "package-name": "xrtoolz-core",
+      "component": "xrtoolz-core",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "src/xrcore/__init__.py"
+      ]
+    },
+    "packages/xrtoolz-grad": {
+      "release-type": "python",
+      "package-name": "xrtoolz-grad",
+      "component": "xrtoolz-grad",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "src/xrgrad/__init__.py"
+      ]
+    },
+    "packages/xrtoolz-einx": {
+      "release-type": "python",
+      "package-name": "xrtoolz-einx",
+      "component": "xrtoolz-einx",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "src/xreinx/__init__.py"
+      ]
+    },
+    "packages/xrtoolz-sklearn": {
+      "release-type": "python",
+      "package-name": "xrtoolz-sklearn",
+      "component": "xrtoolz-sklearn",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "src/xrsklearn/__init__.py"
       ]
     }
   }

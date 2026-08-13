@@ -75,12 +75,12 @@ For multi-step tasks, state a brief plan:
 
 **All agents must** verify that every one of the following passes before creating a commit or reporting progress. No exceptions.
 
-1. **Tests** – `uv run pytest -q` (or `make test`) must have 0 failures.
+1. **Tests** – `make test` (fast tier across all packages) must have 0 failures.
 2. **Lint** – `uv run --group lint ruff check .` (or `make lint`) must report no issues.
 3. **Format** – `uv run --group lint ruff format --check .` must report no files to reformat.
-4. **Type checks** – `uv run --group typecheck ty check src/xrtoolz` (or `make typecheck`) must report no errors in changed files.
+4. **Type checks** – `make typecheck` (ty per package) must report no errors in changed files.
 
-> **Common pitfall**: Running `ruff check src/xrtoolz/` instead of `ruff check .` misses lint errors in `tests/` and `scripts/`. CI runs `ruff check .` on the entire repo — always use `.` (repo root), not a subdirectory.
+> **Common pitfall**: Running `ruff check packages/xrtoolz/src/` instead of `ruff check .` misses lint errors in `tests/` and `scripts/`. CI runs `ruff check .` on the entire repo — always use `.` (repo root), not a subdirectory.
 
 ## Development Environment
 
