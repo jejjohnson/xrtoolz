@@ -108,9 +108,12 @@ state) and `ApplyX(state)`. The sklearn bridge is the deliberate
 exception: sklearn's own fit/transform API *is* the state contract, and
 wrapping it twice would force every estimator through a second,
 redundant state object. `XarrayEstimator` keeps sklearn's lifecycle;
-`SklearnOp` adapts it to pipelines. Operators holding live estimators
-set `forbid_in_yaml` (pipekit convention), since a fitted model is not
-YAML-serializable.
+`SklearnOp` adapts it to pipelines — and sets `forbid_in_yaml`
+(pipekit convention for operators holding live state), because its
+config records only the estimator class and constructor parameters:
+a fitted model's learned state is not YAML-serializable, so a config
+round-trip cannot rebuild a fitted pipeline. Persist fitted estimators
+with joblib/pickle instead.
 
 ## API reference
 
