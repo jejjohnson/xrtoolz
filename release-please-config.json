@@ -19,7 +19,6 @@
     "packages/xrtoolz": {
       "release-type": "python",
       "package-name": "xrtoolz",
-      "release-as": "0.0.1",
       "component": "xrtoolz",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
@@ -31,7 +30,6 @@
     "packages/xrtoolz-core": {
       "release-type": "python",
       "package-name": "xrtoolz-core",
-      "release-as": "0.0.1",
       "component": "xrtoolz-core",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
@@ -43,7 +41,6 @@
     "packages/xrtoolz-grad": {
       "release-type": "python",
       "package-name": "xrtoolz-grad",
-      "release-as": "0.0.1",
       "component": "xrtoolz-grad",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
@@ -55,7 +52,6 @@
     "packages/xrtoolz-einx": {
       "release-type": "python",
       "package-name": "xrtoolz-einx",
-      "release-as": "0.0.1",
       "component": "xrtoolz-einx",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
@@ -67,7 +63,6 @@
     "packages/xrtoolz-sklearn": {
       "release-type": "python",
       "package-name": "xrtoolz-sklearn",
-      "release-as": "0.0.1",
       "component": "xrtoolz-sklearn",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
