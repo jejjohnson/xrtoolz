@@ -70,6 +70,17 @@
       "extra-files": [
         "src/xrsklearn/__init__.py"
       ]
+    },
+    "packages/xrtoolz-reader": {
+      "release-type": "python",
+      "package-name": "xrtoolz-reader",
+      "component": "xrtoolz-reader",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "src/xrreader/__init__.py"
+      ]
     }
   }
 }

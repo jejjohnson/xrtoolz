@@ -75,8 +75,9 @@ re-exported from `pipekit` at the top level.
 | [`inference`](https://jejjohnson.github.io/xrtoolz/api/inference/) | `ModelOp` wrappers for sklearn / JAX / framework-agnostic models |
 | [`viz`](https://jejjohnson.github.io/xrtoolz/api/viz/) | Cartopy axes, colormap registry, V1–V5 validation panels |
 
-> **Data acquisition** (CMEMS / CDS / AEMET archive readers) now lives in the
-> companion [`xrreader`](https://github.com/jejjohnson/xrreader) package.
+> **Data acquisition** (CMEMS / CDS / AEMET archive readers) lives in the
+> [`xrtoolz-reader`](packages/xrtoolz-reader) workspace member, which imports
+> as `xrreader`.
 
 ## Install
 
@@ -86,9 +87,8 @@ uv add xrtoolz
 
 The repository is a uv workspace; the installable distributions live
 under `packages/*` (the repo root itself ships no code). `xrtoolz`
-depends on its four workspace siblings plus
-[`pipekit`](https://github.com/jejjohnson/pipekit) and
-[`xrreader`](https://github.com/jejjohnson/xrreader) — all pre-PyPI —
+depends on its five workspace siblings plus
+[`pipekit`](https://github.com/jejjohnson/pipekit) — all pre-PyPI —
 so a Git install must name each of them explicitly:
 
 ```bash
@@ -98,8 +98,8 @@ uv pip install \
   "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
   "xrtoolz-einx @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-einx" \
   "xrtoolz-sklearn @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-sklearn" \
-  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \
-  "xrreader @ git+https://github.com/jejjohnson/xrreader@v0.0.2"
+  "xrtoolz-reader @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-reader" \
+  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit"
 ```
 
 For development, clone and let the workspace resolve everything instead
