@@ -1,7 +1,7 @@
 {
-  "packages/xrtoolz": "0.0.0",
-  "packages/xrtoolz-core": "0.0.0",
-  "packages/xrtoolz-grad": "0.0.0",
-  "packages/xrtoolz-einx": "0.0.0",
-  "packages/xrtoolz-sklearn": "0.0.0"
+  "packages/xrtoolz": "0.0.1",
+  "packages/xrtoolz-core": "0.0.1",
+  "packages/xrtoolz-grad": "0.0.1",
+  "packages/xrtoolz-einx": "0.0.1",
+  "packages/xrtoolz-sklearn": "0.0.1"
 }
