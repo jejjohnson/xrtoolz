@@ -49,6 +49,7 @@ def spherical_partial(
     da: xr.DataArray,
     dim: str,
     *,
+    order: int = 1,
     accuracy: int = 1,
     method: str = "central",
     lon: str = "lon",
@@ -62,6 +63,7 @@ def spherical_partial(
         da: Input field with both ``lon`` and ``lat`` coordinates.
         dim: Either ``lon`` (returns ``∂F/∂x``) or ``lat`` (returns
             ``∂F/∂y``).
+        order: Derivative order. Only ``1`` is supported — see Raises.
         accuracy: ``finitediffx`` accuracy order.
         method: ``"central"`` | ``"forward"`` | ``"backward"``.
         lon: Name of the longitude coordinate (degrees east).
@@ -73,11 +75,30 @@ def spherical_partial(
     Returns:
         DataArray with the same dims/coords as ``da`` and a name of
         ``f"d{da.name}_dx"`` or ``f"d{da.name}_dy"``.
+
+    Raises:
+        ValueError: if ``lon``/``lat`` are missing or not 1-D, or ``dim``
+            is neither of them.
+        NotImplementedError: if ``order > 1``. Repeating the metric
+            derivative is not the geometric second derivative — the
+            metric factors do not commute with ``∂`` — so use
+            :func:`xrgrad.laplacian`, which carries the curvature
+            corrections.
     """
+    cartesian._validate_order(order)
     if lon not in da.coords:
         raise ValueError(f"Coordinate {lon!r} not present on DataArray.")
     if lat not in da.coords:
         raise ValueError(f"Coordinate {lat!r} not present on DataArray.")
+    cartesian._require_1d_coord(da[lon])
+    cartesian._require_1d_coord(da[lat])
+    if order > 1:
+        raise NotImplementedError(
+            f"order={order} is not supported for geometry='spherical': "
+            "repeating the metric derivative 1/(R cos φ) ∂/∂λ is not the "
+            "geometric second derivative. Use xrgrad.laplacian, which "
+            "includes the curvature corrections."
+        )
     if dim not in (lon, lat):
         raise ValueError(
             f"dim={dim!r} must be the lon coord ({lon!r}) or the lat "
@@ -161,15 +182,7 @@ def spherical_gradient(
                 f"dims={target_dims!r} contains {d!r}; expected entries "
                 f"from ({lon!r}, {lat!r}) for geometry='spherical'."
             )
-    if isinstance(accuracy, int):
-        per_dim = (accuracy,) * len(target_dims)
-    else:
-        per_dim = tuple(accuracy)
-        if len(per_dim) != len(target_dims):
-            raise ValueError(
-                f"accuracy tuple length ({len(per_dim)}) does not match "
-                f"number of dims ({len(target_dims)})."
-            )
+    per_dim = cartesian._per_dim_accuracy(accuracy, target_dims)
 
     base = da.name or "f"
     out: dict[str, xr.DataArray] = {}
