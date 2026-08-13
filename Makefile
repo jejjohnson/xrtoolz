@@ -30,13 +30,13 @@ endif
 # Calculated variables
 # ---------------------------------------------------------------------------
 GIT_HASH := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
-PKG_VERSION := $(shell grep -E '^version\s*=' pyproject.toml 2>/dev/null \
+PKG_VERSION := $(shell grep -E '^version\s*=' packages/xrtoolz/pyproject.toml 2>/dev/null \
 	| sed -E 's/.*"([^"]+)".*/\1/' || echo "unknown")
 
 # ---------------------------------------------------------------------------
-# Paths (override via .env or command line)
+# Workspace members (packages/<distribution> -> src/<import name>)
 # ---------------------------------------------------------------------------
-PKGROOT ?= src/xrtoolz
+PACKAGES := xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn xrtoolz
 
 # ---------------------------------------------------------------------------
 # ANSI colours
@@ -91,7 +91,7 @@ version: ## 📋 Display package version and git hash
 
 install: ## 📦 Install all dependency groups via uv + pre-commit hooks
 	@printf "$(YELLOW)>>> Installing all dependencies...$(RESET)\n"
-	uv sync --all-groups
+	uv sync --all-packages --all-groups --all-extras
 	uv run pre-commit install
 	@printf "$(GREEN)>>> ✅ Installation complete!$(RESET)\n"
 
@@ -119,33 +119,49 @@ format: ## 🖊️  Format code with ruff (format + auto-fix) — entire repo
 	uv run --group lint ruff check --fix .
 	@printf "$(GREEN)>>> ✅ Format complete!$(RESET)\n"
 
-typecheck: ## 🔬 Type-check with ty
+typecheck: ## 🔬 Type-check with ty (all packages)
 	@printf "$(YELLOW)>>> Running type checks...$(RESET)\n"
-	uv run --group typecheck ty check $(PKGROOT)
+	cd packages/xrtoolz-core && uv run --group typecheck ty check src/xrcore
+	cd packages/xrtoolz-grad && uv run --group typecheck ty check src/xrgrad
+	cd packages/xrtoolz-einx && uv run --group typecheck ty check src/xreinx
+	cd packages/xrtoolz-sklearn && uv run --group typecheck ty check src/xrsklearn
+	cd packages/xrtoolz && uv run --group typecheck ty check src/xrtoolz
 	@printf "$(GREEN)>>> ✅ Type check passed!$(RESET)\n"
 
 # ===========================================================================
 ##@ Testing
 # ===========================================================================
 
-test: ## 🧪 Run fast-tier tests (no coverage; same tier as automatic CI)
+test: ## 🧪 Run fast-tier tests across all packages (no coverage; same tier as automatic CI)
 	@printf "$(YELLOW)>>> Running fast-tier tests (no coverage)...$(RESET)\n"
-	uv run pytest -v -o addopts=--strict-markers -m "not slow and not integration"
+	@for pkg in $(PACKAGES); do \
+		printf "$(BLUE)--- $$pkg ---$(RESET)\n"; \
+		(cd packages/$$pkg && uv run pytest -v -o addopts=--strict-markers -m "not slow and not integration") || exit 1; \
+	done
 	@printf "$(GREEN)>>> ✅ Tests passed!$(RESET)\n"
 
 test-all: ## 🧪 Run ALL tests including slow/integration (no coverage)
 	@printf "$(YELLOW)>>> Running full test suite (no coverage)...$(RESET)\n"
-	uv run pytest -v -o addopts=--strict-markers
+	@for pkg in $(PACKAGES); do \
+		printf "$(BLUE)--- $$pkg ---$(RESET)\n"; \
+		(cd packages/$$pkg && uv run pytest -v -o addopts=--strict-markers) || exit 1; \
+	done
 	@printf "$(GREEN)>>> ✅ Tests passed!$(RESET)\n"
 
 test-slow: ## 🐢 Run only the slow/integration tiers (no coverage)
 	@printf "$(YELLOW)>>> Running slow/integration tests (no coverage)...$(RESET)\n"
-	uv run pytest -v -o addopts=--strict-markers -m "slow or integration"
+	@for pkg in $(PACKAGES); do \
+		printf "$(BLUE)--- $$pkg ---$(RESET)\n"; \
+		(cd packages/$$pkg && uv run pytest -v -o addopts=--strict-markers -m "slow or integration" || [ $$? -eq 5 ]) || exit 1; \
+	done
 	@printf "$(GREEN)>>> ✅ Tests passed!$(RESET)\n"
 
 test-cov: ## 📊 Run fast-tier tests with coverage report
 	@printf "$(YELLOW)>>> Running tests with coverage...$(RESET)\n"
-	uv run pytest -v -m "not slow and not integration"
+	@for pkg in $(PACKAGES); do \
+		printf "$(BLUE)--- $$pkg ---$(RESET)\n"; \
+		(cd packages/$$pkg && uv run pytest -v -m "not slow and not integration") || exit 1; \
+	done
 	@printf "$(GREEN)>>> ✅ Coverage report generated!$(RESET)\n"
 
 # ===========================================================================
@@ -161,9 +177,9 @@ precommit: ## 🪝 Run pre-commit hooks on all files
 ##@ Build
 # ===========================================================================
 
-build: ## 🏗️  Build Python wheel and sdist
-	@printf "$(YELLOW)>>> Building package...$(RESET)\n"
-	uv build
+build: ## 🏗️  Build wheels and sdists for every workspace member
+	@printf "$(YELLOW)>>> Building workspace packages...$(RESET)\n"
+	uv build --all-packages
 	@printf "$(GREEN)>>> ✅ Build complete — see dist/$(RESET)\n"
 
 clean: ## 🗑️  Remove build artefacts and cache directories

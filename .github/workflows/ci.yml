@@ -21,22 +21,37 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - name: Install dependencies
-        run: uv sync --group dev --extra image
-      - name: Run tests with coverage
-        # Fast tier only. The `slow` and `integration` tiers run manually
-        # via the "Extended Tests" workflow (tests-extended.yml).
+        run: uv sync --all-packages --group dev --all-extras
+      # Fast tier only. The `slow` and `integration` tiers run manually
+      # via the "Extended Tests" workflow (tests-extended.yml). Each
+      # package runs from its own directory so its pytest + coverage
+      # config applies unchanged.
+      - name: Test xrtoolz-core
         run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz-core
+      - name: Test xrtoolz-grad
+        run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz-grad
+      - name: Test xrtoolz-einx
+        run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz-einx
+      - name: Test xrtoolz-sklearn
+        run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz-sklearn
+      - name: Test xrtoolz
+        run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
-          path: coverage.xml
+          path: packages/xrtoolz/coverage.xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v6
         with:
-          files: ./coverage.xml
+          files: packages/xrtoolz/coverage.xml
           fail_ci_if_error: false
 
   dask:
@@ -47,9 +62,10 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: uv sync --group dev --extra image
+        run: uv sync --all-packages --group dev --all-extras
       - name: Run dask compatibility sweep
         # Focused marker job; the matrix job above owns coverage. Known
         # Tier-2/3 gaps are registered as strict xfails, so this job stays
         # green and flips automatically as each remediation lands.
         run: uv run pytest -m dask -v --no-cov
+        working-directory: packages/xrtoolz
