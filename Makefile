@@ -177,9 +177,9 @@ precommit: ## 🪝 Run pre-commit hooks on all files
 ##@ Build
 # ===========================================================================
 
-build: ## 🏗️  Build Python wheel and sdist
-	@printf "$(YELLOW)>>> Building package...$(RESET)\n"
-	uv build
+build: ## 🏗️  Build wheels and sdists for every workspace member
+	@printf "$(YELLOW)>>> Building workspace packages...$(RESET)\n"
+	uv build --all-packages
 	@printf "$(GREEN)>>> ✅ Build complete — see dist/$(RESET)\n"
 
 clean: ## 🗑️  Remove build artefacts and cache directories
