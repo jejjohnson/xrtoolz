@@ -7,6 +7,7 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 from jaxtyping import Float
+from scipy.interpolate import griddata
 from scipy.stats import binned_statistic_2d
 from sklearn.neighbors import KernelDensity
 
@@ -22,6 +23,7 @@ KernelName = Literal[
 MetricName = Literal["euclidean", "haversine"]
 AlgorithmName = Literal["auto", "kd_tree", "ball_tree"]
 OutputMode = Literal["density", "counts", "counts_per_area"]
+GriddataMethod = Literal["nearest", "linear", "cubic"]
 
 
 def points_to_grid(
@@ -47,6 +49,84 @@ def points_to_grid(
     )
     return xr.DataArray(
         data=stat.T,
+        dims=("lat", "lon"),
+        coords={"lon": grid.lon, "lat": grid.lat},
+    )
+
+
+def griddata_to_grid(
+    lons: Float[np.ndarray, "..."],
+    lats: Float[np.ndarray, "..."],
+    values: Float[np.ndarray, "..."],
+    grid: Grid,
+    *,
+    method: GriddataMethod = "cubic",
+    fill_value: float = np.nan,
+) -> xr.DataArray:
+    """Interpolate scattered points onto ``grid`` by Delaunay triangulation.
+
+    Wraps :func:`scipy.interpolate.griddata`. Complements the binning
+    (:func:`points_to_grid`) and IDW (:func:`xrtoolz.interpolate.idw_to_grid`)
+    paths: binning leaves empty cells wherever the swath is sparser than
+    the grid, and IDW over-smooths — for a *dense continuous* pushbroom
+    field, triangulation is the better reconstruction.
+
+    Args:
+        lons: Point longitudes, any shape (flattened internally).
+        lats: Point latitudes, same shape as ``lons``.
+        values: Point values, same shape as ``lons``. Non-finite entries
+            are dropped along with their coordinates.
+        grid: Target :class:`Grid`.
+        method: Interpolation kernel —
+
+            ``"nearest"``
+                Voronoi assignment. Use for categorical fields / masks.
+            ``"linear"``
+                Barycentric on the Delaunay triangulation (C⁰).
+            ``"cubic"``
+                Clough–Tocher (C¹, default; best for continuous fields).
+        fill_value: Value for grid cells outside the convex hull of the
+            input points. Default ``nan``. Ignored by ``"nearest"``,
+            which extrapolates by construction.
+
+    Returns:
+        DataArray on ``grid`` with ``("lat", "lon")`` dimensions.
+
+    Raises:
+        ValueError: If ``method`` is unknown, the inputs have mismatched
+            shapes, or too few finite points remain to triangulate
+            (``"cubic"`` / ``"linear"`` need ≥ 3, ``"nearest"`` ≥ 1).
+    """
+    if method not in ("nearest", "linear", "cubic"):
+        raise ValueError(
+            f"unknown method {method!r}; expected 'nearest', 'linear' or 'cubic'"
+        )
+
+    lon_values = np.ravel(np.asarray(lons, dtype=float))
+    lat_values = np.ravel(np.asarray(lats, dtype=float))
+    val_values = np.ravel(np.asarray(values, dtype=float))
+    if not (lon_values.shape == lat_values.shape == val_values.shape):
+        raise ValueError("lons, lats and values must have the same shape")
+
+    finite = _finite_mask(lon_values, lat_values, val_values)
+    n_finite = int(finite.sum())
+    minimum = 1 if method == "nearest" else 3
+    if n_finite < minimum:
+        raise ValueError(
+            f"griddata_to_grid(method={method!r}) needs at least {minimum} finite "
+            f"points; got {n_finite}"
+        )
+
+    lon_grid, lat_grid = np.meshgrid(grid.lon, grid.lat, indexing="xy")
+    interpolated = griddata(
+        np.column_stack([lon_values[finite], lat_values[finite]]),
+        val_values[finite],
+        (lon_grid, lat_grid),
+        method=method,
+        fill_value=fill_value,
+    )
+    return xr.DataArray(
+        data=interpolated,
         dims=("lat", "lon"),
         coords={"lon": grid.lon, "lat": grid.lat},
     )
