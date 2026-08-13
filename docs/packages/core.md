@@ -1,7 +1,11 @@
 # xrtoolz-core — the xarray Operator base
 
 ```bash
-pip install xrtoolz-core
+# Pre-PyPI, install from the workspace via git (with its pipekit base);
+# once published this becomes a plain `pip install xrtoolz-core`.
+uv pip install \
+  "xrtoolz-core @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-core" \
+  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit"
 ```
 
 `xrcore` is ~330 lines with one job: make `pipekit.Operator` fluent in

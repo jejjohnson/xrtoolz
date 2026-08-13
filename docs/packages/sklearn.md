@@ -1,7 +1,12 @@
 # xrtoolz-sklearn — the scikit-learn bridge
 
 ```bash
-pip install xrtoolz-sklearn
+# Pre-PyPI, install from the workspace via git (with its xrcore/pipekit
+# base); once published this becomes a plain `pip install xrtoolz-sklearn`.
+uv pip install \
+  "xrtoolz-sklearn @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-sklearn" \
+  "xrtoolz-core @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-core" \
+  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit"
 ```
 
 `xrsklearn` lets any sklearn-style estimator operate on N-D labeled
@@ -77,6 +82,8 @@ front and let `SklearnOp` apply them with its default
 
 ```python
 from pipekit import Sequential
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
 from xrsklearn import SklearnOp, XarrayEstimator
 
 scaler = XarrayEstimator(StandardScaler(), sample_dim="time").fit(train["ssh"])

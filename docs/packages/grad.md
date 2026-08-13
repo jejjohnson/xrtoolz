@@ -1,7 +1,10 @@
 # xrtoolz-grad — finite-difference calculus
 
 ```bash
-pip install xrtoolz-grad
+# Pre-PyPI, install from the workspace via git — xrgrad has no internal
+# deps, so this resolves on its own; once published this becomes a
+# plain `pip install xrtoolz-grad`.
+uv pip install "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad"
 ```
 
 `xrgrad` provides partial derivatives and vector-calculus operators

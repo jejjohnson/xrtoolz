@@ -1,7 +1,12 @@
 # xrtoolz-einx — labeled named-tensor algebra
 
 ```bash
-pip install xrtoolz-einx
+# Pre-PyPI, install from the workspace via git (with its xrcore/pipekit
+# base); once published this becomes a plain `pip install xrtoolz-einx`.
+uv pip install \
+  "xrtoolz-einx @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-einx" \
+  "xrtoolz-core @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-core" \
+  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit"
 ```
 
 `xreinx` bridges xarray and [einx](https://github.com/fferflo/einx):
@@ -67,11 +72,14 @@ The variables must share dims and coords; patterns can then treat
 
 ## Operators
 
-Every function has a matching `xrcore.Operator` wrapper — `Einsum`,
-`Rearrange`, `Reduce`, `Repeat`, `Matmul`, `Outer`, `BatchMatmul` — for
-composition into `pipekit.Sequential` chains and `Graph` pipelines.
-The wrappers implement `compute_output_signature`, so structural
-`summary()` tables see through them without executing anything.
+The seven pattern and linear-algebra functions have matching
+`xrcore.Operator` wrappers — `Einsum`, `Rearrange`, `Reduce`, `Repeat`,
+`Matmul`, `Outer`, `BatchMatmul` — for composition into
+`pipekit.Sequential` chains and `Graph` pipelines. The wrappers
+implement `compute_output_signature`, so structural `summary()` tables
+see through them without executing anything. `pack_dataset` /
+`unpack_dataset` are deliberately plain functions with no wrappers —
+they are data-layout plumbing, not pipeline steps.
 
 ## Linear-algebra conveniences
 
