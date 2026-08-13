@@ -70,21 +70,36 @@ the metadata to rebuild the original feature grid on
 
 `SklearnOp` wraps an estimator as an `xrcore.Operator` so fit/transform
 steps compose into `pipekit.Sequential` chains next to any other
-operator, reading and writing named Dataset variables:
+operator, reading and writing named Dataset variables. For a pipeline
+you intend to *reuse* (validation, inference), fit the estimators up
+front and let `SklearnOp` apply them with its default
+`method="transform"` — training-time statistics are then baked in:
 
 ```python
 from pipekit import Sequential
-from xrsklearn import SklearnOp
+from xrsklearn import SklearnOp, XarrayEstimator
+
+scaler = XarrayEstimator(StandardScaler(), sample_dim="time").fit(train["ssh"])
+pca = XarrayEstimator(PCA(n_components=3), sample_dim="time").fit(
+    scaler.transform(train["ssh"])
+)
 
 pipeline = Sequential(
     [
-        SklearnOp(StandardScaler(), variable="ssh", sample_dim="time",
-                  method="fit_transform"),
-        SklearnOp(fitted_pca, variable="ssh", output_variable="pcs",
+        SklearnOp(scaler, variable="ssh", sample_dim="time"),
+        SklearnOp(pca, variable="ssh", output_variable="pcs",
                   sample_dim="time"),
     ]
 )
+
+pipeline(test)  # applies the *training-time* scaling and projection
 ```
+
+`method="fit_transform"` exists for one-shot exploratory runs, but note
+that it clones and refits the estimator on **every** invocation — in a
+reused pipeline that leaks evaluation statistics into the transform and
+feeds downstream steps values normalised against a different
+distribution than they were fitted on.
 
 ## Why not the split-object pattern?
 
