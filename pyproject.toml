@@ -63,7 +63,7 @@ dev = [
     "xrtoolz-reader",
 ]
 lint = [
-    "ruff>=0.15.10,<0.16",
+    "ruff>=0.15.10,<0.17",
 ]
 typecheck = [
     "ty>=0.0.30,<0.0.32",
