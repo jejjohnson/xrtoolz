@@ -37,6 +37,7 @@ plugins:
             - packages/xrtoolz-grad/src
             - packages/xrtoolz-einx/src
             - packages/xrtoolz-sklearn/src
+            - packages/xrtoolz-reader/src
           options:
             docstring_style: google
             docstring_section_style: table
@@ -66,6 +67,7 @@ nav:
       - xrtoolz-grad (xrgrad): packages/grad.md
       - xrtoolz-einx (xreinx): packages/einx.md
       - xrtoolz-sklearn (xrsklearn): packages/sklearn.md
+      - xrtoolz-reader (xrreader): packages/reader.md
   - Design:
       - Overview: design/README.md
       - Vision: design/vision.md
@@ -83,6 +85,8 @@ nav:
           - Components: design/examples/components.md
           - Models: design/examples/models.md
           - Integration: design/examples/integration.md
+      - Reader (xrreader):
+          - Architecture: design/reader/architecture.md
       - Bridge Modules:
           - Overview: design/bridges/README.md
           - Cross-cutting: design/bridges/overview.md
@@ -146,6 +150,8 @@ nav:
       - Diagnostics:
           - Metrics: api/metrics.md
           - Budgets: api/budgets.md
+      - Data Acquisition:
+          - Archive Readers (xrreader): api/reader.md
       - Bridges & Integration:
           - Named-tensor Algebra (xreinx): api/einx.md
           - Inference: api/inference.md

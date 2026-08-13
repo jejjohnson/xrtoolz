@@ -38,6 +38,9 @@ jobs:
       - name: Test xrtoolz-sklearn
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz-sklearn
+      - name: Test xrtoolz-reader
+        run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz-reader
       - name: Test xrtoolz
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz

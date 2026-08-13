@@ -36,7 +36,7 @@ PKG_VERSION := $(shell grep -E '^version\s*=' packages/xrtoolz/pyproject.toml 2>
 # ---------------------------------------------------------------------------
 # Workspace members (packages/<distribution> -> src/<import name>)
 # ---------------------------------------------------------------------------
-PACKAGES := xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn xrtoolz
+PACKAGES := xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn xrtoolz-reader xrtoolz
 
 # ---------------------------------------------------------------------------
 # ANSI colours
@@ -125,6 +125,7 @@ typecheck: ## 🔬 Type-check with ty (all packages)
 	cd packages/xrtoolz-grad && uv run --group typecheck ty check src/xrgrad
 	cd packages/xrtoolz-einx && uv run --group typecheck ty check src/xreinx
 	cd packages/xrtoolz-sklearn && uv run --group typecheck ty check src/xrsklearn
+	cd packages/xrtoolz-reader && uv run --group typecheck ty check src/xrreader
 	cd packages/xrtoolz && uv run --group typecheck ty check src/xrtoolz
 	@printf "$(GREEN)>>> ✅ Type check passed!$(RESET)\n"
 
