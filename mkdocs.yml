@@ -60,6 +60,12 @@ plugins:
 
 nav:
   - Home: index.md
+  - Packages:
+      - Overview: packages/index.md
+      - xrtoolz-core (xrcore): packages/core.md
+      - xrtoolz-grad (xrgrad): packages/grad.md
+      - xrtoolz-einx (xreinx): packages/einx.md
+      - xrtoolz-sklearn (xrsklearn): packages/sklearn.md
   - Design:
       - Overview: design/README.md
       - Vision: design/vision.md
@@ -98,6 +104,7 @@ nav:
   - Tutorials:
       - Core:
           - Operators & Pipelines: notebooks/operators_pipeline_demo.ipynb
+          - xrgrad Quickstart: notebooks/xrgrad_quickstart.ipynb
           - Structural Summaries: notebooks/sequential_summary_demo.ipynb
           - Sklearn patch-wise Recipe: notebooks/sklearn_patchwise_recipe.ipynb
           - NaN-aware Smoothing: notebooks/nan_aware_smoothing.ipynb
@@ -128,7 +135,7 @@ nav:
           - Wavelet Analysis: api/geo/wavelet.md
           - Extremes: api/geo/extremes.md
       - Numerics:
-          - Calculus: api/calc.md
+          - Calculus (xrgrad): api/calc.md
           - Transforms: api/transforms.md
           - Encoders: api/encoders.md
           - Interpolation: api/interpolate.md
@@ -140,7 +147,7 @@ nav:
           - Metrics: api/metrics.md
           - Budgets: api/budgets.md
       - Bridges & Integration:
-          - Named-tensor Algebra (einx): api/einx.md
+          - Named-tensor Algebra (xreinx): api/einx.md
           - Inference: api/inference.md
           - Visualization: api/viz.md
           - Utilities: api/utils.md
