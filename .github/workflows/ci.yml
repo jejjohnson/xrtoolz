@@ -41,6 +41,14 @@ jobs:
       - name: Test xrtoolz
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz
+      # Docstring examples in the scoped packages are executable and
+      # doctested, so the docs cannot rot silently.
+      - name: Doctests (xrcore, xrgrad, xreinx, xrsklearn)
+        run: |
+          for pkg in xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn; do
+            echo "--- $pkg ---"
+            (cd "packages/$pkg" && uv run pytest --doctest-modules src --no-cov -q)
+          done
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7

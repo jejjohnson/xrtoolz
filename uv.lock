@@ -3342,7 +3342,7 @@ dependencies = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "cartopy" },
@@ -3462,7 +3462,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-core"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/xrtoolz-core" }
 dependencies = [
     { name = "numpy" },
@@ -3499,7 +3499,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-einx"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/xrtoolz-einx" }
 dependencies = [
     { name = "einx" },
@@ -3538,7 +3538,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-grad"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/xrtoolz-grad" }
 dependencies = [
     { name = "finitediffx" },
@@ -3658,7 +3658,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-sklearn"
-version = "0.1.0"
+version = "0.0.1"
 source = { editable = "packages/xrtoolz-sklearn" }
 dependencies = [
     { name = "numpy" },

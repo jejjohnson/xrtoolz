@@ -61,7 +61,7 @@ check-env-%:
 # ---------------------------------------------------------------------------
 # Phony declarations
 # ---------------------------------------------------------------------------
-.PHONY: help install lint format typecheck test test-all test-slow test-cov \
+.PHONY: help install lint format typecheck test test-all test-slow test-cov test-doctest \
         precommit build clean version docs docs-serve docs-deploy \
         gh-labels gh-sub gh-block gh-show
 
@@ -155,6 +155,14 @@ test-slow: ## 🐢 Run only the slow/integration tiers (no coverage)
 		(cd packages/$$pkg && uv run pytest -v -o addopts=--strict-markers -m "slow or integration" || [ $$? -eq 5 ]) || exit 1; \
 	done
 	@printf "$(GREEN)>>> ✅ Tests passed!$(RESET)\n"
+
+test-doctest: ## 📚 Run docstring examples (doctests) for the scoped packages
+	@printf "$(YELLOW)>>> Running doctests (xrcore, xrgrad, xreinx, xrsklearn)...$(RESET)\n"
+	@for pkg in xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn; do \
+		printf "$(BLUE)--- $$pkg ---$(RESET)\n"; \
+		(cd packages/$$pkg && uv run pytest --doctest-modules src --no-cov -q) || exit 1; \
+	done
+	@printf "$(GREEN)>>> ✅ Doctests passed!$(RESET)\n"
 
 test-cov: ## 📊 Run fast-tier tests with coverage report
 	@printf "$(YELLOW)>>> Running tests with coverage...$(RESET)\n"
