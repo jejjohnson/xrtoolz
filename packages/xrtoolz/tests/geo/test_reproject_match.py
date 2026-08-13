@@ -93,3 +93,30 @@ def test_operator_maps_over_a_two_leaf_datatree() -> None:
     for leaf in ("coarse", "fine"):
         assert out[leaf].dataset["sst"].shape == target.shape
         assert out[leaf].dataset.rio.crs == target.rio.crs
+
+
+def test_output_signature_replaces_source_spatial_dims_with_targets() -> None:
+    from xrcore import Signature
+
+    target = _raster(4, scale=2.0)
+
+    signature = ReprojectMatch(target).compute_output_signature(
+        Signature({"time": 5, "lat": 8, "lon": 8}, dtype=np.dtype("float32"))
+    )
+
+    # reproject_match returns the *target's* spatial names, so the source's
+    # must not survive alongside them as a phantom third/fourth spatial dim.
+    assert signature.dims == {"time": 5, "y": 4, "x": 4}
+
+
+def test_differing_spatial_dim_names_take_the_target_names() -> None:
+    target = _raster(4, scale=2.0)
+    source = _raster(8).rename({"y": "lat", "x": "lon"})
+    source = source.rio.set_spatial_dims(x_dim="lon", y_dim="lat").rio.write_crs(
+        "EPSG:4326"
+    )
+
+    out = ReprojectMatch(target)(source)
+
+    assert out.dims == ("y", "x")
+    assert out.shape == target.shape

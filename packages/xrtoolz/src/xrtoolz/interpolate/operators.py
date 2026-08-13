@@ -912,9 +912,11 @@ class GriddataToGrid(Operator):
         }
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
+        # griddata_to_grid casts its inputs to float64 before triangulating,
+        # so the result is float64 regardless of the payload's dtype.
         return Signature(
             {"lat": len(self.grid.lat), "lon": len(self.grid.lon)},
-            dtype=input_signature.dtype,
+            dtype=np.dtype("float64"),
         )
 
 

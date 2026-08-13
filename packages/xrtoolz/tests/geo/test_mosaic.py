@@ -115,6 +115,68 @@ def test_unknown_resampling_raises() -> None:
         spatial_mosaic([_tile(0.0), _tile(4.0)], resampling="bogus")
 
 
+def test_sum_promotes_integers_so_overlap_cannot_wrap() -> None:
+    # uint8 200 + 200 wraps to 144 if the mosaic is allocated in the input
+    # dtype, which is what rioxarray does by default.
+    left = _tile(0.0, value=200.0).astype("uint8").rio.write_crs("EPSG:4326")
+    right = _tile(2.0, value=200.0).astype("uint8").rio.write_crs("EPSG:4326")
+
+    out = spatial_mosaic([left, right], method="sum")
+
+    assert float(out.sel(x=2.0, y=0.0)) == 400.0
+    assert np.issubdtype(out.dtype, np.integer)
+
+
+def test_sum_leaves_float_inputs_alone() -> None:
+    out = spatial_mosaic([_tile(0.0, value=1.0), _tile(2.0, value=5.0)], method="sum")
+
+    assert out.dtype == np.dtype("float64")
+    assert float(out.sel(x=2.0, y=0.0)) == pytest.approx(6.0)
+
+
+def test_mismatched_dataset_variables_raise() -> None:
+    first = _tile(0.0).to_dataset(name="sst")
+    second = _tile(4.0).to_dataset(name="sst")
+    second["chl"] = _tile(4.0)
+
+    with pytest.raises(ValueError, match=r"different variable set"):
+        spatial_mosaic([first, second])
+
+
+def test_matching_dataset_variables_pass() -> None:
+    first = _tile(0.0).to_dataset(name="sst")
+    first["chl"] = _tile(0.0)
+    second = _tile(4.0).to_dataset(name="sst")
+    second["chl"] = _tile(4.0)
+
+    out = spatial_mosaic([first, second])
+
+    assert set(out.data_vars) == {"sst", "chl"}
+
+
+def test_differing_crs_input_is_matched_to_first_tile_resolution() -> None:
+    # Coarser tile in another CRS: without an explicit resolution, rioxarray
+    # would harmonise it at ~2 deg and leave merge_* to resample it nearest,
+    # so `resampling` would not govern the output values.
+    fine = _tile(0.0)
+    coarse = (
+        xr.DataArray(
+            np.ones((4, 4)),
+            dims=("y", "x"),
+            coords={
+                "y": 2.0 * np.arange(3.0, -1.0, -1.0),
+                "x": 8.0 + 2.0 * np.arange(4.0),
+            },
+        )
+        .rio.write_crs("EPSG:4326")
+        .rio.reproject("EPSG:3857")
+    )
+
+    out = spatial_mosaic([fine, coarse], resampling="bilinear")
+
+    assert out.rio.resolution() == pytest.approx(fine.rio.resolution())
+
+
 def test_operator_matches_function_and_config_round_trips() -> None:
     tiles = [_tile(0.0, value=1.0), _tile(2.0, value=5.0)]
     op = SpatialMosaic(method="max")

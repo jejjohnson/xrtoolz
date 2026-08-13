@@ -1120,10 +1120,17 @@ class ReprojectMatch(Operator):
         return {"target": f"<{kind}>", "resampling": self.resampling}
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
-        # The spatial dims take the target's shape; everything else passes
-        # through. rioxarray names them via the target's CRS mapping.
+        # rio.reproject_match returns the *target's* spatial dim names, so
+        # when the two rasters disagree the source's names disappear rather
+        # than surviving alongside the target's. Drop any source spatial dim
+        # before inserting the target's; non-spatial dims pass through.
         y_dim, x_dim = self.target.rio.y_dim, self.target.rio.x_dim
-        dims = dict(input_signature.dims)
+        source_spatial = {"x", "y", "lat", "lon", "latitude", "longitude"}
+        dims = {
+            name: size
+            for name, size in input_signature.dims.items()
+            if name not in source_spatial
+        }
         dims[y_dim] = self.target.sizes[y_dim]
         dims[x_dim] = self.target.sizes[x_dim]
         return Signature(dims, dtype=input_signature.dtype)

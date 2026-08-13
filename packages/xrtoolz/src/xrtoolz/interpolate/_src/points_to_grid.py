@@ -73,9 +73,9 @@ def griddata_to_grid(
 
     Args:
         lons: Point longitudes, any shape (flattened internally).
-        lats: Point latitudes, same shape as ``lons``.
-        values: Point values, same shape as ``lons``. Non-finite entries
-            are dropped along with their coordinates.
+        lats: Point latitudes, identical shape to ``lons``.
+        values: Point values, identical shape to ``lons``. Non-finite
+            entries are dropped along with their coordinates.
         grid: Target :class:`Grid`.
         method: Interpolation kernel —
 
@@ -90,7 +90,19 @@ def griddata_to_grid(
             which extrapolates by construction.
 
     Returns:
-        DataArray on ``grid`` with ``("lat", "lon")`` dimensions.
+        DataArray on ``grid`` with ``("lat", "lon")`` dimensions, always
+        ``float64`` — the coordinates and values are cast before
+        triangulating.
+
+    Note:
+        The triangulation is built in the raw lon/lat plane and knows
+        nothing about longitude wrapping. A swath crossing the
+        antimeridian in the conventional ``[-180, 180]`` convention has
+        neighbouring samples ~360° apart, so the convex hull balloons to
+        span most of the globe and cells that should take ``fill_value``
+        instead receive plausible-looking interpolants. Put the swath
+        *and* ``grid`` on one continuous longitude interval (e.g. shift
+        both to ``[0, 360)``) before calling this for such a swath.
 
     Raises:
         ValueError: If ``method`` is unknown, the inputs have mismatched
@@ -102,11 +114,20 @@ def griddata_to_grid(
             f"unknown method {method!r}; expected 'nearest', 'linear' or 'cubic'"
         )
 
-    lon_values = np.ravel(np.asarray(lons, dtype=float))
-    lat_values = np.ravel(np.asarray(lats, dtype=float))
-    val_values = np.ravel(np.asarray(values, dtype=float))
-    if not (lon_values.shape == lat_values.shape == val_values.shape):
-        raise ValueError("lons, lats and values must have the same shape")
+    lon_array = np.asarray(lons, dtype=float)
+    lat_array = np.asarray(lats, dtype=float)
+    val_array = np.asarray(values, dtype=float)
+    # Compare the *original* shapes: (2, 3) and (3, 2) both ravel to (6,),
+    # so a post-ravel check would accept them and pair unrelated samples.
+    if not (lon_array.shape == lat_array.shape == val_array.shape):
+        raise ValueError(
+            "lons, lats and values must have the same shape; got "
+            f"{lon_array.shape}, {lat_array.shape} and {val_array.shape}"
+        )
+
+    lon_values = np.ravel(lon_array)
+    lat_values = np.ravel(lat_array)
+    val_values = np.ravel(val_array)
 
     finite = _finite_mask(lon_values, lat_values, val_values)
     n_finite = int(finite.sum())

@@ -141,6 +141,23 @@ def test_too_few_finite_points_raise(method: str, n_points: int) -> None:
         )
 
 
+def test_equal_size_transposed_shapes_are_rejected() -> None:
+    # (2, 3) and (3, 2) both ravel to (6,), so a post-ravel check would
+    # accept them and silently pair unrelated coordinates with values.
+    with pytest.raises(ValueError, match=r"same shape"):
+        griddata_to_grid(
+            np.ones((2, 3)), np.ones((3, 2)), np.ones((2, 3)), _interior_grid()
+        )
+
+
+def test_float32_input_yields_float64_output() -> None:
+    lons, lats, values = (a.astype("float32") for a in _swath(n=500))
+
+    out = griddata_to_grid(lons, lats, values, _interior_grid(), method="linear")
+
+    assert out.dtype == np.dtype("float64")
+
+
 def test_operator_matches_function_and_config_round_trips() -> None:
     grid = _interior_grid()
     payload = _swath()
@@ -167,7 +184,10 @@ def test_operator_output_signature_matches_grid() -> None:
     grid = _interior_grid()
 
     signature = GriddataToGrid(grid).compute_output_signature(
-        Signature({"points": 3000}, dtype=np.dtype("float64"))
+        Signature({"points": 3000}, dtype=np.dtype("float32"))
     )
 
     assert signature.dims == {"lat": len(grid.lat), "lon": len(grid.lon)}
+    # The kernel casts to float64, so a float32 payload must not be
+    # reported as float32 downstream.
+    assert signature.dtype == np.dtype("float64")
