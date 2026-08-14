@@ -195,6 +195,7 @@ def test_config_recurses_and_round_trips_as_json() -> None:
     config = panel.get_config()
 
     assert config["panel"] == "SpatialMapPanel"
+    assert config["panel_kind"] == "validation_panel"
     assert config["diff"] == "absolute"
     assert config["layout"] == "col"
     assert json.loads(json.dumps(config)) == config
@@ -223,3 +224,67 @@ def test_composes_under_facet_into_a_six_panel_mosaic() -> None:
     assert cells[0].get_title() == "large\nduacs"
     assert cells[3].get_title() == "small\nduacs"
     assert cells[2].get_title() == "duacs → miost: Δ%"
+
+
+def test_nested_projection_reaches_the_facet_grid() -> None:
+    import cartopy.mpl.geoaxes as cgeo
+
+    ds = xr.DataArray(
+        np.random.default_rng(0).random((2, 2, 5, 6)),
+        dims=("scale", "method", "lat", "lon"),
+        coords={
+            "scale": ["large", "small"],
+            "method": ["duacs", "miost"],
+            "lat": np.linspace(-5, 5, 5),
+            "lon": np.linspace(-5, 5, 6),
+        },
+    ).to_dataset(name="rmse")
+
+    # The projection lives two levels down, on the SpatialMapPanel.
+    fig = FacetPanel(
+        PairwiseComparePanel(
+            SpatialMapPanel(variable="rmse", projection="north_atlantic")
+        ),
+        facet_dim="scale",
+    )(ds)
+
+    assert all(isinstance(ax, cgeo.GeoAxes) for ax in _main_axes(fig))
+
+
+def test_preset_extent_is_applied_to_the_triptych() -> None:
+    from xrtoolz.viz._src.projections import PRESETS
+
+    fig = PairwiseComparePanel(
+        SpatialMapPanel(variable="rmse", projection="north_atlantic")
+    )(_paired())
+
+    expected = PRESETS["north_atlantic"]["extent"]
+    for ax in _main_axes(fig):
+        assert ax.get_extent(crs=ax.projection.as_geodetic()) == pytest.approx(
+            expected, abs=1.0
+        )
+
+
+def test_nested_sharebar_finds_a_mappable_in_the_subdivided_cell() -> None:
+    ds = xr.DataArray(
+        np.random.default_rng(0).random((2, 2, 5, 6)),
+        dims=("scale", "method", "lat", "lon"),
+        coords={
+            "scale": ["large", "small"],
+            "method": ["duacs", "miost"],
+            "lat": np.linspace(-5, 5, 5),
+            "lon": np.linspace(-5, 5, 6),
+        },
+    ).to_dataset(name="rmse")
+
+    fig = FacetPanel(
+        PairwiseComparePanel(SpatialMapPanel(variable="rmse")),
+        facet_dim="scale",
+        sharebar=True,
+    )(ds)
+
+    colorbars = [ax for ax in fig.axes if ax.get_label() == "<colorbar>"]
+    # A subdivided cell hands over an axes array; without searching its
+    # sub-axes the shared bar would find no mappable and vanish.
+    assert len(colorbars) == 1
+    assert len(_main_axes(fig)) == 6

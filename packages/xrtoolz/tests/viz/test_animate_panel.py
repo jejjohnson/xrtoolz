@@ -184,7 +184,7 @@ def test_config_round_trips_as_json() -> None:
 
     assert config["panel"] == "SpatialMapPanel"
     assert config["fps"] == 12
-    assert config["roundtrippable"] is True
+    assert config["panel_kind"] == "validation_panel"
     assert json.loads(json.dumps(config)) == config
 
 
@@ -270,3 +270,69 @@ def test_save_animation_rejects_an_unknown_extension(tmp_path) -> None:
 
     with pytest.raises(ValueError, match="unsupported animation format"):
         save_animation(ani, tmp_path / "movie.avi")
+
+
+def test_blit_true_is_rejected() -> None:
+    _, panel = _record_calls()
+
+    with pytest.raises(ValueError, match="blit=True is not supported"):
+        AnimatePanel(panel, blit=True)
+
+
+@pytest.mark.parametrize("kwargs", [{"pixelwidth": 800}, {"pixelheight": 400}])
+def test_incomplete_pixel_size_is_rejected(kwargs: dict) -> None:
+    _, panel = _record_calls()
+
+    with pytest.raises(ValueError, match="must be given together"):
+        AnimatePanel(panel, **kwargs)
+
+
+def test_explicit_figsize_is_applied_to_a_composite_inner() -> None:
+    # FacetPanel sizes itself from figsize_per_panel and never reads a
+    # `figsize` attribute, so the request has to land on the figure.
+    ds = _frames(2, extra={"experiment": ["a", "b", "c", "d"]})
+
+    ani = AnimatePanel(
+        FacetPanel(SpatialMapPanel(variable="ssh"), facet_dim="experiment"),
+        figsize=(8, 6),
+    )(ds)
+
+    assert tuple(ani._fig.get_size_inches()) == pytest.approx((8.0, 6.0))
+
+
+def test_composite_inner_sizes_itself_when_figsize_is_unset() -> None:
+    ds = _frames(2, extra={"method": ["duacs", "miost"]})
+
+    ani = AnimatePanel(PairwiseComparePanel(SpatialMapPanel(variable="ssh")))(ds)
+
+    # PairwiseComparePanel's own 3 x (5, 4) layout, not a generic default.
+    assert tuple(ani._fig.get_size_inches()) == pytest.approx((15.0, 4.0))
+
+
+def test_save_animation_defaults_to_the_panels_configured_fps(tmp_path) -> None:
+    _, panel = _record_calls()
+    ani = AnimatePanel(panel, fps=5)(_frames(2))
+    out = tmp_path / "movie.html"
+
+    save_animation(ani, out)
+
+    # to_jshtml embeds the frame interval; 5 fps is 200 ms, not 24 fps.
+    assert "200" in out.read_text(encoding="utf-8")
+
+
+def test_explicit_save_fps_overrides_the_panel(tmp_path) -> None:
+    _, panel = _record_calls()
+    ani = AnimatePanel(panel, fps=5)(_frames(2))
+    out = tmp_path / "movie.html"
+
+    save_animation(ani, out, fps=20)
+
+    assert "50" in out.read_text(encoding="utf-8")
+
+
+def test_animation_carries_its_configured_fps() -> None:
+    _, panel = _record_calls()
+
+    ani = AnimatePanel(panel, fps=7)(_frames(2))
+
+    assert ani.xrtoolz_fps == 7

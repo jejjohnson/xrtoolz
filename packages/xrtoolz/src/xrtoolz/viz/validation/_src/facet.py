@@ -22,6 +22,7 @@ import xarray as xr
 from xrtoolz.viz.validation._src.base import _NullContext, _ValidationPanel
 from xrtoolz.viz.validation._src.composition import (
     InnerPanel,
+    _apply_preset_extent,
     _drop_axes_added_since,
     _find_mappable,
     _inner_cell_grid,
@@ -117,6 +118,14 @@ class FacetPanel(_ValidationPanel):
 
     def _layout(self, n: int) -> tuple[int, int]:
         """Resolve ``(nrows, ncols)`` for ``n`` cells."""
+        if n == 0:
+            # ceil(sqrt(0)) is 0, and the division below would then raise
+            # ZeroDivisionError. An empty dim is a legitimate result of
+            # selection, so say what happened.
+            raise ValueError(
+                f"facet_dim {self.facet_dim!r} is empty; there is nothing to "
+                "facet over."
+            )
         if self.nrows is not None and self.ncols is not None:
             nrows, ncols = int(self.nrows), int(self.ncols)
             if nrows * ncols < n:
@@ -162,6 +171,7 @@ class FacetPanel(_ValidationPanel):
                 subplot_kw=subplot_kw,
                 squeeze=False,
             )
+            _apply_preset_extent(self.panel, axes)
             return fig, axes
 
         # The inner panel wants several axes per facet, so each outer cell
@@ -174,17 +184,45 @@ class FacetPanel(_ValidationPanel):
         )
         outer = fig.add_gridspec(nrows, ncols)
         cells = np.empty((nrows, ncols), dtype=object)
+        # Axis sharing has to be wired by hand here: `add_subplot` cannot
+        # join groups after the fact the way `plt.subplots(sharex=...)`
+        # does. Cartopy GeoAxes reject shared axes outright, so projected
+        # grids keep independent limits.
+        inner_sharex = bool(getattr(self.panel, "sharex", True))
+        inner_sharey = bool(getattr(self.panel, "sharey", True))
+        shareable = not (subplot_kw or {}).get("projection")
+        anchor: Any = None
         for row in range(nrows):
             for col in range(ncols):
                 sub = outer[row, col].subgridspec(inner_rows, inner_cols)
-                cells[row, col] = np.array(
-                    [
-                        fig.add_subplot(sub[r, c], **(subplot_kw or {}))
-                        for r in range(inner_rows)
-                        for c in range(inner_cols)
-                    ],
-                    dtype=object,
-                ).reshape(inner_rows, inner_cols)
+                axes_in_cell: list[Any] = []
+                lead: Any = None
+                for r in range(inner_rows):
+                    for c in range(inner_cols):
+                        share: dict[str, Any] = {}
+                        if shareable:
+                            # Within the cell, follow the inner panel's own
+                            # sharing; across cells, follow this panel's.
+                            if lead is not None:
+                                if inner_sharex:
+                                    share["sharex"] = lead
+                                if inner_sharey:
+                                    share["sharey"] = lead
+                            elif anchor is not None:
+                                if self.sharex:
+                                    share["sharex"] = anchor
+                                if self.sharey:
+                                    share["sharey"] = anchor
+                        ax = fig.add_subplot(sub[r, c], **(subplot_kw or {}), **share)
+                        if lead is None:
+                            lead = ax
+                        if anchor is None:
+                            anchor = ax
+                        axes_in_cell.append(ax)
+                cells[row, col] = np.array(axes_in_cell, dtype=object).reshape(
+                    inner_rows, inner_cols
+                )
+        _apply_preset_extent(self.panel, cells)
         return fig, cells
 
     def _build(
@@ -214,6 +252,13 @@ class FacetPanel(_ValidationPanel):
             label = self.title_format.format(value=values[index], index=index)
             if isinstance(ax, np.ndarray):
                 if self.sharebar:
+                    # Look through the cell's sub-axes before reclaiming
+                    # their colorbars, or the shared bar has no mappable
+                    # and the figure ends up with no colorbar at all.
+                    for sub_ax in np.ravel(ax).tolist():
+                        found = _find_mappable(sub_ax)
+                        if found is not None:
+                            mappable = found
                     _drop_axes_added_since(fig, before)
                 # A subdivided cell: the inner panel titled each of its own
                 # axes, so prefix the facet label onto the first rather than
@@ -242,14 +287,31 @@ class FacetPanel(_ValidationPanel):
                     stacklevel=2,
                 )
             else:
-                fig.colorbar(mappable, ax=flat[:n])
+                spanned = [
+                    sub
+                    for cell in flat[:n]
+                    for sub in np.ravel(np.asarray(cell, dtype=object)).tolist()
+                ]
+                fig.colorbar(mappable, ax=spanned)
 
     def _apply(self, *args: Any, **kwargs: Any) -> mpl_figure.Figure:
         # Overridden rather than using `_make_fig_axes`: the grid shape
         # depends on the data, which the base hook never sees.
         import matplotlib.pyplot as plt
 
-        ds = args[0]
+        # Operator.__call__ forwards eager keyword arguments straight to
+        # `_apply`, so `panel(ds=...)` must work as it does for the
+        # sibling panels that take their data positionally.
+        if args:
+            ds = args[0]
+        elif "ds" in kwargs:
+            ds = kwargs.pop("ds")
+            args = (ds,)
+        else:
+            raise TypeError(
+                f"{type(self).__name__} requires an input dataset, given "
+                "positionally or as `ds=`."
+            )
         if self.facet_dim not in ds.dims:
             raise ValueError(
                 f"facet_dim {self.facet_dim!r} is not a dimension of the input; "

@@ -12,6 +12,7 @@ matplotlib.use("Agg")
 
 from xrtoolz.viz.validation import (
     FacetPanel,
+    PairwiseComparePanel,
     SpatialMapPanel,
     seasonal_groupby,
 )
@@ -184,7 +185,7 @@ def test_config_recurses_into_a_validation_panel_inner() -> None:
     config = panel.get_config()
 
     assert config["panel"] == "SpatialMapPanel"
-    assert config["roundtrippable"] is True
+    assert config["panel_kind"] == "validation_panel"
     assert config["panel_config"]["variable"] == "ssh"
     assert config["facet_dim"] == "experiment"
     assert json.loads(json.dumps(config)) == config
@@ -195,7 +196,7 @@ def test_config_flags_a_callable_inner_as_non_roundtrippable() -> None:
 
     config = FacetPanel(panel, facet_dim="experiment").get_config()
 
-    assert config["roundtrippable"] is False
+    assert config["panel_kind"] == "callable"
     assert config["panel_config"] is None
     assert json.loads(json.dumps(config)) == config
 
@@ -272,3 +273,67 @@ def test_seasonal_groupby_feeds_straight_into_a_facet_mosaic() -> None:
 
     assert len(fig.axes) == 4
     assert set(ax.get_title() for ax in fig.axes) == {"DJF", "MAM", "JJA", "SON"}
+
+
+def test_empty_facet_dim_raises_informatively() -> None:
+    _, panel = _record_calls()
+    empty = _faceted(3).isel(experiment=slice(0, 0))
+
+    with pytest.raises(ValueError, match=r"facet_dim 'experiment' is empty"):
+        FacetPanel(panel, facet_dim="experiment")(empty)
+
+
+def test_dataset_may_be_supplied_as_a_keyword() -> None:
+    calls, panel = _record_calls()
+    ds = _faceted(3)
+
+    fig = FacetPanel(panel, facet_dim="experiment")(ds=ds)
+
+    assert len(calls) == 3
+    assert len(fig.axes) == 4
+
+
+def test_calling_without_any_input_raises_typeerror() -> None:
+    _, panel = _record_calls()
+
+    with pytest.raises(TypeError, match="requires an input dataset"):
+        FacetPanel(panel, facet_dim="experiment")()
+
+
+def test_preset_extent_is_applied_to_wrapper_built_axes() -> None:
+    from xrtoolz.viz._src.projections import PRESETS
+
+    fig = FacetPanel(
+        SpatialMapPanel(variable="ssh", projection="north_atlantic"),
+        facet_dim="experiment",
+    )(_faceted(2))
+
+    expected = PRESETS["north_atlantic"]["extent"]
+    for ax in _main_axes(fig):
+        assert ax.get_extent(crs=ax.projection.as_geodetic()) == pytest.approx(
+            expected, abs=1.0
+        )
+
+
+def test_sharex_is_wired_across_cells() -> None:
+    _, panel = _record_calls()
+
+    fig = FacetPanel(panel, facet_dim="experiment", sharex=True)(_faceted(4))
+
+    first = fig.axes[0]
+    assert all(ax in first.get_shared_x_axes().get_siblings(first) for ax in fig.axes)
+
+
+def test_sharing_survives_a_subdivided_facet_grid() -> None:
+    ds = xr.DataArray(
+        np.random.default_rng(0).random((2, 2, 4)),
+        dims=("scale", "method", "x"),
+        coords={"scale": ["large", "small"], "method": ["a", "b"]},
+    ).to_dataset(name="rmse")
+    _, inner = _record_calls()
+
+    fig = FacetPanel(PairwiseComparePanel(inner), facet_dim="scale", sharex=True)(ds)
+
+    first = fig.axes[0]
+    siblings = first.get_shared_x_axes().get_siblings(first)
+    assert all(ax in siblings for ax in fig.axes)

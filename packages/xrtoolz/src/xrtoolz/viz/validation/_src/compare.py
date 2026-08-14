@@ -18,6 +18,7 @@ import xarray as xr
 from xrtoolz.viz.validation._src.base import _ValidationPanel
 from xrtoolz.viz.validation._src.composition import (
     InnerPanel,
+    _apply_preset_extent,
     _inner_config,
     _render_into,
     _resolve_subplot_kw,
@@ -146,6 +147,7 @@ class PairwiseComparePanel(_ValidationPanel):
             subplot_kw=_resolve_subplot_kw(self.panel, self.subplot_kw) or None,
             squeeze=False,
         )
+        _apply_preset_extent(self.panel, axes)
         return fig, axes
 
     def _compute_diff(self, study: Any, ref: Any) -> Any:

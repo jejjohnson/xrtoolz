@@ -51,17 +51,23 @@ class AnimatePanel:
             ``None`` derives ``1000 / fps``.
         title_format: Per-frame title template, formatted with ``value``
             (the frame coord value) and ``index``.
-        figsize: Figure size in inches. Ignored when both ``pixelwidth``
-            and ``pixelheight`` are given.
-        pixelwidth: Output width in pixels; with ``pixelheight`` it
-            overrides ``figsize`` as ``(pixelwidth / dpi, ...)``.
-        pixelheight: Output height in pixels.
+        figsize: Figure size in inches. ``None`` (default) lets the inner
+            panel size itself, which matters for composite inners —
+            ``FacetPanel`` and ``PairwiseComparePanel`` compute a total
+            from ``figsize_per_panel``. An explicit value is applied to
+            the finished figure. Ignored when pixel dimensions are given.
+        pixelwidth: Output width in pixels. Must be paired with
+            ``pixelheight``; together they override ``figsize`` as
+            ``(pixelwidth / dpi, pixelheight / dpi)``.
+        pixelheight: Output height in pixels. Must be paired with
+            ``pixelwidth``.
         dpi: Dots per inch, and the pixel/inch conversion factor.
         subplot_kw: Forwarded to :func:`matplotlib.pyplot.subplots`,
             overriding the inner panel's projection.
-        blit: Passed to ``FuncAnimation``. Default ``False`` — panels
-            redraw whole axes, so blitting buys nothing and breaks
-            titles.
+        blit: Kept for signature compatibility; only ``False`` is
+            supported. Panels redraw whole axes and do not report their
+            artists, which is what ``FuncAnimation`` blitting requires,
+            so ``True`` raises rather than silently failing to draw.
 
     Example:
         >>> import matplotlib
@@ -87,7 +93,7 @@ class AnimatePanel:
         fps: int = 24,
         interval_ms: int | None = None,
         title_format: str = "{value}",
-        figsize: tuple[float, float] = (8, 6),
+        figsize: tuple[float, float] | None = None,
         pixelwidth: int | None = None,
         pixelheight: int | None = None,
         dpi: int = 100,
@@ -96,19 +102,36 @@ class AnimatePanel:
     ) -> None:
         if fps <= 0:
             raise ValueError(f"fps must be positive, got {fps!r}.")
+        if (pixelwidth is None) != (pixelheight is None):
+            raise ValueError(
+                "pixelwidth and pixelheight must be given together; got "
+                f"pixelwidth={pixelwidth!r}, pixelheight={pixelheight!r}. "
+                "Pass both to size the output in pixels, or neither and use "
+                "figsize."
+            )
+        if blit:
+            # FuncAnimation's blitting contract requires the callback to
+            # return the artists it touched. Panels redraw whole axes
+            # through `_build` and report nothing, and `ax.clear()` per
+            # frame invalidates the cached background anyway.
+            raise ValueError(
+                "blit=True is not supported: panels redraw entire axes each "
+                "frame and do not report their artists. Leave blit=False."
+            )
         self.panel = panel
         self.frame_dim = frame_dim
         self.fps = int(fps)
         self.interval_ms = interval_ms
         self.title_format = title_format
-        self.figsize = tuple(figsize)
+        self.figsize = tuple(figsize) if figsize is not None else None
         self.pixelwidth = pixelwidth
         self.pixelheight = pixelheight
         self.dpi = int(dpi)
         self.subplot_kw = subplot_kw
         self.blit = bool(blit)
 
-    def _resolved_figsize(self) -> tuple[float, float]:
+    def _resolved_figsize(self) -> tuple[float, float] | None:
+        """Explicit figure size in inches, or ``None`` to let the panel size itself."""
         if self.pixelwidth is not None and self.pixelheight is not None:
             return (self.pixelwidth / self.dpi, self.pixelheight / self.dpi)
         return self.figsize
@@ -193,7 +216,7 @@ class AnimatePanel:
         def update(index: int) -> None:
             self._draw(fig, axes, ds, index, values, baseline)
 
-        return FuncAnimation(
+        animation = FuncAnimation(
             fig,
             update,
             frames=n,
@@ -202,6 +225,11 @@ class AnimatePanel:
             else 1000.0 / self.fps,
             blit=self.blit,
         )
+        # Carry the configured rate so `save_animation` encodes at the
+        # speed the panel was built for rather than its own default.
+        # FuncAnimation has no slot for this, hence the annotation.
+        animation.xrtoolz_fps = self.fps  # ty: ignore[unresolved-attribute]
+        return animation
 
     def preview(
         self, ds: xr.Dataset | xr.DataArray, *, frame_index: int = 0
@@ -241,7 +269,7 @@ class AnimatePanel:
             "fps": self.fps,
             "interval_ms": self.interval_ms,
             "title_format": self.title_format,
-            "figsize": list(self.figsize),
+            "figsize": list(self.figsize) if self.figsize else None,
             "pixelwidth": self.pixelwidth,
             "pixelheight": self.pixelheight,
             "dpi": self.dpi,
@@ -256,11 +284,22 @@ class AnimatePanel:
         )
 
 
+def _animation_fps(ani: Any, fallback: int = 24) -> int:
+    """Recover the frame rate an animation was configured with."""
+    stamped = getattr(ani, "xrtoolz_fps", None)
+    if stamped:
+        return int(stamped)
+    interval = getattr(ani, "_interval", None)
+    if interval:
+        return max(1, round(1000.0 / float(interval)))
+    return fallback
+
+
 def save_animation(
     ani: Any,
     path: str | Path,
     *,
-    fps: int = 24,
+    fps: int | None = None,
     progress: bool = False,
     overwrite_existing: bool = False,
     writer_kwargs: dict[str, Any] | None = None,
@@ -273,7 +312,10 @@ def save_animation(
             (needs a system ffmpeg), ``.gif`` uses ``PillowWriter`` (no
             external binary), and ``.html`` writes ``ani.to_jshtml()``
             — a self-contained player that needs nothing installed.
-        fps: Frame rate to encode at.
+        fps: Frame rate to encode at. ``None`` (default) uses the rate the
+            :class:`AnimatePanel` was configured with, falling back to the
+            animation's frame interval, so a 5-fps panel does not silently
+            encode at 24.
         progress: Attach a tqdm progress bar ticking once per rendered
             frame. A no-op with a warning when tqdm is unavailable.
         overwrite_existing: Permit clobbering an existing file. Default
@@ -304,9 +346,10 @@ def save_animation(
             f"{destination} already exists; pass overwrite_existing=True to clobber it."
         )
     destination.parent.mkdir(parents=True, exist_ok=True)
+    rate = _animation_fps(ani) if fps is None else int(fps)
 
     if suffix == ".html":
-        destination.write_text(ani.to_jshtml(fps=fps), encoding="utf-8")
+        destination.write_text(ani.to_jshtml(fps=rate), encoding="utf-8")
         return destination
 
     from matplotlib.animation import FFMpegWriter, PillowWriter
@@ -319,9 +362,9 @@ def save_animation(
                 "Install it (e.g. `conda install -c conda-forge ffmpeg`) or "
                 "save to .gif / .html instead."
             )
-        writer: Any = FFMpegWriter(fps=fps, **extra)
+        writer: Any = FFMpegWriter(fps=rate, **extra)
     else:
-        writer = PillowWriter(fps=fps, **extra)
+        writer = PillowWriter(fps=rate, **extra)
 
     callback = None
     if progress:
