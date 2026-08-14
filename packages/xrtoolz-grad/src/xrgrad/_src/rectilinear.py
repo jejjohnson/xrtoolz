@@ -133,7 +133,7 @@ def rectilinear_gradient(
     for dim, acc in zip(target_dims, per_dim, strict=True):
         out[f"d{base}_d{dim}"] = rectilinear_partial(
             da,
-            str(dim),
+            dim,
             accuracy=acc,
             method=method,
             uniform_rtol=uniform_rtol,

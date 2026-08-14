@@ -427,7 +427,7 @@ def laplacian(
                 geom_kw.get("lat", "lat"),
             )
         else:
-            target_dims = tuple(str(d) for d in da.dims)
+            target_dims = tuple(da.dims)
     else:
         target_dims = tuple(dims)
 

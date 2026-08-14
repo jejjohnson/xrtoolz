@@ -280,7 +280,7 @@ def cartesian_gradient(
     for dim, acc in zip(target_dims, per_dim, strict=True):
         component = cartesian_partial(
             da,
-            str(dim),
+            dim,
             accuracy=acc,
             method=method,
             uniform_rtol=uniform_rtol,

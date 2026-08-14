@@ -65,6 +65,35 @@ def test_two_dimensional_lat_coord_raises_on_spherical():
         partial(_curvilinear_field(), "lon", geometry="spherical")
 
 
+def _lonlat_field() -> xr.DataArray:
+    lon = np.linspace(-60.0, -20.0, 9)
+    lat = np.linspace(10.0, 50.0, 9)
+    return xr.DataArray(
+        np.sin(np.deg2rad(lat))[:, None] * np.ones(lon.size),
+        dims=("lat", "lon"),
+        coords={"lat": lat, "lon": lon},
+        name="f",
+    )
+
+
+def test_lat_derivative_works_with_scalar_lon_coord():
+    """A meridional profile keeps lon as a 0-D coord; ∂/∂lat ignores it."""
+    da = _lonlat_field()
+    profile = da.sel(lon=-40.0)
+    assert profile["lon"].ndim == 0
+    got = partial(profile, "lat", geometry="spherical")
+    expected = partial(da, "lat", geometry="spherical").sel(lon=-40.0)
+    np.testing.assert_allclose(got.values, expected.values, atol=0.0)
+
+
+def test_lon_derivative_still_requires_1d_lat_coord():
+    """The cos φ factor must broadcast, so ∂/∂lon does need a 1-D lat."""
+    da = _lonlat_field().isel(lat=0)
+    assert da["lat"].ndim == 0
+    with pytest.raises(ValueError, match="1-D coordinates only"):
+        partial(da, "lon", geometry="spherical")
+
+
 def test_two_dimensional_coord_raises_on_cartesian():
     j = np.arange(6.0)
     i = np.arange(5.0)

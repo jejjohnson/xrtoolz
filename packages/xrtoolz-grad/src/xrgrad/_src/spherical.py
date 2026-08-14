@@ -77,8 +77,11 @@ def spherical_partial(
         ``f"d{da.name}_dx"`` or ``f"d{da.name}_dy"``.
 
     Raises:
-        ValueError: if ``lon``/``lat`` are missing or not 1-D, or ``dim``
-            is neither of them.
+        ValueError: if ``lon``/``lat`` are missing, if ``dim`` is neither
+            of them, or if a coordinate that this derivative actually
+            needs is not 1-D. Differentiating along ``lat`` needs only the
+            latitude axis, so a scalar ``lon`` coordinate (as left behind
+            by ``da.sel(lon=...)``) is accepted.
         NotImplementedError: if ``order > 1``. Repeating the metric
             derivative is not the geometric second derivative — the
             metric factors do not commute with ``∂`` — so use
@@ -90,8 +93,6 @@ def spherical_partial(
         raise ValueError(f"Coordinate {lon!r} not present on DataArray.")
     if lat not in da.coords:
         raise ValueError(f"Coordinate {lat!r} not present on DataArray.")
-    cartesian._require_1d_coord(da[lon])
-    cartesian._require_1d_coord(da[lat])
     if order > 1:
         raise NotImplementedError(
             f"order={order} is not supported for geometry='spherical': "
@@ -104,6 +105,11 @@ def spherical_partial(
             f"dim={dim!r} must be the lon coord ({lon!r}) or the lat "
             f"coord ({lat!r}) for geometry='spherical'."
         )
+    # Only the differentiated axis has to be 1-D here. The other coordinate
+    # is constrained further down, and only when its metric factor is
+    # actually used — a lat derivative is well defined even when lon has
+    # been collapsed to a scalar by e.g. ``da.sel(lon=...)``.
+    cartesian._require_1d_coord(da[dim])
     if dim not in da.dims:
         raise ValueError(
             f"Dimension {dim!r} not present on DataArray with dims={da.dims}."
@@ -121,6 +127,9 @@ def spherical_partial(
 
     name_suffix: str
     if dim == lon:
+        # cos φ has to broadcast along the latitude axis, so the latitude
+        # coordinate must itself be 1-D for this branch only.
+        cartesian._require_1d_coord(da[lat])
         lat_values_rad = np.deg2rad(np.asarray(da[lat].values))
         cos_phi = _broadcast_along(
             np.cos(lat_values_rad), ndim=da.ndim, axis=da.get_axis_num(lat)
