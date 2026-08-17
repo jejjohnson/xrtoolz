@@ -112,6 +112,46 @@ def _stencil_halo(*, derivative: int, accuracy: int) -> int:
     return derivative + accuracy
 
 
+def _reject_duplicate_endpoint(
+    values: Float[np.ndarray, "*shape"], *, axis: int, dim: Hashable
+) -> None:
+    """Guard against an endpoint-inclusive grid being wrapped.
+
+    The wrap treats the axis as endpoint-exclusive: the period is the
+    full extent, ``n·Δ``, so the last sample's right neighbour is the
+    first. A grid built with ``np.linspace(0, L, n)`` — endpoint
+    *inclusive*, and numpy's default — stores the same physical location
+    twice, so wrapping makes a point its own neighbour and roughly halves
+    the seam derivative.
+
+    The coordinate alone cannot distinguish the two conventions (both are
+    uniform with the same step), so the duplicate is detected in the
+    data: a field that varies along the axis but takes the same value at
+    both ends has a repeated endpoint. The equality test is tight, so a
+    genuinely endpoint-exclusive field would have to coincide to ~1e-12
+    at the two ends to trip it.
+
+    Raises:
+        ValueError: if the axis looks endpoint-inclusive.
+    """
+    first = np.take(values, 0, axis=axis)
+    last = np.take(values, -1, axis=axis)
+    if not np.allclose(first, last, rtol=1e-12, atol=1e-12, equal_nan=True):
+        return
+    varies = not np.allclose(
+        values, np.take(values, [0], axis=axis), rtol=1e-12, atol=1e-12
+    )
+    if not varies:
+        return  # constant along the axis: the derivative is 0 either way
+    raise ValueError(
+        f"Coordinate {dim!r} looks endpoint-inclusive: the field takes the "
+        "same value at its first and last sample, so wrapping would make "
+        "that point its own neighbour and halve the derivative at the seam. "
+        "periodic=True treats the axis as endpoint-exclusive with period "
+        f"n*step. Drop the repeated endpoint, e.g. da.isel({dim}=slice(0, -1))."
+    )
+
+
 def _difference_periodic(
     values: Float[np.ndarray, "*shape"],
     *,
@@ -230,9 +270,16 @@ def _coord_to_float(
 
     ``datetime64`` becomes float seconds measured from the first sample —
     anchoring at the first sample rather than the epoch keeps the values
-    small enough that float64 does not lose nanosecond resolution.
+    small enough that float64 does not lose sub-second resolution.
     ``timedelta64`` becomes float seconds directly. Numeric dtypes pass
     through unchanged (as float64).
+
+    The conversion divides by a one-second ``timedelta64`` rather than
+    casting to ``timedelta64[ns]``. Nanosecond ticks are a signed 64-bit
+    count, so they saturate at roughly ±292 years: a millennium-long
+    daily or annual axis — ordinary for control runs and paleoclimate —
+    would silently wrap to a negative span. Dividing keeps the source
+    unit and yields float64 seconds directly, exact from nanoseconds up.
 
     Raises:
         ValueError: for object-dtype coordinates such as ``cftime``
@@ -247,9 +294,9 @@ def _coord_to_float(
             "use_cftime=False)."
         )
     if np.issubdtype(values.dtype, np.datetime64):
-        values = values - values[0] if values.size else values.astype("timedelta64[ns]")
+        values = values - values[0] if values.size else values.astype("timedelta64[s]")
     if np.issubdtype(values.dtype, np.timedelta64):
-        return values.astype("timedelta64[ns]").astype(np.float64) / 1e9
+        return (values / np.timedelta64(1, "s")).astype(np.float64)
     return np.asarray(values, dtype=np.float64)
 
 
@@ -320,8 +367,11 @@ def cartesian_partial(
         method: ``"central"``, ``"forward"``, or ``"backward"``.
         periodic: Treat ``dim`` as wrapping, so the first and last points
             are differentiated against each other instead of falling back
-            to one-sided stencils. The period is implicitly the full
-            extent of the axis.
+            to one-sided stencils. The axis is taken to be **endpoint
+            exclusive**: the period is ``n * step``, so the last sample is
+            one step before the first repeats. A grid that stores both
+            ends of the period (``np.linspace(0, L, n)``, endpoint
+            inclusive) is rejected — see Raises.
         uniform_rtol: Relative tolerance for the uniform-spacing check.
 
     Returns:
@@ -331,7 +381,8 @@ def cartesian_partial(
 
     Raises:
         ValueError: if ``dim`` is absent from ``da.dims``, carries no
-            coordinate, or ``order`` is not a positive integer.
+            coordinate, ``order`` is not a positive integer, or
+            ``periodic`` is requested on an endpoint-inclusive axis.
     """
     _validate_order(order)
     if dim not in da.dims:
@@ -341,6 +392,11 @@ def cartesian_partial(
     _require_coord(da, dim)
     axis = da.get_axis_num(dim)
     step = _uniform_step(da[dim], rtol=uniform_rtol)
+    if periodic:
+        # The spherical backend has a stronger check of its own (the grid
+        # must span a full 360°), so this only needs to cover the cartesian
+        # and uniform-rectilinear paths, where the period is implicit.
+        _reject_duplicate_endpoint(da.values, axis=axis, dim=dim)
     raw = _difference_maybe_periodic(
         da.values,
         axis=axis,

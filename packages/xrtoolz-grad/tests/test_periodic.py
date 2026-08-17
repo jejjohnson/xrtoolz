@@ -174,3 +174,52 @@ def test_laplacian_accepts_periodic():
     )
     err_interior = np.abs(wrapped.values[2:-2] - exact[2:-2]).max()
     assert err_edge <= 5.0 * err_interior
+
+
+def test_endpoint_inclusive_axis_is_rejected():
+    """``np.linspace(0, L, n)`` repeats the period's endpoint.
+
+    Wrapping it would make the seam point its own neighbour, roughly
+    halving the derivative there — silently, which is the failure mode
+    this guard exists to prevent.
+    """
+    x = np.linspace(0.0, 2 * np.pi, 33)  # endpoint=True, numpy's default
+    da = xr.DataArray(np.sin(x), dims=("x",), coords={"x": x}, name="f")
+    with pytest.raises(ValueError, match="endpoint-inclusive"):
+        partial(da, "x", periodic=True)
+
+
+def test_endpoint_exclusive_equivalent_is_accepted_and_accurate():
+    """Dropping the duplicate, as the error suggests, gives the right answer."""
+    x = np.linspace(0.0, 2 * np.pi, 33)
+    da = xr.DataArray(np.sin(x), dims=("x",), coords={"x": x}, name="f")
+    fixed = da.isel(x=slice(0, -1))
+    got = partial(fixed, "x", periodic=True)
+    np.testing.assert_allclose(got.values, np.cos(fixed["x"].values), atol=1e-2)
+    assert abs(float(got.values[0]) - 1.0) < 1e-2
+
+
+def test_constant_field_is_not_falsely_rejected():
+    """A constant field has equal ends but no duplicated endpoint."""
+    x = np.linspace(0.0, 4.0, 16, endpoint=False)
+    da = xr.DataArray(np.full(16, 7.0), dims=("x",), coords={"x": x}, name="f")
+    np.testing.assert_allclose(partial(da, "x", periodic=True).values, 0.0, atol=1e-12)
+
+
+def test_endpoint_guard_only_applies_to_periodic():
+    """Non-periodic differentiation of the same grid is untouched."""
+    x = np.linspace(0.0, 2 * np.pi, 33)
+    da = xr.DataArray(np.sin(x), dims=("x",), coords={"x": x}, name="f")
+    got = partial(da, "x")  # no periodic= — must not raise
+    np.testing.assert_allclose(got.values[3:-3], np.cos(x)[3:-3], atol=1e-2)
+
+
+def test_endpoint_guard_reaches_multidim_operators():
+    x = np.linspace(0.0, 2 * np.pi, 17)
+    y = np.linspace(0.0, 1.0, 5)
+    grid_x, _ = np.meshgrid(x, y, indexing="ij")
+    da = xr.DataArray(
+        np.sin(grid_x), dims=("x", "y"), coords={"x": x, "y": y}, name="f"
+    )
+    with pytest.raises(ValueError, match="endpoint-inclusive"):
+        gradient(da, dims=("x", "y"), periodic="x")

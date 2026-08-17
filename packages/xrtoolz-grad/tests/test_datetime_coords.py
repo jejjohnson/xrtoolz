@@ -119,3 +119,35 @@ def test_integer_coordinate_still_works():
     np.testing.assert_allclose(
         partial(da, "i").values[1:-1], (2.0 * idx)[1:-1], atol=1e-9
     )
+
+
+def test_millennium_span_does_not_overflow_nanoseconds():
+    """A 1000-year daily axis exceeds the int64 nanosecond range.
+
+    ``timedelta64[ns]`` saturates at roughly ±292 years, so casting the
+    whole span to nanoseconds used to wrap it to a *negative* step and
+    silently flip the sign of every derivative.
+    """
+    steps = np.arange(1000) * 365
+    time = np.datetime64("1000-01-01", "D") + steps.astype("timedelta64[D]")
+    slope_per_second = 1.0 / (365.0 * 86400.0)
+    values = steps.astype(np.float64) * 86400.0 * slope_per_second
+    da = xr.DataArray(values, dims=("time",), coords={"time": time}, name="f")
+    got = partial(da, "time")
+    assert float(got.values[5]) > 0.0, "derivative sign flipped — ns overflow"
+    np.testing.assert_allclose(got.values[1:-1], slope_per_second, rtol=1e-9)
+
+
+@pytest.mark.parametrize("unit", ["s", "m", "h", "D"])
+def test_coarse_time_units_convert_exactly(unit):
+    """Second/minute/hour/day resolutions all scale from their own unit."""
+    per_unit_seconds = {"s": 1.0, "m": 60.0, "h": 3600.0, "D": 86400.0}[unit]
+    time = np.datetime64("2026-01-01", unit) + np.arange(10).astype(
+        f"timedelta64[{unit}]"
+    )
+    da = xr.DataArray(
+        np.arange(10, dtype=float), dims=("time",), coords={"time": time}, name="f"
+    )
+    np.testing.assert_allclose(
+        partial(da, "time").values, 1.0 / per_unit_seconds, rtol=1e-12
+    )

@@ -151,7 +151,18 @@ zeta = xrgrad.curl(
 
 `partial` takes a bool (it acts on one axis); the multi-dim operators
 take a dimension name or a sequence of names, which must be among the
-dims being differentiated. Restrictions:
+dims being differentiated.
+
+The axis is treated as **endpoint exclusive** — the period is `n * step`,
+so the last sample sits one step before the first repeats. This is what
+`np.linspace(0, L, n, endpoint=False)` and a `0…355` global longitude
+axis give you. A grid that stores *both* ends of the period (numpy's
+default `endpoint=True`) repeats a physical location, which would make
+the seam point its own neighbour and roughly halve its derivative; that
+is detected and rejected, so drop the duplicate with
+`da.isel(x=slice(0, -1))` first.
+
+Further restrictions:
 
 - **Spherical longitude** must span the full 360°; a regional grid has
   no wrap-around neighbour and raises.
