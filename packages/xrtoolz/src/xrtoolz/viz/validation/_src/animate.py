@@ -24,6 +24,7 @@ from xrtoolz.viz.validation._src.composition import (
     _drop_axes_added_since,
     _inner_config,
     _render_into,
+    _require_single_input_panel,
 )
 
 
@@ -118,6 +119,7 @@ class AnimatePanel:
                 "blit=True is not supported: panels redraw entire axes each "
                 "frame and do not report their artists. Leave blit=False."
             )
+        _require_single_input_panel(panel)
         self.panel = panel
         self.frame_dim = frame_dim
         self.fps = int(fps)

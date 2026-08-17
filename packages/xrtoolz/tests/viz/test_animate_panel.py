@@ -336,3 +336,41 @@ def test_animation_carries_its_configured_fps() -> None:
     ani = AnimatePanel(panel, fps=7)(_frames(2))
 
     assert ani.xrtoolz_fps == 7
+
+
+def test_subplot_kw_does_not_flatten_a_composite_layout() -> None:
+    import cartopy.crs as ccrs
+
+    ds = _frames(2, extra={"experiment": ["a", "b", "c", "d"]})
+
+    # An explicit subplot_kw must not bypass FacetPanel's grid builder,
+    # or the frame would render into a single Axes and index past it.
+    ani = AnimatePanel(
+        FacetPanel(SpatialMapPanel(variable="ssh"), facet_dim="experiment"),
+        subplot_kw={"projection": ccrs.Mollweide()},
+    )(ds)
+    _run_all_frames(ani, 2)
+
+    cells = [ax for ax in ani._fig.axes if ax.get_label() != "<colorbar>"]
+    assert len(cells) == 4
+    assert all(isinstance(ax.projection, ccrs.Mollweide) for ax in cells)
+
+
+def test_subplot_kw_preserves_the_pairwise_triptych() -> None:
+    import cartopy.crs as ccrs
+
+    ds = _frames(2, extra={"method": ["duacs", "miost"]})
+
+    fig, _ = AnimatePanel(
+        PairwiseComparePanel(SpatialMapPanel(variable="ssh")),
+        subplot_kw={"projection": ccrs.Mollweide()},
+    ).preview(ds)
+
+    assert len([ax for ax in fig.axes if ax.get_label() != "<colorbar>"]) == 3
+
+
+def test_multi_input_panels_are_rejected_at_construction() -> None:
+    from xrtoolz.viz.validation import EulerianLagrangianPanel
+
+    with pytest.raises(TypeError, match="cannot be wrapped"):
+        AnimatePanel(EulerianLagrangianPanel())

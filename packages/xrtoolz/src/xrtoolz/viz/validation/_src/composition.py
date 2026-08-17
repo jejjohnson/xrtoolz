@@ -12,6 +12,7 @@ axes list from growing when a panel is rendered repeatedly.
 from __future__ import annotations
 
 import contextlib
+import inspect
 from collections.abc import Callable, Iterator
 from typing import Any
 
@@ -89,9 +90,54 @@ def _apply_preset_extent(panel: InnerPanel, axes: Any) -> None:
 
     import cartopy.crs as ccrs
 
-    for ax in np.ravel(np.asarray(axes, dtype=object)).tolist():
+    for ax in _flatten_axes(axes):
         if hasattr(ax, "set_extent"):
             ax.set_extent(preset["extent"], crs=ccrs.PlateCarree())
+
+
+def _flatten_axes(axes: Any) -> list[Any]:
+    """Flatten an Axes, an array of them, or an array of arrays of them.
+
+    A subdivided :class:`FacetPanel` grid nests one axes array per cell,
+    so a single ``np.ravel`` yields arrays rather than Axes.
+    """
+    if isinstance(axes, np.ndarray):
+        out: list[Any] = []
+        for item in axes.ravel().tolist():
+            out.extend(_flatten_axes(item))
+        return out
+    return [axes]
+
+
+def _require_single_input_panel(panel: InnerPanel) -> None:
+    """Reject inner panels the wrappers cannot drive.
+
+    The wrappers hand an inner panel exactly one sliced object and one
+    Axes. Panels such as ``EulerianLagrangianPanel`` (eulerian +
+    trajectories) and ``EventVerificationPanel`` (four inputs across an
+    axes pair) need more of both, and would otherwise fail deep inside
+    rendering with a bare ``TypeError``.
+    """
+    if not isinstance(panel, _ValidationPanel):
+        return
+    layout = getattr(panel, "_default_axes_layout", (1, 1))
+    parameters = list(inspect.signature(panel._build).parameters.values())
+    # Drop `fig` and `axes`; what remains is the panel's data arity.
+    data_params = [
+        param
+        for param in parameters[2:]
+        if param.kind in (param.POSITIONAL_ONLY, param.POSITIONAL_OR_KEYWORD)
+        and param.default is param.empty
+    ]
+    if len(data_params) > 1 or tuple(layout) != (1, 1):
+        names = [param.name for param in data_params]
+        raise TypeError(
+            f"{type(panel).__name__} cannot be wrapped: the composable "
+            "wrappers render one sliced input into one Axes, but this panel "
+            f"takes {len(data_params)} inputs {names} across a "
+            f"{tuple(layout)} axes layout. Only single-input, single-axes "
+            "panels compose."
+        )
 
 
 def _render_into(panel: InnerPanel, fig: mpl_figure.Figure, ax: Any, ds: Any) -> Any:
@@ -196,10 +242,17 @@ def _build_axes_for(
     """
     import matplotlib.pyplot as plt
 
-    if subplot_kw is None and isinstance(panel, _ValidationPanel):
+    if isinstance(panel, _ValidationPanel):
         builder = getattr(panel, "_make_fig_axes_for", None)
-        overrides = {"figsize": figsize} if figsize is not None else None
-        with _temporary_attrs(panel, overrides):
+        overrides: dict[str, Any] = {}
+        if figsize is not None:
+            overrides["figsize"] = figsize
+        if subplot_kw is not None:
+            # Push the override *through* the composite rather than around
+            # it: bypassing its builder would yield a single Axes, and its
+            # `_build` would then index cells that do not exist.
+            overrides["subplot_kw"] = subplot_kw
+        with _temporary_attrs(panel, overrides or None):
             fig, axes = builder(ds) if builder is not None else panel._make_fig_axes()
     else:
         resolved = _resolve_subplot_kw(panel, subplot_kw)
@@ -246,10 +299,12 @@ __all__ = [
     "_clear_axes",
     "_drop_axes_added_since",
     "_find_mappable",
+    "_flatten_axes",
     "_inner_cell_grid",
     "_inner_config",
     "_innermost_projection",
     "_render_into",
+    "_require_single_input_panel",
     "_resolve_subplot_kw",
     "_temporary_attrs",
 ]

@@ -337,3 +337,102 @@ def test_sharing_survives_a_subdivided_facet_grid() -> None:
     first = fig.axes[0]
     siblings = first.get_shared_x_axes().get_siblings(first)
     assert all(ax in siblings for ax in fig.axes)
+
+
+def test_seasons_come_back_in_chronological_order() -> None:
+    import pandas as pd
+
+    ds = xr.DataArray(
+        np.arange(365.0),
+        dims="time",
+        coords={"time": pd.date_range("2020-01-01", periods=365)},
+    ).to_dataset(name="sst")
+
+    # Grouping on the string season coord sorts lexicographically, which
+    # would put JJA before MAM in the mosaic.
+    assert list(seasonal_groupby(ds)["season"].values) == ["DJF", "MAM", "JJA", "SON"]
+
+
+def test_partial_year_keeps_only_the_seasons_present() -> None:
+    import pandas as pd
+
+    ds = xr.DataArray(
+        np.arange(120.0),
+        dims="time",
+        coords={"time": pd.date_range("2020-01-01", periods=120)},
+    ).to_dataset(name="sst")
+
+    assert list(seasonal_groupby(ds)["season"].values) == ["DJF", "MAM"]
+
+
+def test_sharebar_keeps_per_cell_bars_when_no_mappable_exists() -> None:
+    calls: list = []
+
+    def bar_drawing_panel(ds, ax) -> None:
+        # Draws a colorbar from a standalone mappable, leaving nothing
+        # attached to the main axes for the shared bar to reuse.
+        import matplotlib.cm as mpl_cm
+        import matplotlib.colors as mpl_colors
+
+        mappable = mpl_cm.ScalarMappable(norm=mpl_colors.Normalize(0, 1))
+        ax.figure.colorbar(mappable, ax=ax)
+        calls.append(ds)
+
+    with pytest.warns(UserWarning, match="no mappable"):
+        fig = FacetPanel(bar_drawing_panel, facet_dim="experiment", sharebar=True)(
+            _faceted(2)
+        )
+
+    # The warning promises the panel's own colorbars survive, so they must.
+    assert len([ax for ax in fig.axes if ax.get_label() == "<colorbar>"]) == 2
+
+
+def test_sharebar_puts_every_facet_on_one_scale() -> None:
+    import matplotlib.cm as mpl_cm
+
+    # Facet 0 spans [1, 1], facet 1 spans [100, 100]; autoscaled
+    # independently the shared bar would describe only one of them.
+    ds = (
+        xr.concat(
+            [
+                xr.DataArray(
+                    np.full((5, 6), value),
+                    dims=("lat", "lon"),
+                    coords={
+                        "lat": np.linspace(-5, 5, 5),
+                        "lon": np.linspace(-5, 5, 6),
+                    },
+                )
+                for value in (1.0, 100.0)
+            ],
+            dim="experiment",
+        )
+        .assign_coords(experiment=["a", "b"])
+        .to_dataset(name="ssh")
+    )
+
+    fig = FacetPanel(
+        SpatialMapPanel(variable="ssh"), facet_dim="experiment", sharebar=True
+    )(ds)
+
+    clims = {
+        artist.get_clim()
+        for ax in _main_axes(fig)
+        for artist in ax.collections
+        if isinstance(artist, mpl_cm.ScalarMappable)
+    }
+    assert len(clims) == 1
+    low, high = clims.pop()
+    assert low <= 1.0 and high >= 100.0
+
+
+@pytest.mark.parametrize(
+    "panel_cls", ["EulerianLagrangianPanel", "EventVerificationPanel"]
+)
+def test_multi_input_panels_are_rejected_at_construction(panel_cls: str) -> None:
+    import xrtoolz.viz.validation as validation
+
+    inner = getattr(validation, panel_cls)()
+
+    with pytest.raises(TypeError, match="cannot be wrapped"):
+        FacetPanel(inner, facet_dim="experiment")

@@ -288,3 +288,40 @@ def test_nested_sharebar_finds_a_mappable_in_the_subdivided_cell() -> None:
     # sub-axes the shared bar would find no mappable and vanish.
     assert len(colorbars) == 1
     assert len(_main_axes(fig)) == 6
+
+
+def test_nested_preset_extent_reaches_subdivided_cells() -> None:
+    from xrtoolz.viz._src.projections import PRESETS
+
+    ds = xr.DataArray(
+        np.random.default_rng(0).random((2, 2, 5, 6)),
+        dims=("scale", "method", "lat", "lon"),
+        coords={
+            "scale": ["large", "small"],
+            "method": ["duacs", "miost"],
+            "lat": np.linspace(-5, 5, 5),
+            "lon": np.linspace(-5, 5, 6),
+        },
+    ).to_dataset(name="rmse")
+
+    fig = FacetPanel(
+        PairwiseComparePanel(
+            SpatialMapPanel(variable="rmse", projection="north_atlantic")
+        ),
+        facet_dim="scale",
+    )(ds)
+
+    # Each facet cell holds its own axes array, so a single ravel would
+    # hand set_extent an array instead of a GeoAxes and silently skip it.
+    expected = PRESETS["north_atlantic"]["extent"]
+    for ax in _main_axes(fig):
+        assert ax.get_extent(crs=ax.projection.as_geodetic()) == pytest.approx(
+            expected, abs=1.0
+        )
+
+
+def test_multi_input_panels_are_rejected_at_construction() -> None:
+    from xrtoolz.viz.validation import EventVerificationPanel
+
+    with pytest.raises(TypeError, match="cannot be wrapped"):
+        PairwiseComparePanel(EventVerificationPanel())

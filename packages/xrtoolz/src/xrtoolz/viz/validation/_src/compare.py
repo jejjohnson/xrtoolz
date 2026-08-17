@@ -21,6 +21,7 @@ from xrtoolz.viz.validation._src.composition import (
     _apply_preset_extent,
     _inner_config,
     _render_into,
+    _require_single_input_panel,
     _resolve_subplot_kw,
     _temporary_attrs,
 )
@@ -104,6 +105,7 @@ class PairwiseComparePanel(_ValidationPanel):
             )
         if layout not in ("row", "col"):
             raise ValueError(f"unknown layout {layout!r}; expected 'row' or 'col'.")
+        _require_single_input_panel(panel)
         super().__init__(**kw)
         self.panel = panel
         self.method_dim = method_dim

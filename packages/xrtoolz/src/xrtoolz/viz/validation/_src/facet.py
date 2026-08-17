@@ -25,11 +25,16 @@ from xrtoolz.viz.validation._src.composition import (
     _apply_preset_extent,
     _drop_axes_added_since,
     _find_mappable,
+    _flatten_axes,
     _inner_cell_grid,
     _inner_config,
     _render_into,
+    _require_single_input_panel,
     _resolve_subplot_kw,
 )
+
+
+_SEASON_ORDER: tuple[str, ...] = ("DJF", "MAM", "JJA", "SON")
 
 
 class FacetPanel(_ValidationPanel):
@@ -101,6 +106,7 @@ class FacetPanel(_ValidationPanel):
         subplot_kw: dict[str, Any] | None = None,
         **kw: Any,
     ) -> None:
+        _require_single_input_panel(panel)
         super().__init__(**kw)
         self.panel = panel
         self.facet_dim = facet_dim
@@ -241,45 +247,37 @@ class FacetPanel(_ValidationPanel):
             else np.arange(n)
         )
 
-        mappable = None
+        mappables: list[Any] = []
+        # Snapshot before any cell renders: reclaiming the panel's own
+        # colorbars is only correct once a shared bar is guaranteed, so
+        # the removal is deferred until after the loop.
+        baseline = frozenset(fig.axes)
         for index in range(n):
             ax = flat[index]
             slice_ = ds.isel({self.facet_dim: index})
-            # Snapshot before the build so any colorbar the inner panel
-            # adds can be reclaimed when a shared bar supersedes it.
-            before = frozenset(fig.axes)
             returned = _render_into(self.panel, fig, ax, slice_)
             label = self.title_format.format(value=values[index], index=index)
+            if self.sharebar:
+                for sub_ax in _flatten_axes(ax):
+                    found = _find_mappable(sub_ax, returned)
+                    if found is not None:
+                        mappables.append(found)
             if isinstance(ax, np.ndarray):
-                if self.sharebar:
-                    # Look through the cell's sub-axes before reclaiming
-                    # their colorbars, or the shared bar has no mappable
-                    # and the figure ends up with no colorbar at all.
-                    for sub_ax in np.ravel(ax).tolist():
-                        found = _find_mappable(sub_ax)
-                        if found is not None:
-                            mappable = found
-                    _drop_axes_added_since(fig, before)
                 # A subdivided cell: the inner panel titled each of its own
                 # axes, so prefix the facet label onto the first rather than
                 # overwriting what it wrote.
-                lead = np.ravel(ax)[0]
+                lead = _flatten_axes(ax)[0]
                 existing = lead.get_title()
                 lead.set_title(f"{label}\n{existing}" if existing else label)
-                continue
-            if self.sharebar:
-                found = _find_mappable(ax, returned)
-                if found is not None:
-                    mappable = found
-                _drop_axes_added_since(fig, before)
-            ax.set_title(label)
+            else:
+                ax.set_title(label)
 
         for ax in flat[n:]:
-            for sub in np.ravel(np.asarray(ax, dtype=object)).tolist():
+            for sub in _flatten_axes(ax):
                 sub.set_visible(False)
 
         if self.sharebar:
-            if mappable is None:
+            if not mappables:
                 warnings.warn(
                     "sharebar=True but the inner panel produced no mappable; "
                     "falling back to whatever colorbars the panel draws itself.",
@@ -287,12 +285,21 @@ class FacetPanel(_ValidationPanel):
                     stacklevel=2,
                 )
             else:
-                spanned = [
-                    sub
-                    for cell in flat[:n]
-                    for sub in np.ravel(np.asarray(cell, dtype=object)).tolist()
-                ]
-                fig.colorbar(mappable, ax=spanned)
+                # Every facet autoscales independently unless the inner panel
+                # pins vmin/vmax, so one bar drawn from one mappable would
+                # misdescribe the others. Put them all on a common scale.
+                limits = [m.get_clim() for m in mappables]
+                lows = [low for low, _ in limits if low is not None]
+                highs = [high for _, high in limits if high is not None]
+                if lows and highs:
+                    shared = (min(lows), max(highs))
+                    for m in mappables:
+                        m.set_clim(*shared)
+                _drop_axes_added_since(fig, baseline)
+                fig.colorbar(
+                    mappables[0],
+                    ax=[sub for cell in flat[:n] for sub in _flatten_axes(cell)],
+                )
 
     def _apply(self, *args: Any, **kwargs: Any) -> mpl_figure.Figure:
         # Overridden rather than using `_make_fig_axes`: the grid shape
@@ -369,7 +376,10 @@ def seasonal_groupby(
 
     Returns:
         The reduced object with a ``season`` dimension holding
-        ``DJF``/``MAM``/``JJA``/``SON`` in xarray's natural order.
+        ``DJF``/``MAM``/``JJA``/``SON`` in chronological order. Grouping
+        on the string ``time.season`` coordinate sorts lexicographically
+        (``DJF``, ``JJA``, ``MAM``, ``SON``), which would put summer
+        before spring in a mosaic, so the result is reindexed.
 
     Raises:
         ValueError: If ``reduction`` is not a groupby method.
@@ -392,7 +402,9 @@ def seasonal_groupby(
             f"unknown reduction {reduction!r}; expected a groupby method such "
             "as 'mean', 'sum' or 'median'."
         )
-    return getattr(grouped, reduction)()
+    reduced = getattr(grouped, reduction)()
+    present = [s for s in _SEASON_ORDER if s in set(reduced["season"].values)]
+    return reduced.reindex(season=present)
 
 
 __all__ = ["FacetPanel", "seasonal_groupby"]

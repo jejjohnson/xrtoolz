@@ -85,9 +85,18 @@ and the six-panel `scale × (ref, study, diff)` mosaic is
 `FacetPanel(PairwiseComparePanel(SpatialMapPanel(...)), facet_dim="scale")`.
 
 !!! note "Generality boundary"
-    Inner panels must render into an Axes handed to them. Plots that own
-    the whole figure (seaborn `JointGrid`, `pairplot`) and non-matplotlib
-    backends (plotly, hvplot, bokeh) are out of scope.
+    Only **single-input, single-axes** panels can be wrapped — the
+    wrappers hand an inner panel one sliced object and one Axes. That
+    covers `SpatialMapPanel`, the PSD panels, `RegionScoreBarPanel`,
+    `RotaryPolarizationPanel` and the scale-skill panels, plus any
+    `(ds, ax) -> Any` callable.
+
+    `EulerianLagrangianPanel` (eulerian + trajectories) and
+    `EventVerificationPanel` (four inputs across an axes pair) take more
+    of both and are rejected at construction with a `TypeError`. Plots
+    that own the whole figure (seaborn `JointGrid`, `pairplot`) and
+    non-matplotlib backends (plotly, hvplot, bokeh) are also out of
+    scope.
 
 ::: xrtoolz.viz.validation.FacetPanel
 
