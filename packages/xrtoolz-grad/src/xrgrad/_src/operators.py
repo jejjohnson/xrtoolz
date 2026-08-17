@@ -380,11 +380,16 @@ def laplacian(
     For ``geometry="cartesian"`` this sums direct second-derivative
     stencils (``Σ ∂²f/∂dim²``), which is exact for quadratic fields at
     the default ``accuracy=1`` and contaminates only a single boundary
-    ring. The other geometries compose gradient followed by divergence so
-    the spherical curvature correction is inherited automatically; there
-    the second derivative is two stacked first-derivative stencils, so
-    pass ``accuracy=2`` (or higher) when you need the interior to
-    reproduce polynomial fields exactly.
+    ring. An axis too short to host a second-derivative stencil falls
+    back to the composed form below, so short axes keep working.
+
+    The other geometries compose gradient followed by divergence so the
+    spherical curvature correction is inherited automatically. That
+    applies to *all* rectilinear grids, including those whose coordinate
+    is uniform enough to delegate each partial to the cartesian backend.
+    On those paths the second derivative is two stacked first-derivative
+    stencils, so pass ``accuracy=2`` (or higher) when you need the
+    interior to reproduce polynomial fields exactly.
 
     Args:
         da: Input scalar field.
@@ -439,9 +444,24 @@ def laplacian(
     if geometry == "cartesian":
         total: xr.DataArray | None = None
         for dim, acc in zip(target_dims, per_dim, strict=True):
-            second = cartesian.cartesian_partial(
-                da, dim, order=2, accuracy=acc, method=method, **geom_kw
-            )
+            try:
+                second = cartesian.cartesian_partial(
+                    da, dim, order=2, accuracy=acc, method=method, **geom_kw
+                )
+            except ValueError:
+                # finitediffx rejects a direct second-derivative stencil when
+                # the axis is too short to host one (e.g. two samples). Fall
+                # back to the composed two-pass form, which is what this
+                # function used before the order=2 fast path existed, so short
+                # axes keep working. A ValueError raised for any other reason
+                # — missing, non-1-D, or non-uniform coordinate — is raised
+                # again by these same calls.
+                first = cartesian.cartesian_partial(
+                    da, dim, accuracy=acc, method=method, **geom_kw
+                )
+                second = cartesian.cartesian_partial(
+                    first, dim, accuracy=acc, method=method, **geom_kw
+                )
             total = second if total is None else total + second
         assert total is not None  # narrowed by the empty-dims guard above
         return total.rename(None)

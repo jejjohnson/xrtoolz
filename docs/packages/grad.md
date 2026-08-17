@@ -70,11 +70,11 @@ $$
   + \frac{u\tan\varphi}{R}.
 $$
 
-On these curved geometries the Laplacian is composed as
+On spherical and rectilinear geometries the Laplacian is composed as
 $\Delta f = \nabla\cdot\nabla f$, so it inherits the corrections
-automatically. On Cartesian grids there is no curvature term to inherit,
-so `laplacian` instead sums direct second-derivative stencils
-$\sum_d \partial^2 f/\partial d^2$ — see below.
+automatically. Only on Cartesian grids, where there is no curvature term
+to inherit, does `laplacian` instead sum direct second-derivative
+stencils $\sum_d \partial^2 f/\partial d^2$ — see below.
 
 ## Accuracy and stencils
 
@@ -90,12 +90,14 @@ one-sided differences of the same order. Two practical notes:
   passes. It is available on Cartesian grids (and on rectilinear ones
   whose coordinate turns out to be uniform); spherical geometry and
   genuinely non-uniform coordinates raise `NotImplementedError`.
-- `laplacian` on a Cartesian grid sums `order=2` stencils, so it is
-  already exact for quadratic fields at the default `accuracy=1` and
-  degrades only a single boundary ring. On spherical and non-uniform
-  rectilinear grids it still composes two first-derivative stencils to
-  pick up the curvature corrections, so pass `accuracy=2` (or higher)
-  there when the interior must reproduce quadratic fields exactly.
+- `laplacian` sums `order=2` stencils **only** for
+  `geometry="cartesian"`, so there it is already exact for quadratic
+  fields at the default `accuracy=1` and degrades only a single boundary
+  ring. Every other geometry — spherical, and *all* rectilinear grids,
+  including ones whose coordinate is uniform enough that each partial
+  delegates to the Cartesian backend — still composes two
+  first-derivative stencils, so pass `accuracy=2` (or higher) there when
+  the interior must reproduce quadratic fields exactly.
 - `divergence`, `curl`, and `laplacian` accept a per-dim `accuracy`
   tuple as well as a scalar, matching `gradient`. The tuple pairs with
   `dims` in order, which is useful on anisotropic grids.

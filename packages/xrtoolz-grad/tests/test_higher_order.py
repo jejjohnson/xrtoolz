@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
-from xrgrad import gradient, laplacian, partial
+from xrgrad import divergence, gradient, laplacian, partial
 
 
 def _cubic(n: int = 32) -> xr.DataArray:
@@ -121,6 +121,54 @@ def test_cartesian_laplacian_matches_sum_of_second_partials():
 def test_cartesian_laplacian_returns_unnamed_dataarray():
     """Matches the divergence-composition path, which renames to None."""
     assert laplacian(_paraboloid(), dims=("x", "y")).name is None
+
+
+def _short_axis_field() -> xr.DataArray:
+    """A field whose ``x`` axis has too few samples for an order-2 stencil."""
+    x = np.array([0.0, 1.0])
+    y = np.linspace(0.0, 3.0, 6)
+    grid_x, grid_y = np.meshgrid(x, y, indexing="ij")
+    return xr.DataArray(
+        grid_x**2 + grid_y**2,
+        dims=("x", "y"),
+        coords={"x": x, "y": y},
+        name="f",
+    )
+
+
+def test_laplacian_two_sample_axis_falls_back_to_composition():
+    """A 2-sample axis cannot host an order-2 stencil; it must still work.
+
+    The fallback is per-dim: only the short axis drops to the composed
+    two-pass form, so the long axis keeps the direct order-2 stencil.
+    """
+    f = _short_axis_field()
+    got = laplacian(f, dims=("x", "y"))
+    x_part = partial(partial(f, "x"), "x")  # composed — x has 2 samples
+    y_part = partial(f, "y", order=2)  # direct — y has 6
+    np.testing.assert_allclose(got.values, (x_part + y_part).values, atol=0.0)
+
+
+def test_laplacian_two_sample_axis_does_not_raise_where_it_used_to_work():
+    """Regression: the pre-PR composition accepted this field, so we must."""
+    f = _short_axis_field()
+    grad = gradient(f, dims=("x", "y"))
+    divergence(grad, tuple(grad.data_vars), dims=("x", "y"))  # pre-PR path
+    assert laplacian(f, dims=("x", "y")).shape == f.shape
+
+
+def test_direct_order_two_still_rejects_two_sample_axis():
+    """The fallback is scoped to laplacian — partial still surfaces the error."""
+    with pytest.raises(ValueError, match="smaller than the number of points"):
+        partial(_short_axis_field(), "x", order=2)
+
+
+def test_laplacian_fallback_does_not_mask_unrelated_errors():
+    """A non-size ValueError must still propagate out of the fallback."""
+    x = np.array([0.0, 1.0, 1.0, 2.5, 4.0])
+    f = xr.DataArray(x**2, dims=("x",), coords={"x": x}, name="f")
+    with pytest.raises(ValueError, match=r"uniform|monotonic"):
+        laplacian(f, dims=("x",))
 
 
 def test_laplacian_empty_dims_raises():
