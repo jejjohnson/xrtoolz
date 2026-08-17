@@ -97,6 +97,75 @@ def _difference(
         return np.asarray(raw)
 
 
+def _stencil_halo(*, derivative: int, accuracy: int) -> int:
+    """Upper bound on the half-width of the interior (central) stencil.
+
+    ``finitediffx`` builds its interior stencil from
+    ``_generate_central_offsets(derivative, accuracy + 1)``, whose widest
+    offset is ``ceil((derivative + accuracy) / 2)``. We pad by the looser
+    ``derivative + accuracy`` so we never under-pad if that internal rule
+    changes; over-padding only costs a few extra columns, whereas
+    under-padding would silently leave one-sided values at the seam.
+    ``test_periodic.py`` pins the behaviour across accuracies so an
+    insufficient halo fails loudly.
+    """
+    return derivative + accuracy
+
+
+def _difference_periodic(
+    values: Float[np.ndarray, "*shape"],
+    *,
+    axis: int,
+    step_size: float,
+    accuracy: int,
+    method: str,
+    derivative: int = 1,
+) -> Float[np.ndarray, "*shape"]:
+    """Finite difference with a periodic wrap along ``axis``.
+
+    Pads the axis by a full stencil halo taken from the opposite edge,
+    differentiates, then trims the padding away. Every original point
+    therefore sees a centred stencil — including the first and last,
+    which would otherwise fall back to one-sided differences and leave a
+    visible seam (e.g. at the dateline on a global longitude axis).
+    """
+    size = values.shape[axis]
+    halo = _stencil_halo(derivative=derivative, accuracy=accuracy)
+    idx = np.arange(-halo, size + halo) % size
+    padded = np.take(values, idx, axis=axis)
+    raw = _difference(
+        padded,
+        axis=axis,
+        step_size=step_size,
+        accuracy=accuracy,
+        method=method,
+        derivative=derivative,
+    )
+    return np.take(raw, np.arange(halo, halo + size), axis=axis)
+
+
+def _difference_maybe_periodic(
+    values: Float[np.ndarray, "*shape"],
+    *,
+    axis: int,
+    step_size: float,
+    accuracy: int,
+    method: str,
+    derivative: int = 1,
+    periodic: bool = False,
+) -> Float[np.ndarray, "*shape"]:
+    """Dispatch to the periodic or the plain stencil."""
+    kernel = _difference_periodic if periodic else _difference
+    return kernel(
+        values,
+        axis=axis,
+        step_size=step_size,
+        accuracy=accuracy,
+        method=method,
+        derivative=derivative,
+    )
+
+
 def _validate_order(order: int) -> None:
     """Guard the derivative order shared by all three geometry backends.
 
@@ -154,15 +223,48 @@ def _require_coord(da: xr.DataArray, dim: str) -> None:
         )
 
 
+def _coord_to_float(
+    values: np.ndarray, *, name: Hashable = None
+) -> Float[np.ndarray, "n"]:
+    """Return coordinate values as float64, converting temporal dtypes.
+
+    ``datetime64`` becomes float seconds measured from the first sample —
+    anchoring at the first sample rather than the epoch keeps the values
+    small enough that float64 does not lose nanosecond resolution.
+    ``timedelta64`` becomes float seconds directly. Numeric dtypes pass
+    through unchanged (as float64).
+
+    Raises:
+        ValueError: for object-dtype coordinates such as ``cftime``
+            calendars, which have no lossless conversion here.
+    """
+    values = np.asarray(values)
+    if values.dtype == object:
+        raise ValueError(
+            f"Coordinate {name!r} has object dtype (e.g. a cftime calendar); "
+            "xrgrad cannot derive a numeric step from it. Convert to "
+            "datetime64 first, e.g. ds.convert_calendar('standard', "
+            "use_cftime=False)."
+        )
+    if np.issubdtype(values.dtype, np.datetime64):
+        values = values - values[0] if values.size else values.astype("timedelta64[ns]")
+    if np.issubdtype(values.dtype, np.timedelta64):
+        return values.astype("timedelta64[ns]").astype(np.float64) / 1e9
+    return np.asarray(values, dtype=np.float64)
+
+
 def _uniform_step(coord: xr.DataArray, *, rtol: float = 1e-6) -> float:
     """Return the uniform step of a 1-D coordinate.
+
+    Temporal coordinates are converted to seconds first, so the step of a
+    ``datetime64`` axis comes back as float seconds.
 
     Raises:
         ValueError: if the coordinate is not 1-D, has fewer than two
             samples, or is not uniformly spaced within ``rtol``.
     """
     _require_1d_coord(coord)
-    values = np.asarray(coord.values)
+    values = _coord_to_float(coord.values, name=coord.name)
     if values.size < 2:
         raise ValueError(
             f"Coordinate {coord.name!r} has {values.size} sample(s); "
@@ -201,6 +303,7 @@ def cartesian_partial(
     order: int = 1,
     accuracy: int = 1,
     method: str = "central",
+    periodic: bool = False,
     uniform_rtol: float = 1e-6,
 ) -> xr.DataArray:
     """Partial derivative ``∂ᵒʳᵈᵉʳda/∂<dim>ᵒʳᵈᵉʳ`` on a uniform Cartesian grid.
@@ -215,6 +318,10 @@ def cartesian_partial(
         accuracy: ``finitediffx`` accuracy order. ``1`` matches
             :func:`numpy.gradient`'s 2nd-order centred default.
         method: ``"central"``, ``"forward"``, or ``"backward"``.
+        periodic: Treat ``dim`` as wrapping, so the first and last points
+            are differentiated against each other instead of falling back
+            to one-sided stencils. The period is implicitly the full
+            extent of the axis.
         uniform_rtol: Relative tolerance for the uniform-spacing check.
 
     Returns:
@@ -234,13 +341,14 @@ def cartesian_partial(
     _require_coord(da, dim)
     axis = da.get_axis_num(dim)
     step = _uniform_step(da[dim], rtol=uniform_rtol)
-    raw = _difference(
+    raw = _difference_maybe_periodic(
         da.values,
         axis=axis,
         step_size=step,
         accuracy=accuracy,
         method=method,
         derivative=order,
+        periodic=periodic,
     )
     return xr.DataArray(
         raw,
@@ -257,6 +365,7 @@ def cartesian_gradient(
     dims: tuple[str, ...] | None = None,
     accuracy: int | tuple[int, ...] = 1,
     method: str = "central",
+    periodic: frozenset[Hashable] = frozenset(),
     uniform_rtol: float = 1e-6,
 ) -> xr.Dataset:
     """Gradient ``∇da`` on a uniform Cartesian grid.
@@ -267,6 +376,7 @@ def cartesian_gradient(
         accuracy: Scalar (applied to every dim) or per-dim tuple matching
             the length of ``dims``.
         method: Forwarded to :func:`finitediffx.difference`.
+        periodic: Set of dimension names to treat as wrapping.
         uniform_rtol: Forwarded to :func:`cartesian_partial`.
 
     Returns:
@@ -283,6 +393,7 @@ def cartesian_gradient(
             dim,
             accuracy=acc,
             method=method,
+            periodic=dim in periodic,
             uniform_rtol=uniform_rtol,
         )
         out[f"d{base}_d{dim}"] = component
