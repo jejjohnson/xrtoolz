@@ -151,3 +151,27 @@ def test_coarse_time_units_convert_exactly(unit):
     np.testing.assert_allclose(
         partial(da, "time").values, 1.0 / per_unit_seconds, rtol=1e-12
     )
+
+
+def test_single_gap_wider_than_the_nanosecond_range():
+    """One adjacent gap over ~292 years overflows a nanosecond subtraction.
+
+    The axis itself is representable — 1800 and 2200 both fit
+    ``datetime64[ns]`` — but their difference does not, so the gap has to
+    be measured at a coarser resolution.
+    """
+    time = np.array(["1800-01-01", "2200-01-01"], dtype="datetime64[ns]")
+    da = xr.DataArray([0.0, 1.0], dims=("time",), coords={"time": time}, name="f")
+    got = partial(da, "time")
+    span_s = 400 * 365.2425 * 86400.0
+    assert float(got.values[0]) > 0.0, "derivative sign flipped — ns overflow"
+    np.testing.assert_allclose(got.values, 1.0 / span_s, rtol=1e-3)
+
+
+def test_microsecond_axis_keeps_its_resolution():
+    """The safe-gap threshold scales per unit, not off the ns limit."""
+    time = np.datetime64("2026-01-01", "us") + np.arange(6).astype("timedelta64[us]")
+    da = xr.DataArray(
+        np.arange(6, dtype=float), dims=("time",), coords={"time": time}, name="f"
+    )
+    np.testing.assert_allclose(partial(da, "time").values, 1e6, rtol=1e-12)

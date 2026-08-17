@@ -275,20 +275,21 @@ def _coord_to_float(
     Only differences of the result are ever used (step sizes and the
     rectilinear chain rule), so the shift is immaterial.
 
-    Both the anchoring and the unit conversion are done on **adjacent
-    deltas** rather than on the full span, because the full span is what
-    overflows. Nanosecond ticks are a signed 64-bit count that saturates
-    at roughly ±292 years, so for a ``datetime64[ns]`` axis covering
-    1800–2200 — comfortably inside what that dtype can *store* — even
-    ``values - values[0]`` wraps to a negative offset before any division
-    can rescue it. Adjacent gaps are small, so each converts exactly and
-    the running sum stays in float64, which carries a 400-year span at
-    microsecond resolution and a short span at full nanosecond
-    resolution.
+    The result is accumulated from **adjacent gaps** rather than from a
+    full-span offset, because the full span is what overflows: nanosecond
+    ticks are a signed 64-bit count saturating at roughly ±292 years, so
+    for a ``datetime64[ns]`` axis covering 1800–2200 — comfortably inside
+    what that dtype can *store* — even ``values - values[0]`` wraps to a
+    negative offset. The same holds for a wide integer axis whose range
+    exceeds int64 while its steps do not. Each gap is converted at the
+    finest resolution that cannot overflow (see
+    :func:`_temporal_gaps_seconds` and :func:`_integer_gaps`), and the
+    running sum stays in float64.
 
-    Anchoring matters for plain numbers too: an integer axis with a large
-    origin (``10**18 + k``) collapses to a constant if cast straight to
-    float64, since adjacent values fall inside one float64 ulp there.
+    Working from gaps also keeps precision that a straight cast loses: an
+    integer axis with a large origin (``10**18 + k``) collapses to a
+    constant if cast to float64 directly, since adjacent values fall
+    inside one float64 ulp there.
 
     Raises:
         ValueError: for object-dtype coordinates such as ``cftime``
@@ -306,13 +307,68 @@ def _coord_to_float(
         values.dtype, np.timedelta64
     )
     if is_temporal:
-        out = np.zeros(values.size, dtype=np.float64)
-        if values.size > 1:
-            np.cumsum(np.diff(values) / np.timedelta64(1, "s"), out=out[1:])
-        return out
-    if np.issubdtype(values.dtype, np.integer) and values.size:
-        return (values.astype(np.int64) - np.int64(values[0])).astype(np.float64)
+        return _accumulate(_temporal_gaps_seconds(values), size=values.size)
+    if np.issubdtype(values.dtype, np.integer):
+        return _accumulate(_integer_gaps(values), size=values.size)
     return np.asarray(values, dtype=np.float64)
+
+
+def _accumulate(gaps: Float[np.ndarray, "n-1"], *, size: int) -> Float[np.ndarray, "n"]:
+    """Running sum of adjacent gaps, starting from zero."""
+    out = np.zeros(size, dtype=np.float64)
+    if size > 1:
+        np.cumsum(gaps, out=out[1:])
+    return out
+
+
+def _temporal_gaps_seconds(
+    values: np.ndarray,
+) -> Float[np.ndarray, "n-1"]:
+    """Adjacent gaps of a temporal axis, in float seconds.
+
+    Subtracting in the source unit is exact but overflows when a single
+    gap exceeds that unit's signed tick range — roughly 292 years for
+    nanoseconds. Casting to a coarser unit only ever divides, so
+    second-resolution gaps are always computable; they are used to decide
+    whether the exact source-unit subtraction is safe. A gap too wide for
+    the source unit could not have carried sub-second meaning anyway, so
+    dropping to seconds there loses nothing real.
+    """
+    if values.size < 2:
+        return np.zeros(0, dtype=np.float64)
+    unit = np.datetime_data(values.dtype)[0]
+    ticks_per_second = np.timedelta64(1, "s") / np.timedelta64(1, unit)
+    if ticks_per_second <= 1.0:
+        # Second-or-coarser ticks: a gap would have to span ~3e11 years
+        # to overflow, which no representable axis does.
+        return (np.diff(values) / np.timedelta64(1, "s")).astype(np.float64)
+    coarse = (
+        "datetime64[s]"
+        if np.issubdtype(values.dtype, np.datetime64)
+        else "timedelta64[s]"
+    )
+    gaps_s = np.diff(values.astype(coarse).astype(np.int64)).astype(np.float64)
+    safe_span_s = 0.9 * np.iinfo(np.int64).max / ticks_per_second
+    if np.abs(gaps_s).max() >= safe_span_s:
+        return gaps_s
+    return (np.diff(values) / np.timedelta64(1, "s")).astype(np.float64)
+
+
+def _integer_gaps(values: np.ndarray) -> Float[np.ndarray, "n-1"]:
+    """Adjacent gaps of an integer axis, as float64.
+
+    Differencing adjacent values keeps a wide axis exact where anchoring
+    on the first sample would not: ``[-9e18, …, 6e18]`` steps uniformly
+    by ``5e18``, but its total range overflows int64. Where even an
+    adjacent gap is too wide for the integer type, the float estimate is
+    the best available and is used instead.
+    """
+    if values.size < 2:
+        return np.zeros(0, dtype=np.float64)
+    approx = np.diff(values.astype(np.float64))
+    if np.abs(approx).max() >= 0.9 * np.iinfo(np.int64).max:
+        return approx
+    return np.diff(values.astype(np.int64)).astype(np.float64)
 
 
 def _uniform_step(coord: xr.DataArray, *, rtol: float = 1e-6) -> float:
