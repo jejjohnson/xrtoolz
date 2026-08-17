@@ -10,6 +10,7 @@ coordinate with constant spacing (within ``uniform_rtol``).
 from __future__ import annotations
 
 import threading
+import warnings
 from collections.abc import Hashable
 from typing import Any, cast
 
@@ -112,10 +113,10 @@ def _stencil_halo(*, derivative: int, accuracy: int) -> int:
     return derivative + accuracy
 
 
-def _reject_duplicate_endpoint(
+def _warn_duplicate_endpoint(
     values: Float[np.ndarray, "*shape"], *, axis: int, dim: Hashable
 ) -> None:
-    """Guard against an endpoint-inclusive grid being wrapped.
+    """Warn when an axis looks endpoint-inclusive under a periodic wrap.
 
     The wrap treats the axis as endpoint-exclusive: the period is the
     full extent, ``n·Δ``, so the last sample's right neighbour is the
@@ -124,31 +125,32 @@ def _reject_duplicate_endpoint(
     twice, so wrapping makes a point its own neighbour and roughly halves
     the seam derivative.
 
-    The coordinate alone cannot distinguish the two conventions (both are
-    uniform with the same step), so the duplicate is detected in the
-    data: a field that varies along the axis but takes the same value at
-    both ends has a repeated endpoint. The equality test is tight, so a
-    genuinely endpoint-exclusive field would have to coincide to ~1e-12
-    at the two ends to trip it.
-
-    Raises:
-        ValueError: if the axis looks endpoint-inclusive.
+    Endpoint inclusion cannot be derived from the coordinate: both
+    conventions are uniform with the same step, and the wrap is
+    self-consistent either way. It also cannot be *concluded* from the
+    field, because a legitimate endpoint-exclusive signal may take the
+    same value at both ends (period 3 over ``[0, 1, 2]`` with values
+    ``[0, 1, 0]``). So this only warns: the computation proceeds under
+    the documented endpoint-exclusive contract, and a caller who knows
+    their grid is exclusive can silence it. Where the period *is*
+    knowable the check is a hard error instead — see the spherical
+    backend, which requires a full 360° span.
     """
     first = np.take(values, 0, axis=axis)
     last = np.take(values, -1, axis=axis)
     if not np.allclose(first, last, rtol=1e-12, atol=1e-12, equal_nan=True):
         return
-    varies = not np.allclose(
-        values, np.take(values, [0], axis=axis), rtol=1e-12, atol=1e-12
-    )
-    if not varies:
+    if np.allclose(values, np.take(values, [0], axis=axis), rtol=1e-12, atol=1e-12):
         return  # constant along the axis: the derivative is 0 either way
-    raise ValueError(
-        f"Coordinate {dim!r} looks endpoint-inclusive: the field takes the "
-        "same value at its first and last sample, so wrapping would make "
-        "that point its own neighbour and halve the derivative at the seam. "
-        "periodic=True treats the axis as endpoint-exclusive with period "
-        f"n*step. Drop the repeated endpoint, e.g. da.isel({dim}=slice(0, -1))."
+    warnings.warn(
+        f"Coordinate {dim!r} takes the same value at its first and last "
+        "sample. If this grid stores both ends of the period (as "
+        "np.linspace(0, L, n) does by default), periodic=True will make "
+        "that point its own neighbour and halve the derivative at the "
+        f"seam; drop the repeat with da.isel({dim}=slice(0, -1)). If the "
+        "grid is genuinely endpoint-exclusive, this warning is spurious.",
+        UserWarning,
+        stacklevel=3,
     )
 
 
@@ -266,20 +268,27 @@ def _require_coord(da: xr.DataArray, dim: str) -> None:
 def _coord_to_float(
     values: np.ndarray, *, name: Hashable = None
 ) -> Float[np.ndarray, "n"]:
-    """Return coordinate values as float64, converting temporal dtypes.
+    """Return coordinate values as float64, measured from the first sample.
 
-    ``datetime64`` becomes float seconds measured from the first sample —
-    anchoring at the first sample rather than the epoch keeps the values
-    small enough that float64 does not lose sub-second resolution.
-    ``timedelta64`` becomes float seconds directly. Numeric dtypes pass
-    through unchanged (as float64).
+    ``datetime64`` and ``timedelta64`` become float **seconds**;
+    integer dtypes are anchored before widening; floats pass through.
+    Only differences of the result are ever used (step sizes and the
+    rectilinear chain rule), so the shift is immaterial.
 
-    The conversion divides by a one-second ``timedelta64`` rather than
-    casting to ``timedelta64[ns]``. Nanosecond ticks are a signed 64-bit
-    count, so they saturate at roughly ±292 years: a millennium-long
-    daily or annual axis — ordinary for control runs and paleoclimate —
-    would silently wrap to a negative span. Dividing keeps the source
-    unit and yields float64 seconds directly, exact from nanoseconds up.
+    Both the anchoring and the unit conversion are done on **adjacent
+    deltas** rather than on the full span, because the full span is what
+    overflows. Nanosecond ticks are a signed 64-bit count that saturates
+    at roughly ±292 years, so for a ``datetime64[ns]`` axis covering
+    1800–2200 — comfortably inside what that dtype can *store* — even
+    ``values - values[0]`` wraps to a negative offset before any division
+    can rescue it. Adjacent gaps are small, so each converts exactly and
+    the running sum stays in float64, which carries a 400-year span at
+    microsecond resolution and a short span at full nanosecond
+    resolution.
+
+    Anchoring matters for plain numbers too: an integer axis with a large
+    origin (``10**18 + k``) collapses to a constant if cast straight to
+    float64, since adjacent values fall inside one float64 ulp there.
 
     Raises:
         ValueError: for object-dtype coordinates such as ``cftime``
@@ -293,10 +302,16 @@ def _coord_to_float(
             "datetime64 first, e.g. ds.convert_calendar('standard', "
             "use_cftime=False)."
         )
-    if np.issubdtype(values.dtype, np.datetime64):
-        values = values - values[0] if values.size else values.astype("timedelta64[s]")
-    if np.issubdtype(values.dtype, np.timedelta64):
-        return (values / np.timedelta64(1, "s")).astype(np.float64)
+    is_temporal = np.issubdtype(values.dtype, np.datetime64) or np.issubdtype(
+        values.dtype, np.timedelta64
+    )
+    if is_temporal:
+        out = np.zeros(values.size, dtype=np.float64)
+        if values.size > 1:
+            np.cumsum(np.diff(values) / np.timedelta64(1, "s"), out=out[1:])
+        return out
+    if np.issubdtype(values.dtype, np.integer) and values.size:
+        return (values.astype(np.int64) - np.int64(values[0])).astype(np.float64)
     return np.asarray(values, dtype=np.float64)
 
 
@@ -369,9 +384,10 @@ def cartesian_partial(
             are differentiated against each other instead of falling back
             to one-sided stencils. The axis is taken to be **endpoint
             exclusive**: the period is ``n * step``, so the last sample is
-            one step before the first repeats. A grid that stores both
-            ends of the period (``np.linspace(0, L, n)``, endpoint
-            inclusive) is rejected — see Raises.
+            one step before the first repeats. That convention cannot be
+            verified from the coordinate, so a grid that stores both ends
+            of the period (``np.linspace(0, L, n)``, endpoint inclusive)
+            only draws a ``UserWarning`` when the field's ends coincide.
         uniform_rtol: Relative tolerance for the uniform-spacing check.
 
     Returns:
@@ -381,8 +397,7 @@ def cartesian_partial(
 
     Raises:
         ValueError: if ``dim`` is absent from ``da.dims``, carries no
-            coordinate, ``order`` is not a positive integer, or
-            ``periodic`` is requested on an endpoint-inclusive axis.
+            coordinate, or ``order`` is not a positive integer.
     """
     _validate_order(order)
     if dim not in da.dims:
@@ -393,10 +408,10 @@ def cartesian_partial(
     axis = da.get_axis_num(dim)
     step = _uniform_step(da[dim], rtol=uniform_rtol)
     if periodic:
-        # The spherical backend has a stronger check of its own (the grid
-        # must span a full 360°), so this only needs to cover the cartesian
-        # and uniform-rectilinear paths, where the period is implicit.
-        _reject_duplicate_endpoint(da.values, axis=axis, dim=dim)
+        # The spherical backend has a hard check of its own (the grid must
+        # span a full 360°), so this advisory only covers the cartesian and
+        # uniform-rectilinear paths, where the period is implicit.
+        _warn_duplicate_endpoint(da.values, axis=axis, dim=dim)
     raw = _difference_maybe_periodic(
         da.values,
         axis=axis,

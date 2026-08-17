@@ -772,3 +772,34 @@ def test_advection_operator_forwards_three_dims(ds_uvw_3d):
     np.testing.assert_allclose(
         op(ds)["c_advection"].values, direct["c_advection"].values, atol=0.0
     )
+
+
+def test_advection_rejects_staggered_vertical_grid(ds_uvw_3d):
+    """``w`` on ``depth_w`` would broadcast into a 4-D result, not align."""
+    ds = ds_uvw_3d.assign(c=lambda d: d["u"])
+    staggered = ds.assign(
+        w=xr.DataArray(
+            ds["w"].values,
+            dims=("depth_w", "lat", "lon"),
+            coords={
+                "depth_w": ds["depth"].values + 2.5,
+                "lat": ds["lat"],
+                "lon": ds["lon"],
+            },
+        )
+    )
+    with pytest.raises(ValueError, match="Staggered grids are not supported"):
+        advection(
+            staggered,
+            scalar="c",
+            components=("u", "v", "w"),
+            dims=("lon", "lat", "depth"),
+        )
+
+
+def test_advection_rejects_scalar_missing_the_vertical_dim(ds_uvw_3d):
+    ds = ds_uvw_3d.assign(c=lambda d: d["u"].isel(depth=0))
+    with pytest.raises(ValueError, match="does not span"):
+        advection(
+            ds, scalar="c", components=("u", "v", "w"), dims=("lon", "lat", "depth")
+        )

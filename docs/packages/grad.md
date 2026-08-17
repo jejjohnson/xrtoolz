@@ -157,10 +157,18 @@ The axis is treated as **endpoint exclusive** — the period is `n * step`,
 so the last sample sits one step before the first repeats. This is what
 `np.linspace(0, L, n, endpoint=False)` and a `0…355` global longitude
 axis give you. A grid that stores *both* ends of the period (numpy's
-default `endpoint=True`) repeats a physical location, which would make
-the seam point its own neighbour and roughly halve its derivative; that
-is detected and rejected, so drop the duplicate with
-`da.isel(x=slice(0, -1))` first.
+default `endpoint=True`) repeats a physical location, which makes the
+seam point its own neighbour and roughly halves its derivative; drop the
+duplicate with `da.isel(x=slice(0, -1))` first.
+
+Which convention a grid uses cannot be read off the coordinate — both
+are uniform with the same step — so on the Cartesian path this is only a
+`UserWarning`, raised when the field happens to take the same value at
+both ends. A genuinely endpoint-exclusive field can do that too (period
+3 over `[0, 1, 2]` with values `[0, 1, 0]`), so the warning is advisory
+and the computation proceeds. Spherical longitude is the exception: its
+period *is* known, so a grid that does not span exactly 360° is a hard
+error.
 
 Further restrictions:
 

@@ -332,6 +332,24 @@ def advection(
         raise ValueError(
             f"the vertical dim must differ from the horizontal pair; got dims={dims!r}."
         )
+    missing = [d for d in dims if d not in ds[scalar].dims]
+    if missing:
+        raise ValueError(
+            f"scalar {scalar!r} has dims {tuple(ds[scalar].dims)!r} and does "
+            f"not span {missing!r}; every advected dim must be on the tracer."
+        )
+    # Each component must live on the axis it is paired with. Without this a
+    # staggered velocity (w on 'depth_w' while the tracer is on 'depth')
+    # broadcasts instead of aligning, silently returning a field carrying
+    # both vertical dims rather than the tracer's grid.
+    for comp_name, dim in zip(components, dims, strict=True):
+        if dim not in ds[comp_name].dims:
+            raise ValueError(
+                f"component {comp_name!r} has dims {tuple(ds[comp_name].dims)!r} "
+                f"and does not span its paired dim {dim!r}. Staggered grids are "
+                f"not supported — interpolate {comp_name!r} onto the {scalar!r} "
+                "grid first."
+            )
     flux: xr.DataArray | None = None
     for comp_name, dim in zip(components, dims, strict=True):
         # Horizontal axes carry the lon/lat metric; the vertical axis is a
