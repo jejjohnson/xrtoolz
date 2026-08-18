@@ -208,6 +208,113 @@ def _difference_maybe_periodic(
     )
 
 
+# Order matters: the widest stencil first, so a point keeps the centred
+# estimate whenever its support is entirely valid.
+_ADAPTIVE_METHODS = ("central", "forward", "backward")
+
+
+def _validate_nan_policy(nan_policy: str, method: str) -> None:
+    """Guard the NaN policy and its interaction with ``method``.
+
+    Raises:
+        ValueError: for an unknown policy, or for a non-central ``method``
+            combined with ``"adaptive"`` — the fallback chain *is* method
+            selection, so the two would contradict each other.
+    """
+    if nan_policy not in ("propagate", "adaptive"):
+        raise ValueError(
+            f"Unknown nan_policy {nan_policy!r}; expected 'propagate' or 'adaptive'."
+        )
+    if nan_policy == "adaptive" and method != "central":
+        raise ValueError(
+            f"nan_policy='adaptive' selects the stencil per point, so it "
+            f"cannot be combined with method={method!r}. Leave method at "
+            "'central' (adaptive falls back to forward/backward itself), or "
+            "use nan_policy='propagate' to force one method everywhere."
+        )
+
+
+def _difference_adaptive(
+    values: Float[np.ndarray, "*shape"],
+    *,
+    axis: int,
+    step_size: float,
+    accuracy: int,
+    derivative: int = 1,
+    periodic: bool = False,
+) -> Float[np.ndarray, "*shape"]:
+    """Differentiate with the widest stencil that fits on finite data.
+
+    Near a land mask a centred stencil reaches into NaN and the result is
+    lost, taking a strip of valid water with it. This runs the same
+    kernel once per candidate stencil and keeps, per point, the first
+    result that came back finite.
+
+    No mask arithmetic is needed because NaN is its own support detector:
+    a stencil that reads a NaN yields NaN, including through a zero
+    centre coefficient, since ``0 * nan`` is ``nan``. That also means the
+    fallback never has to know how wide ``finitediffx`` built its
+    stencil — an internal rule this package deliberately does not
+    duplicate.
+
+    The input mask is re-imposed at the end. Land is NaN because there is
+    no data there, which is a property of the answer rather than of the
+    arithmetic that happened to produce it.
+    """
+    out: Float[np.ndarray, "*shape"] | None = None
+    for method in _ADAPTIVE_METHODS:
+        candidate = _difference_maybe_periodic(
+            values,
+            axis=axis,
+            step_size=step_size,
+            accuracy=accuracy,
+            method=method,
+            derivative=derivative,
+            periodic=periodic,
+        )
+        if out is None:
+            out = candidate
+            continue
+        gaps = ~np.isfinite(out)
+        if not gaps.any():
+            break
+        out = np.where(gaps, candidate, out)
+    assert out is not None  # _ADAPTIVE_METHODS is non-empty
+    return np.where(np.isfinite(values), out, np.nan)
+
+
+def _difference_dispatch(
+    values: Float[np.ndarray, "*shape"],
+    *,
+    axis: int,
+    step_size: float,
+    accuracy: int,
+    method: str,
+    derivative: int = 1,
+    periodic: bool = False,
+    nan_policy: str = "propagate",
+) -> Float[np.ndarray, "*shape"]:
+    """Route to the plain, periodic, or NaN-adaptive stencil."""
+    if nan_policy == "adaptive":
+        return _difference_adaptive(
+            values,
+            axis=axis,
+            step_size=step_size,
+            accuracy=accuracy,
+            derivative=derivative,
+            periodic=periodic,
+        )
+    return _difference_maybe_periodic(
+        values,
+        axis=axis,
+        step_size=step_size,
+        accuracy=accuracy,
+        method=method,
+        derivative=derivative,
+        periodic=periodic,
+    )
+
+
 def _validate_order(order: int) -> None:
     """Guard the derivative order shared by all three geometry backends.
 
@@ -422,6 +529,7 @@ def cartesian_partial(
     accuracy: int = 1,
     method: str = "central",
     periodic: bool = False,
+    nan_policy: str = "propagate",
     uniform_rtol: float = 1e-6,
 ) -> xr.DataArray:
     """Partial derivative ``∂ᵒʳᵈᵉʳda/∂<dim>ᵒʳᵈᵉʳ`` on a uniform Cartesian grid.
@@ -444,6 +552,12 @@ def cartesian_partial(
             verified from the coordinate, so a grid that stores both ends
             of the period (``np.linspace(0, L, n)``, endpoint inclusive)
             only draws a ``UserWarning`` when the field's ends coincide.
+        nan_policy: ``"propagate"`` (default) lets NaN spread through any
+            stencil that touches it, so a masked cell costs a halo of
+            roughly ``accuracy`` valid cells. ``"adaptive"`` instead
+            falls back per point to the widest stencil lying wholly on
+            finite data, recovering those cells at one order lower
+            accuracy; masked cells stay NaN.
         uniform_rtol: Relative tolerance for the uniform-spacing check.
 
     Returns:
@@ -453,9 +567,11 @@ def cartesian_partial(
 
     Raises:
         ValueError: if ``dim`` is absent from ``da.dims``, carries no
-            coordinate, or ``order`` is not a positive integer.
+            coordinate, ``order`` is not a positive integer, or
+            ``nan_policy`` is unknown or contradicts ``method``.
     """
     _validate_order(order)
+    _validate_nan_policy(nan_policy, method)
     if dim not in da.dims:
         raise ValueError(
             f"Dimension {dim!r} not present on DataArray with dims={da.dims}."
@@ -468,7 +584,7 @@ def cartesian_partial(
         # span a full 360°), so this advisory only covers the cartesian and
         # uniform-rectilinear paths, where the period is implicit.
         _warn_duplicate_endpoint(da.values, axis=axis, dim=dim)
-    raw = _difference_maybe_periodic(
+    raw = _difference_dispatch(
         da.values,
         axis=axis,
         step_size=step,
@@ -476,6 +592,7 @@ def cartesian_partial(
         method=method,
         derivative=order,
         periodic=periodic,
+        nan_policy=nan_policy,
     )
     return xr.DataArray(
         raw,
@@ -493,6 +610,7 @@ def cartesian_gradient(
     accuracy: int | tuple[int, ...] = 1,
     method: str = "central",
     periodic: frozenset[Hashable] = frozenset(),
+    nan_policy: str = "propagate",
     uniform_rtol: float = 1e-6,
 ) -> xr.Dataset:
     """Gradient ``∇da`` on a uniform Cartesian grid.
@@ -504,6 +622,8 @@ def cartesian_gradient(
             the length of ``dims``.
         method: Forwarded to :func:`finitediffx.difference`.
         periodic: Set of dimension names to treat as wrapping.
+        nan_policy: ``"propagate"`` or ``"adaptive"``; see
+            :func:`cartesian_partial`.
         uniform_rtol: Forwarded to :func:`cartesian_partial`.
 
     Returns:
@@ -521,6 +641,7 @@ def cartesian_gradient(
             accuracy=acc,
             method=method,
             periodic=dim in periodic,
+            nan_policy=nan_policy,
             uniform_rtol=uniform_rtol,
         )
         out[f"d{base}_d{dim}"] = component
