@@ -115,8 +115,24 @@ derivative-accuracy mitigation.
 
 ## Consequences
 
-- Cost is three stencil passes instead of one on the axes where it is
-  requested, and only then.
+- Cost is bounded by `3 * accuracy` stencil passes per requested axis,
+  against one for `propagate`, and applies only to the axes where the
+  policy is asked for. The sweep returns as soon as no finite input cell
+  is left unresolved, so in practice:
+
+  | field | passes |
+  |---|---|
+  | no NaN at all | 1 — the centred stencil covers everything |
+  | ordinary mask, `accuracy=1` | up to 3 |
+  | ordinary mask, `accuracy=n` | 3, since the coast resolves at the requested accuracy |
+  | mask with strips narrower than the requested stencil | up to `3n`, descending only while such cells remain |
+
+  Each `(shape, accuracy, method)` combination is a separate
+  `finitediffx` JIT compilation, so the descent costs compilations as
+  well as evaluations the first time a shape is seen. That upper bound
+  is reached exactly in the case where the guide suggests raising
+  `accuracy` on a heavily fragmented mask; it is the price of recovery
+  being monotone in `accuracy` rather than losing narrow channels.
 - `method=` is not meaningful with `nan_policy="adaptive"`, since the
   fallback chain *is* method selection; passing a non-central method
   raises.

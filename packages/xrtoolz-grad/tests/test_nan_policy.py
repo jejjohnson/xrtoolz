@@ -160,6 +160,52 @@ def test_wide_stencil_still_wins_where_it_fits():
     np.testing.assert_allclose(_channel(3, 2), [6.0, 8.0, 10.0])
 
 
+@pytest.mark.parametrize("accuracy", [1, 2, 3])
+def test_axis_shorter_than_the_stencil_descends(accuracy):
+    """A short axis must behave like an embedded narrow strip.
+
+    Two samples with ``accuracy=2`` used to raise finitediffx's size
+    error, while the *same* two samples embedded in a longer masked axis
+    resolved — the outcome hung on array length rather than on the data.
+    """
+    x = np.array([0.0, 1.0])
+    da = xr.DataArray(x**2, dims=("x",), coords={"x": x}, name="f")
+    got = partial(da, "x", nan_policy="adaptive", accuracy=accuracy).values
+    np.testing.assert_allclose(got, 1.0)
+
+
+def test_undifferentiable_axis_still_reports_itself():
+    """Descending must not swallow an axis that no stencil can handle."""
+    da = xr.DataArray([1.0], dims=("x",), coords={"x": [0.0]}, name="f")
+    with pytest.raises(ValueError):
+        partial(da, "x", nan_policy="adaptive", accuracy=2)
+
+
+def test_pass_count_stays_within_three_times_accuracy(monkeypatch):
+    """The documented upper bound, pinned on a maximally fragmented mask."""
+    from xrgrad._src import cartesian
+
+    calls: list[tuple[str, int]] = []
+    original = cartesian._difference_maybe_periodic
+
+    def counted(*args, **kwargs):
+        calls.append((kwargs["method"], kwargs["accuracy"]))
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(cartesian, "_difference_maybe_periodic", counted)
+
+    accuracy = 3
+    x = np.linspace(0.0, 20.0, 21)
+    values = x**2
+    values[2::3] = np.nan  # two-cell channels, narrower than the stencil
+    da = xr.DataArray(values, dims=("x",), coords={"x": x}, name="f")
+    partial(da, "x", nan_policy="adaptive", accuracy=accuracy)
+    assert len(calls) <= 3 * accuracy
+    assert [acc for _, acc in calls] == sorted(
+        (acc for _, acc in calls), reverse=True
+    ), "accuracies must be tried widest-first"
+
+
 def test_all_nan_input_stays_all_nan():
     x = np.linspace(0.0, 1.0, 8)
     da = xr.DataArray(np.full(8, np.nan), dims=("x",), coords={"x": x}, name="f")

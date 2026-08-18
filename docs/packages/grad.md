@@ -243,9 +243,15 @@ Two things to take from that:
 - **Raising `accuracy` never loses cells.** A region narrower than the
   requested stencil — a two-cell channel between islands, say — falls
   back to the widest *lower* accuracy that fits there, so recovery is
-  monotone in `accuracy` and only the local error order varies. A single
-  isolated cell still has no neighbour to difference against and stays
-  NaN.
+  monotone in `accuracy` and only the local error order varies. The same
+  descent applies when the whole axis is shorter than the stencil. A
+  single isolated cell still has no neighbour to difference against and
+  stays NaN.
+- **Cost is up to `3 * accuracy` stencil passes** on the requested axes,
+  against one for `propagate`. The sweep exits as soon as no valid cell
+  is unresolved, so an unmasked field costs a single pass and an ordinary
+  coastline costs three; the upper bound is only reached on masks
+  fragmented into strips narrower than the requested stencil.
 
 `method=` cannot be combined with `nan_policy="adaptive"` — the fallback
 chain is itself method selection — and the option composes with

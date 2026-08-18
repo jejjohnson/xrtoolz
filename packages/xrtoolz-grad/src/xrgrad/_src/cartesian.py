@@ -301,6 +301,13 @@ def _select_by_finiteness(
     reaches data there — so only gaps that coincide with finite input
     keep the search going.
 
+    A stencil wider than the axis itself is skipped rather than fatal, so
+    a short axis descends the same way an embedded narrow strip does:
+    without that, two samples with ``accuracy=2`` would raise while the
+    same two samples embedded in a longer masked axis resolved fine. If
+    no accuracy fits at all the rejection is re-raised, so a genuinely
+    undifferentiable axis still reports itself.
+
     Args:
         candidate: Builds the differenced array for a method and accuracy.
         values: The input field, supplying the mask to re-impose.
@@ -308,16 +315,29 @@ def _select_by_finiteness(
 
     Returns:
         The combined result, NaN wherever ``values`` is not finite.
+
+    Raises:
+        ValueError: If no accuracy down to 1 fits the axis. ``finitediffx``
+            also surfaces this as a :exc:`TypeError` from JAX's slicing at
+            some sizes, which is re-raised unchanged.
     """
     finite_input = np.isfinite(values)
     out: Float[np.ndarray, "*shape"] | None = None
+    too_short: Exception | None = None
     for acc in range(accuracy, 0, -1):
         for method in _ADAPTIVE_METHODS:
-            result = candidate(method, acc)
+            try:
+                result = candidate(method, acc)
+            except (ValueError, TypeError) as exc:
+                # This stencil is wider than the axis; a narrower one may fit.
+                too_short = exc
+                continue
             out = result if out is None else np.where(~np.isfinite(out), result, out)
             if not (~np.isfinite(out) & finite_input).any():
                 return np.where(finite_input, out, np.nan)
-    assert out is not None  # _ADAPTIVE_METHODS and the accuracy range are non-empty
+    if out is None:
+        assert too_short is not None  # the only way every candidate was skipped
+        raise too_short
     return np.where(finite_input, out, np.nan)
 
 
