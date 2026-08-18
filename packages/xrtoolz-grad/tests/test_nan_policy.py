@@ -127,6 +127,39 @@ def test_strip_too_narrow_for_any_stencil_stays_nan():
     assert np.isnan(partial(da, "x", nan_policy="adaptive").values).all()
 
 
+def _channel(width: int, accuracy: int) -> np.ndarray:
+    """``x**2`` on a ``width``-cell channel walled in by NaN."""
+    x = np.linspace(0.0, 10.0, 11)
+    values = np.full(11, np.nan)
+    values[3 : 3 + width] = x[3 : 3 + width] ** 2
+    da = xr.DataArray(values, dims=("x",), coords={"x": x}, name="f")
+    got = partial(da, "x", nan_policy="adaptive", accuracy=accuracy).values
+    return got[3 : 3 + width]
+
+
+@pytest.mark.parametrize("accuracy", [1, 2, 3])
+def test_narrow_channel_falls_back_to_a_lower_accuracy(accuracy):
+    """Two cells support a first-order difference and nothing wider."""
+    np.testing.assert_allclose(_channel(2, accuracy), 7.0)
+
+
+@pytest.mark.parametrize("width", [2, 3, 4, 5])
+def test_raising_accuracy_never_loses_cells(width):
+    """Recovery must be monotone in accuracy, not just error size.
+
+    Without the accuracy descent a channel narrower than the requested
+    one-sided stencil vanished precisely when the caller asked for *more*
+    accuracy.
+    """
+    recovered = [int(np.isfinite(_channel(width, a)).sum()) for a in (1, 2, 3)]
+    assert recovered == [width, width, width]
+
+
+def test_wide_stencil_still_wins_where_it_fits():
+    """The descent is a fallback: it must not demote a resolvable point."""
+    np.testing.assert_allclose(_channel(3, 2), [6.0, 8.0, 10.0])
+
+
 def test_all_nan_input_stays_all_nan():
     x = np.linspace(0.0, 1.0, 8)
     da = xr.DataArray(np.full(8, np.nan), dims=("x",), coords={"x": x}, name="f")

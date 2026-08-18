@@ -78,7 +78,11 @@ Three things decide it:
    elsewhere.** Coastal cells fall from the central stencil's order to
    the one-sided stencil's, hence 7.2e-03 at `accuracy=1` improving to
    1.4e-04 at `accuracy=2`. Raising `accuracy` therefore buys back
-   coastal quality specifically.
+   coastal quality specifically — and it never costs cells, because the
+   selection descends through lower accuracies for any region too narrow
+   for the requested stencil. Without that descent a two-cell channel
+   would vanish exactly when the caller asked for more accuracy, which
+   would make the option anti-monotone in its own quality knob.
 3. **Adaptive is bit-identical in the interior** — the comparison
    asserts `max |adaptive - propagate| == 0` for cells more than four
    from land — so it cannot regress unmasked work.

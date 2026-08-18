@@ -240,6 +240,12 @@ Two things to take from that:
 - **Coastal cells cost one order of accuracy**, since they use a
   one-sided stencil. Raising `accuracy` buys it back, as the table
   shows. Interior cells are bit-identical to `propagate`.
+- **Raising `accuracy` never loses cells.** A region narrower than the
+  requested stencil — a two-cell channel between islands, say — falls
+  back to the widest *lower* accuracy that fits there, so recovery is
+  monotone in `accuracy` and only the local error order varies. A single
+  isolated cell still has no neighbour to difference against and stays
+  NaN.
 
 `method=` cannot be combined with `nan_policy="adaptive"` — the fallback
 chain is itself method selection — and the option composes with

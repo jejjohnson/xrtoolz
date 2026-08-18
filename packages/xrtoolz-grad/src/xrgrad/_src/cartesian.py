@@ -262,49 +262,62 @@ def _difference_adaptive(
     arithmetic that happened to produce it.
     """
 
-    def candidate(method: str) -> Float[np.ndarray, "*shape"]:
+    def candidate(method: str, acc: int) -> Float[np.ndarray, "*shape"]:
         return _difference_maybe_periodic(
             values,
             axis=axis,
             step_size=step_size,
-            accuracy=accuracy,
+            accuracy=acc,
             method=method,
             derivative=derivative,
             periodic=periodic,
         )
 
-    return _select_by_finiteness(candidate, values)
+    return _select_by_finiteness(candidate, values, accuracy=accuracy)
 
 
 def _select_by_finiteness(
-    candidate: Callable[[str], Float[np.ndarray, "*shape"]],
+    candidate: Callable[[str, int], Float[np.ndarray, "*shape"]],
     values: Float[np.ndarray, "*shape"],
+    *,
+    accuracy: int,
 ) -> Float[np.ndarray, "*shape"]:
     """Keep, per point, the first candidate stencil that came back finite.
 
-    ``candidate`` builds the result for one method in
-    :data:`_ADAPTIVE_METHODS`; it is called lazily, so a field that the
-    centred stencil already covers costs exactly one kernel evaluation.
+    Candidates are tried widest-first: every method in
+    :data:`_ADAPTIVE_METHODS` at the requested ``accuracy``, then the same
+    sweep at each lower accuracy down to 1. Dropping the accuracy matters
+    for valid regions narrower than the requested one-sided stencil — a
+    two-cell channel between two masked cells supports a first-order
+    difference but nothing wider, and without the descent it would vanish
+    precisely when the caller asked for *more* accuracy.
+
+    ``candidate`` is called lazily, so a field the centred stencil already
+    covers still costs exactly one kernel evaluation, and the extra
+    accuracies are only reached while finite input cells remain
+    unresolved.
 
     A gap that sits on the input mask can never be filled — no stencil
     reaches data there — so only gaps that coincide with finite input
     keep the search going.
 
     Args:
-        candidate: Builds the differenced array for a given method name.
+        candidate: Builds the differenced array for a method and accuracy.
         values: The input field, supplying the mask to re-impose.
+        accuracy: Highest stencil accuracy to try.
 
     Returns:
         The combined result, NaN wherever ``values`` is not finite.
     """
     finite_input = np.isfinite(values)
     out: Float[np.ndarray, "*shape"] | None = None
-    for method in _ADAPTIVE_METHODS:
-        result = candidate(method)
-        out = result if out is None else np.where(~np.isfinite(out), result, out)
-        if not (~np.isfinite(out) & finite_input).any():
-            break
-    assert out is not None  # _ADAPTIVE_METHODS is non-empty
+    for acc in range(accuracy, 0, -1):
+        for method in _ADAPTIVE_METHODS:
+            result = candidate(method, acc)
+            out = result if out is None else np.where(~np.isfinite(out), result, out)
+            if not (~np.isfinite(out) & finite_input).any():
+                return np.where(finite_input, out, np.nan)
+    assert out is not None  # _ADAPTIVE_METHODS and the accuracy range are non-empty
     return np.where(finite_input, out, np.nan)
 
 
@@ -341,16 +354,16 @@ def _difference_adaptive_chain(
     shape = [1] * values.ndim
     shape[axis] = coord_values.size
 
-    def candidate(method: str) -> Float[np.ndarray, "*shape"]:
+    def candidate(method: str, acc: int) -> Float[np.ndarray, "*shape"]:
         df_di = _difference(
-            values, axis=axis, step_size=1.0, accuracy=accuracy, method=method
+            values, axis=axis, step_size=1.0, accuracy=acc, method=method
         )
         dx_di = _difference(
-            coord_values, axis=0, step_size=1.0, accuracy=accuracy, method=method
+            coord_values, axis=0, step_size=1.0, accuracy=acc, method=method
         )
         return df_di / dx_di.reshape(shape)
 
-    return _select_by_finiteness(candidate, values)
+    return _select_by_finiteness(candidate, values, accuracy=accuracy)
 
 
 def _difference_dispatch(
