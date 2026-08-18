@@ -119,20 +119,22 @@ def rectilinear_partial(
         )
 
     axis = da.get_axis_num(dim)
-    df_di = cartesian._difference_dispatch(
-        da.values,
-        axis=axis,
-        step_size=1.0,
-        accuracy=accuracy,
-        method=method,
-        nan_policy=nan_policy,
-    )
-    dxdi = cartesian._difference(
-        coord_values, axis=0, step_size=1.0, accuracy=accuracy, method=method
-    )
-    shape = [1] * da.ndim
-    shape[axis] = coord_values.size
-    out = df_di / dxdi.reshape(shape)
+    if nan_policy == "adaptive":
+        # The stencil varies per point here, so ``dx/di`` has to follow it;
+        # see ``cartesian._difference_adaptive_chain``.
+        out = cartesian._difference_adaptive_chain(
+            da.values, coord_values, axis=axis, accuracy=accuracy
+        )
+    else:
+        df_di = cartesian._difference(
+            da.values, axis=axis, step_size=1.0, accuracy=accuracy, method=method
+        )
+        dxdi = cartesian._difference(
+            coord_values, axis=0, step_size=1.0, accuracy=accuracy, method=method
+        )
+        shape = [1] * da.ndim
+        shape[axis] = coord_values.size
+        out = df_di / dxdi.reshape(shape)
 
     return xr.DataArray(
         out,

@@ -156,6 +156,61 @@ def test_non_uniform_rectilinear_recovers_the_coast():
     assert np.isfinite(adaptive.values[2:]).all()
 
 
+def test_non_uniform_chain_rule_uses_one_stencil_for_both_terms():
+    """``df/di`` and ``dx/di`` must be the same stencil at every point.
+
+    A one-sided numerator over a centred denominator is silently wrong on
+    a stretched grid: here it returned ``(3-1)/((3-0)/2) = 4/3`` at index 1
+    instead of 1. A linear field pins the quotient exactly.
+    """
+    x = np.array([0.0, 1.0, 3.0, 6.0, 10.0, 15.0, 21.0])
+    values = x.copy()
+    values[0] = np.nan
+    da = xr.DataArray(values, dims=("x",), coords={"x": x}, name="f")
+    adaptive = partial(da, "x", geometry="rectilinear", nan_policy="adaptive")
+    np.testing.assert_allclose(adaptive.values[1:], 1.0, atol=1e-12)
+
+
+def test_non_uniform_interior_matches_propagate():
+    """Away from the mask the chain rule must be untouched by the policy."""
+    x = np.array([0.0, 1.0, 3.0, 6.0, 10.0, 15.0, 21.0])
+    values = x**2
+    masked = values.copy()
+    masked[0] = np.nan
+    coords = {"x": x}
+    propagate = partial(
+        xr.DataArray(values, dims=("x",), coords=coords, name="f"),
+        "x",
+        geometry="rectilinear",
+    )
+    adaptive = partial(
+        xr.DataArray(masked, dims=("x",), coords=coords, name="f"),
+        "x",
+        geometry="rectilinear",
+        nan_policy="adaptive",
+    )
+    np.testing.assert_array_equal(propagate.values[2:], adaptive.values[2:])
+
+
+def test_clean_field_costs_a_single_stencil_pass(monkeypatch):
+    """Nothing to fill, so the forward/backward passes must not run."""
+    from xrgrad._src import cartesian
+
+    calls: list[str] = []
+    original = cartesian._difference_maybe_periodic
+
+    def counted(*args, **kwargs):
+        calls.append(kwargs["method"])
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(cartesian, "_difference_maybe_periodic", counted)
+
+    x = np.linspace(0.0, 4.0, 24)
+    da = xr.DataArray(np.sin(x), dims=("x",), coords={"x": x}, name="f")
+    partial(da, "x", nan_policy="adaptive")
+    assert calls == ["central"]
+
+
 def test_adaptive_composes_with_periodic():
     """A masked global axis wraps and selects stencils in the same call."""
     lon = np.linspace(0.0, 360.0, 72, endpoint=False)

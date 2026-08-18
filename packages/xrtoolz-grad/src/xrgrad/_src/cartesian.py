@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import threading
 import warnings
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from typing import Any, cast
 
 import finitediffx as fdx
@@ -261,9 +261,9 @@ def _difference_adaptive(
     no data there, which is a property of the answer rather than of the
     arithmetic that happened to produce it.
     """
-    out: Float[np.ndarray, "*shape"] | None = None
-    for method in _ADAPTIVE_METHODS:
-        candidate = _difference_maybe_periodic(
+
+    def candidate(method: str) -> Float[np.ndarray, "*shape"]:
+        return _difference_maybe_periodic(
             values,
             axis=axis,
             step_size=step_size,
@@ -272,15 +272,85 @@ def _difference_adaptive(
             derivative=derivative,
             periodic=periodic,
         )
-        if out is None:
-            out = candidate
-            continue
-        gaps = ~np.isfinite(out)
-        if not gaps.any():
+
+    return _select_by_finiteness(candidate, values)
+
+
+def _select_by_finiteness(
+    candidate: Callable[[str], Float[np.ndarray, "*shape"]],
+    values: Float[np.ndarray, "*shape"],
+) -> Float[np.ndarray, "*shape"]:
+    """Keep, per point, the first candidate stencil that came back finite.
+
+    ``candidate`` builds the result for one method in
+    :data:`_ADAPTIVE_METHODS`; it is called lazily, so a field that the
+    centred stencil already covers costs exactly one kernel evaluation.
+
+    A gap that sits on the input mask can never be filled — no stencil
+    reaches data there — so only gaps that coincide with finite input
+    keep the search going.
+
+    Args:
+        candidate: Builds the differenced array for a given method name.
+        values: The input field, supplying the mask to re-impose.
+
+    Returns:
+        The combined result, NaN wherever ``values`` is not finite.
+    """
+    finite_input = np.isfinite(values)
+    out: Float[np.ndarray, "*shape"] | None = None
+    for method in _ADAPTIVE_METHODS:
+        result = candidate(method)
+        out = result if out is None else np.where(~np.isfinite(out), result, out)
+        if not (~np.isfinite(out) & finite_input).any():
             break
-        out = np.where(gaps, candidate, out)
     assert out is not None  # _ADAPTIVE_METHODS is non-empty
-    return np.where(np.isfinite(values), out, np.nan)
+    return np.where(finite_input, out, np.nan)
+
+
+def _difference_adaptive_chain(
+    values: Float[np.ndarray, "*shape"],
+    coord_values: Float[np.ndarray, " n"],
+    *,
+    axis: int,
+    accuracy: int,
+) -> Float[np.ndarray, "*shape"]:
+    """Adaptive first derivative against a non-uniform coordinate.
+
+    The rectilinear backend differentiates on the index grid and divides
+    by ``dx/di``. Numerator and denominator have to come from the *same*
+    stencil at every point: a one-sided ``df/di`` over a centred ``dx/di``
+    mixes two different local approximations, and on a stretched grid
+    that is silently wrong — for ``x = [0, 1, 3, ...]`` and ``f = x`` with
+    ``f[0]`` masked it returns ``(3-1)/((3-0)/2) = 4/3`` instead of 1.
+
+    So the quotient — not just the numerator — is the candidate that
+    :func:`_select_by_finiteness` picks between. The coordinate is finite
+    and monotonic by the time we get here, so only the numerator's NaNs
+    drive the selection.
+
+    Args:
+        values: Field to differentiate.
+        coord_values: The 1-D coordinate along ``axis``.
+        axis: Axis of ``values`` to differentiate.
+        accuracy: Stencil accuracy order.
+
+    Returns:
+        ``df/dx``, NaN wherever ``values`` is not finite.
+    """
+    shape = [1] * values.ndim
+    shape[axis] = coord_values.size
+
+    def candidate(method: str) -> Float[np.ndarray, "*shape"]:
+        df_di = _difference(
+            values, axis=axis, step_size=1.0, accuracy=accuracy, method=method
+        )
+        dx_di = _difference(
+            coord_values, axis=0, step_size=1.0, accuracy=accuracy, method=method
+        )
+        return df_di / dx_di.reshape(shape)
+
+    return _select_by_finiteness(candidate, values)
 
 
 def _difference_dispatch(
