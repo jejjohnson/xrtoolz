@@ -122,6 +122,8 @@ nav:
           - SSS — Binning L3 onto a Grid: notebooks/cmems_sss_products.ipynb
           - SSH — Binning Along-track: notebooks/cmems_ssh_products.ipynb
           - Ocean Colour — Binning: notebooks/cmems_oc_products.ipynb
+      - Data Acquisition:
+          - Open a TROPOMI CH₄ granule and screen it: recipes/tropomi_ch4_screen.md
       - Validation:
           - V1 — Scales of Evaluation: notebooks/validation_v1_scales.ipynb
           - V1.5 — PSD Plots & Resolved Scale: notebooks/validation_v1_psd_plots.ipynb
