@@ -211,8 +211,10 @@ def _remap_axis_columns(
 
     # Coordinates riding on ``source_dim`` describe the axis being replaced.
     da_in = da.drop_vars([c for c in da.coords if source_dim in da[c].dims])
+    # ``src_da`` may itself be one of its own coords (a dimension coordinate
+    # or a named coordinate pulled off ``da``); never drop the array itself.
     src_in = src_da.drop_vars(
-        [c for c in src_da.coords if source_dim in src_da[c].dims]
+        [c for c in src_da.coords if c != src_da.name and source_dim in src_da[c].dims]
     )
     out_dtype = np.complex128 if np.iscomplexobj(da.data) else np.float64
 

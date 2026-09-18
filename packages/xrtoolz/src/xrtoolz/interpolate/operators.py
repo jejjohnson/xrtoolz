@@ -1451,26 +1451,21 @@ class RemapAxis(Operator):
     numeric variable that carries ``source_axis`` is interpolated onto
     the target axis.
 
-    Parameters
-    ----------
-    source_axis
-        Name of the existing dimension to remap.
-    target_axis
-        Target coordinate values. If an :class:`xr.DataArray`, its
-        ``.name`` becomes the new dim name; otherwise the new dim name
-        defaults to ``target_name`` or ``source_axis``.
-    target_name
-        Optional explicit new dim name.
-    method
-        ``"linear"`` or ``"nearest"``.
-    source_coords
-        Name of a coordinate on the input supplying per-column source
-        axis values (e.g. ``"z_agl"`` on a terrain-following grid). It
-        must carry ``source_axis`` and may vary along the other dims.
-        ``None`` uses the 1-D dimension coordinate.
-    extrapolate
-        ``"nan"`` (default) — targets outside a column's range become
-        ``NaN``; ``"nearest"`` — they hold the column's end value.
+    Args:
+        source_axis: Name of the existing dimension to remap.
+        target_axis: Target coordinate values. If an :class:`xr.DataArray`,
+            its ``.name`` becomes the new dim name; otherwise the new dim
+            name defaults to ``target_name`` or ``source_axis``.
+        target_name: Optional explicit new dim name.
+        method: ``"linear"`` or ``"nearest"``.
+        source_coords: Name of a coordinate on the input supplying
+            per-column source axis values (e.g. ``"z_agl"`` on a
+            terrain-following grid). It must carry ``source_axis`` and may
+            vary along the other dims. ``None`` uses the 1-D dimension
+            coordinate.
+        extrapolate: ``"nan"`` (default) — targets outside a column's range
+            become ``NaN``; ``"nearest"`` — they hold the column's end
+            value.
 
     Example:
         Model-level temperature with a 4-D height-above-ground coordinate
