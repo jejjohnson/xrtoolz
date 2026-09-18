@@ -275,15 +275,46 @@ def test_cf_bounds_attribute_and_explicit_bounds() -> None:
 
     with pytest.raises(ValueError, match="shape"):
         regrid_conservative(ds, tgt, geometry="planar", bounds={"lat": np.zeros(7)})
-    with pytest.raises(ValueError, match="contiguous"):
-        regrid_conservative(
-            ds,
-            tgt,
-            geometry="planar",
-            bounds={"lat": np.array([[0.0, 0.4], [0.5, 1.5], [1.5, 3.0]])},
-        )
     with pytest.raises(ValueError, match="single centre"):
         regrid_conservative(ds, tgt, geometry="planar")
+
+
+def test_gapped_cf_bounds_target_covers_only_its_cells() -> None:
+    """Non-contiguous CF bounds: every other source row is a target cell; the
+    gap rows contribute nothing and the covered total is conserved."""
+    lat, lon = _centres(0.0, 8.0, 8), _centres(0.0, 4.0, 4)
+    da = _field(lat, lon)
+    tgt_lat = np.array([0.5, 2.5, 4.5, 6.5])
+    lat_bnds = np.stack([tgt_lat - 0.5, tgt_lat + 0.5], axis=1)  # gaps between
+    target = xr.Dataset(
+        {"lat_bnds": (("lat", "nv"), lat_bnds)},
+        coords={"lat": ("lat", tgt_lat, {"bounds": "lat_bnds"}), "lon": lon},
+    )
+    covered = da.isel(lat=[0, 2, 4, 6])
+
+    total = regrid_conservative(da, target, geometry="planar", mode="sum")
+    np.testing.assert_allclose(total.values, covered.values, rtol=1e-12)
+    np.testing.assert_allclose(float(total.sum()), float(covered.sum()), rtol=1e-12)
+    mean = regrid_conservative(da, target, geometry="planar")
+    np.testing.assert_allclose(mean.values, covered.values, rtol=1e-12)
+    # Source-side gaps: only the overlap with each cell's own interval counts.
+    src_gapped = regrid_conservative(
+        da,
+        {"lat": [4.0], "lon": lon},
+        geometry="planar",
+        bounds={"lat": np.stack([lat - 0.25, lat + 0.25], axis=1)},
+        target_bounds={"lat": np.array([0.0, 8.0])},
+    )
+    np.testing.assert_allclose(
+        src_gapped.values, da.mean("lat").values[None], rtol=1e-12
+    )
+    # Overlap weights of gapped intervals, spelled out.
+    from xrtoolz.interpolate._src.grid_to_grid import _overlap_intervals
+
+    w = _overlap_intervals(
+        np.array([[0.0, 1.0], [2.0, 3.0]]), np.array([[0.5, 2.5], [5.0, 6.0]])
+    ).toarray()
+    np.testing.assert_allclose(w, [[0.5, 0.5], [0.0, 0.0]])
 
 
 def test_validation_errors() -> None:
@@ -306,6 +337,54 @@ def test_validation_errors() -> None:
         regrid_conservative(da, xr.Dataset(coords={"lat": lat}))
     with pytest.raises(ValueError, match="strictly monotone"):
         regrid_conservative(da, {"lat": [0.0, 2.0, 1.0], "lon": lon})
+
+
+def test_target_bounds_variables_attached_to_dataset_dropped_for_dataarray() -> None:
+    lat, lon = _centres(0.0, 4.0, 8), _centres(0.0, 4.0, 4)
+    da = _field(lat, lon)
+    tgt_lat = np.array([1.0, 3.0])
+    lat_bnds = np.array([[0.0, 2.0], [2.0, 4.0]])
+    target = xr.Dataset(
+        {"lat_bnds": (("lat", "nv"), lat_bnds)},
+        coords={
+            "lat": ("lat", tgt_lat, {"bounds": "lat_bnds", "units": "degrees"}),
+            "lon": lon,
+        },
+    )
+    ds_out = regrid_conservative(da.to_dataset(), target, geometry="planar")
+    assert ds_out["lat"].attrs == {"bounds": "lat_bnds", "units": "degrees"}
+    np.testing.assert_array_equal(ds_out["lat_bnds"].values, lat_bnds)
+    assert ds_out["lat_bnds"].dims == ("lat", "nv")
+    # Explicit target_bounds override the CF variable, so it is not attached.
+    over = regrid_conservative(
+        da.to_dataset(),
+        target,
+        geometry="planar",
+        target_bounds={"lat": np.array([0.5, 1.5, 3.5])},
+    )
+    assert "lat_bnds" not in over and over["lat"].attrs == {"units": "degrees"}
+    # DataArray output has no room for a bounds variable: no dangling attr.
+    da_out = regrid_conservative(da, target, geometry="planar")
+    assert da_out["lat"].attrs == {"units": "degrees"}
+    assert "lat_bnds" not in da_out.coords
+
+
+def test_complex_field_regrids_real_and_imaginary_parts() -> None:
+    lat, lon = _centres(0.0, 6.0, 6), _centres(0.0, 6.0, 6)
+    re, im = _field(lat, lon, seed=5), _field(lat, lon, seed=6)
+    re.values[1, 1] = np.nan
+    im.values[4, 2] = np.nan  # a cell invalid in either part is invalid
+    z = re + 1j * im
+    assert np.iscomplexobj(z.values)
+    tgt = {"lat": _centres(0.0, 6.0, 3), "lon": _centres(0.0, 6.0, 2)}
+    for kwargs in ({}, {"mode": "sum"}, {"normalize": "destarea"}, {"skipna": False}):
+        out = regrid_conservative(z, tgt, geometry="planar", **kwargs)
+        assert out.dtype == np.complex128
+        valid = np.isfinite(re) & np.isfinite(im)
+        exp_re = regrid_conservative(re.where(valid), tgt, geometry="planar", **kwargs)
+        exp_im = regrid_conservative(im.where(valid), tgt, geometry="planar", **kwargs)
+        np.testing.assert_allclose(out.real.values, exp_re.values, rtol=1e-12)
+        np.testing.assert_allclose(out.imag.values, exp_im.values, rtol=1e-12)
 
 
 # ---------------------------------------------------------------------------
@@ -387,6 +466,10 @@ def test_operator_matches_function_and_config_round_trips() -> None:
         "target": {"lat": tgt["lat"].tolist(), "lon": tgt["lon"].tolist()},
         "dims": ["lat", "lon"],
         "geometry": "planar",
+        "target_bounds": {
+            "lat": [[0.0, 2.0], [2.0, 4.0], [4.0, 6.0], [6.0, 8.0], [8.0, 10.0]],
+            "lon": [[0.0, 5.0], [5.0, 10.0]],
+        },
         "mode": "sum",
         "normalize": "fracarea",
         "skipna": True,
@@ -399,11 +482,48 @@ def test_operator_matches_function_and_config_round_trips() -> None:
     xr.testing.assert_allclose(rebuilt(ds), op(ds))
 
     sig = op.compute_output_signature(
-        Signature({"time": 3, "lat": 10, "lon": 10}, dtype=np.dtype("float64"))
+        Signature({"time": 3, "lat": 10, "lon": 10}, dtype=np.dtype("float32"))
     )
-    assert sig.dims == {"time": 3, "lat": 5, "lon": 2}
+    assert sig.dims == {"time": 3, "lat": 5, "lon": 2} and sig.dtype == "float64"
+    csig = op.compute_output_signature(Signature({"lat": 10, "lon": 10}, "complex64"))
+    assert csig.dtype == "complex128"
+    assert op.compute_output_signature(Signature({"lat": 10})).dtype == "float64"
     with pytest.raises(ValueError, match="missing"):
         RegridConservative({"lat": [0.0, 1.0]})
+
+
+def test_operator_config_round_trip_keeps_irregular_cf_bounds() -> None:
+    lat, lon = _centres(0.0, 3.0, 12), _centres(0.0, 2.0, 8)
+    ds = _field(lat, lon).to_dataset()
+    lat_bnds = np.array([[0.0, 0.5], [0.5, 1.5], [1.5, 3.0]])  # not midpoints
+    target = xr.Dataset(
+        {"lat_bnds": (("lat", "nv"), lat_bnds)},
+        coords={
+            "lat": ("lat", np.array([0.25, 1.0, 2.25]), {"bounds": "lat_bnds"}),
+            "lon": np.array([0.5, 1.5]),
+        },
+    )
+    op = RegridConservative(target, geometry="planar")
+    cfg = op.get_config()
+    assert cfg["target_bounds"]["lat"] == lat_bnds.tolist()
+    assert json.loads(json.dumps(cfg)) == cfg
+    rebuilt = RegridConservative(
+        cfg["target"], **{k: v for k, v in cfg.items() if k != "target"}
+    )
+    expected = op(ds)
+    xr.testing.assert_identical(rebuilt(ds)["f"], expected["f"])
+    # ... and it genuinely differs from the midpoint inference.
+    midpoints = RegridConservative(cfg["target"], geometry="planar")(ds)
+    assert not np.allclose(midpoints["f"].values, expected["f"].values)
+    # Explicit target_bounds on the operator win over the CF variable.
+    explicit = RegridConservative(
+        target, geometry="planar", target_bounds={"lat": [-0.5, 0.75, 1.5, 2.75]}
+    )
+    assert explicit.get_config()["target_bounds"]["lat"] == [
+        [-0.5, 0.75],
+        [0.75, 1.5],
+        [1.5, 2.75],
+    ]
 
 
 def test_operator_maps_over_a_two_leaf_datatree() -> None:

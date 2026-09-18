@@ -792,6 +792,12 @@ class RegridConservative(Operator):
     ``mode="sum"`` preserves the total of extensive per-cell fields. See
     the primitive for the bounds inference, longitude wrap and NaN rules.
 
+    The effective target cell bounds are resolved at construction
+    (explicit ``target_bounds`` > CF ``bounds`` attribute > midpoints
+    between centres) and serialised by :meth:`get_config` as
+    ``{dim: [[lo, hi], ...]}``, so an operator rebuilt from its config
+    regrids onto exactly the same cells.
+
     Args:
         target: Target grid — a dataset / data array whose coordinates
             include ``dims`` (a CF ``bounds`` attribute is honoured), or a
@@ -799,6 +805,8 @@ class RegridConservative(Operator):
         dims: The two dims to regrid, ``(lat, lon)`` order on a spherical
             geometry.
         geometry: ``"spherical"`` or ``"planar"``.
+        target_bounds: Explicit target cell bounds per dim, as ``(n + 1,)``
+            edges or CF ``(n, 2)`` bounds; overrides the target's own.
         mode: ``"mean"`` or ``"sum"``.
         normalize: ``"fracarea"`` or ``"destarea"``.
         skipna: Whether NaN source cells are skipped.
@@ -826,6 +834,7 @@ class RegridConservative(Operator):
         *,
         dims: tuple[str, str] = ("lat", "lon"),
         geometry: _grid_to_grid.Geometry = "spherical",
+        target_bounds: Mapping[str, _grid_to_grid.BoundsLike] | None = None,
         mode: _grid_to_grid.RegridMode = "mean",
         normalize: _grid_to_grid.Normalize = "fracarea",
         skipna: bool = True,
@@ -836,6 +845,10 @@ class RegridConservative(Operator):
         self.target = target
         self._target_coords = {
             d: _grid_to_grid._centres(target, d, what="target") for d in self.dims
+        }
+        self._target_bounds = {
+            d: _grid_to_grid._resolve_intervals(target, d, target_bounds, what="target")
+            for d in self.dims
         }
         self.geometry = geometry
         self.mode = mode
@@ -848,6 +861,7 @@ class RegridConservative(Operator):
             self.target,
             dims=self.dims,
             geometry=self.geometry,
+            target_bounds=self._target_bounds,
             mode=self.mode,
             normalize=self.normalize,
             skipna=self.skipna,
@@ -858,6 +872,7 @@ class RegridConservative(Operator):
             "target": {d: c.tolist() for d, c in self._target_coords.items()},
             "dims": list(self.dims),
             "geometry": self.geometry,
+            "target_bounds": {d: b.tolist() for d, b in self._target_bounds.items()},
             "mode": self.mode,
             "normalize": self.normalize,
             "skipna": self.skipna,
@@ -865,7 +880,16 @@ class RegridConservative(Operator):
 
     def compute_output_signature(self, input_signature: Signature) -> Signature:
         updates = {d: int(c.size) for d, c in self._target_coords.items()}
-        return input_signature.replace_dims(updates)
+        try:
+            is_complex = np.issubdtype(
+                np.dtype(input_signature.dtype), np.complexfloating
+            )
+        except TypeError:  # unknown (None) or non-numpy dtype tag
+            is_complex = False
+        return Signature(
+            input_signature.replace_dims(updates).dims,
+            dtype=np.complex128 if is_complex else np.float64,
+        )
 
 
 # ---------- binning --------------------------------------------------------

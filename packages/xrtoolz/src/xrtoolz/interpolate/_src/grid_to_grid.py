@@ -15,6 +15,7 @@ from typing import Literal
 import numpy as np
 import xarray as xr
 from jaxtyping import Float
+from scipy import sparse
 
 from xrtoolz.interpolate._src.grid_to_points import _check_dask_chunks
 from xrtoolz.utils._src.finite import _finite_mask_da
@@ -371,12 +372,45 @@ def overlap_weights_1d(
             "src_bounds and tgt_bounds must be 1-D arrays of at least two edges; "
             f"got shapes {src.shape} and {tgt.shape}"
         )
-    src_lo, src_hi = np.minimum(src[:-1], src[1:]), np.maximum(src[:-1], src[1:])
-    tgt_lo, tgt_hi = np.minimum(tgt[:-1], tgt[1:]), np.maximum(tgt[:-1], tgt[1:])
-    overlap = np.minimum(src_hi[None, :], tgt_hi[:, None]) - np.maximum(
-        src_lo[None, :], tgt_lo[:, None]
+    return _overlap_intervals(
+        _edges_to_intervals(src), _edges_to_intervals(tgt)
+    ).toarray()
+
+
+def _edges_to_intervals(edges: np.ndarray) -> np.ndarray:
+    """``(n + 1,)`` edges to ``(n, 2)`` ``(lo, hi)`` intervals."""
+    return np.stack([edges[:-1], edges[1:]], axis=1)
+
+
+def _overlap_intervals(src: np.ndarray, tgt: np.ndarray) -> sparse.csr_matrix:
+    """Sparse ``(m, n)`` overlap lengths between source and target intervals.
+
+    ``src`` is ``(n, 2)`` and ``tgt`` is ``(m, 2)``; each interval is
+    normalised to ``lo <= hi``. Candidate pairs come from two
+    ``searchsorted`` sweeps over the source intervals sorted by ``lo``
+    (against the running maximum of ``hi``, so overlapping source cells
+    are handled too), so construction is linear in the number of
+    non-zero overlaps rather than in ``m * n``.
+    """
+    src_lo, src_hi = np.min(src, axis=1), np.max(src, axis=1)
+    tgt_lo, tgt_hi = np.min(tgt, axis=1), np.max(tgt, axis=1)
+    order = np.argsort(src_lo, kind="stable")
+    lo_sorted = src_lo[order]
+    hi_running = np.maximum.accumulate(src_hi[order])
+    start = np.searchsorted(hi_running, tgt_lo, side="right")
+    stop = np.maximum(np.searchsorted(lo_sorted, tgt_hi, side="left"), start)
+    counts = stop - start
+    rows = np.repeat(np.arange(tgt.shape[0]), counts)
+    # Source positions (in sorted order) of every candidate pair.
+    offsets = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts)
+    cols = order[np.repeat(start, counts) + offsets]
+    overlap = np.minimum(src_hi[cols], tgt_hi[rows]) - np.maximum(
+        src_lo[cols], tgt_lo[rows]
     )
-    return np.clip(overlap, 0.0, None)
+    keep = overlap > 0.0
+    return sparse.csr_matrix(
+        (overlap[keep], (rows[keep], cols[keep])), shape=(tgt.shape[0], src.shape[0])
+    )
 
 
 def _bounds_from_centres(centres: np.ndarray, name: str) -> np.ndarray:
@@ -396,16 +430,15 @@ def _bounds_from_centres(centres: np.ndarray, name: str) -> np.ndarray:
     return np.concatenate([[2.0 * c[0] - mid[0]], mid, [2.0 * c[-1] - mid[-1]]])
 
 
-def _as_edges(bounds: BoundsLike, name: str, n: int) -> np.ndarray:
-    """Normalise ``(n + 1,)`` edges or CF ``(n, 2)`` bounds to edges."""
+def _as_intervals(bounds: BoundsLike, name: str, n: int) -> np.ndarray:
+    """Normalise ``(n + 1,)`` edges or CF ``(n, 2)`` bounds to ``(n, 2)``
+    ``(lo, hi)`` intervals. CF bounds need not be contiguous."""
     b = np.asarray(bounds.values if isinstance(bounds, xr.DataArray) else bounds)
     b = b.astype(float)
     if b.ndim == 2 and b.shape == (n, 2):
-        if not np.allclose(b[1:, 0], b[:-1, 1]):
-            raise ValueError(f"CF bounds for {name!r} are not contiguous")
-        return np.concatenate([b[:, 0], b[-1:, 1]])
-    if b.ndim == 1 and b.size == n + 1:
         return b
+    if b.ndim == 1 and b.size == n + 1:
+        return _edges_to_intervals(b)
     raise ValueError(
         f"bounds for {name!r} must have shape ({n + 1},) or ({n}, 2); got {b.shape}"
     )
@@ -424,51 +457,67 @@ def _centres(grid: GridLike, dim: str, *, what: str) -> np.ndarray:
     return np.asarray(grid[dim], dtype=float)
 
 
-def _resolve_edges(
+def _cf_bounds_variable(grid: GridLike, dim: str) -> xr.DataArray | None:
+    """The CF ``bounds`` variable named by ``grid[dim].attrs``, if present."""
+    if not isinstance(grid, xr.Dataset | xr.DataArray):
+        return None
+    bounds_name = grid[dim].attrs.get("bounds")
+    variables = grid.variables if isinstance(grid, xr.Dataset) else grid.coords
+    if bounds_name and bounds_name in variables:
+        return grid[bounds_name]
+    return None
+
+
+def _resolve_intervals(
     grid: GridLike,
     dim: str,
     explicit: Mapping[str, BoundsLike] | None,
     *,
     what: str,
 ) -> np.ndarray:
-    """Cell edges for ``dim``: explicit > CF ``bounds`` attribute > midpoints."""
+    """``(n, 2)`` cell intervals for ``dim``: explicit > CF ``bounds``
+    attribute > midpoints between centres."""
     centres = _centres(grid, dim, what=what)
     n = centres.size
     if explicit is not None and dim in explicit:
-        return _as_edges(explicit[dim], dim, n)
-    if isinstance(grid, xr.Dataset | xr.DataArray):
-        bounds_name = grid[dim].attrs.get("bounds")
-        variables = grid.variables if isinstance(grid, xr.Dataset) else grid.coords
-        if bounds_name and bounds_name in variables:
-            return _as_edges(np.asarray(variables[bounds_name].values), dim, n)
-    return _bounds_from_centres(centres, dim)
+        return _as_intervals(explicit[dim], dim, n)
+    cf_bounds = _cf_bounds_variable(grid, dim)
+    if cf_bounds is not None:
+        return _as_intervals(np.asarray(cf_bounds.values), dim, n)
+    return _edges_to_intervals(_bounds_from_centres(centres, dim))
 
 
-def _lon_overlap_weights(src_edges: np.ndarray, tgt_edges: np.ndarray) -> np.ndarray:
+def _lon_overlap_weights(src: np.ndarray, tgt: np.ndarray) -> sparse.csr_matrix:
     """Longitude overlap (radians) with the target unwrapped onto the source.
 
-    The target edges are shifted by a multiple of ``_LON_WRAP`` so they start
-    inside the source's range, and the source is tiled one period either
-    side, so a target cell straddling the source's seam picks up both parts.
+    The target intervals are shifted by a multiple of ``_LON_WRAP`` so they
+    start inside the source's range, and the source is tiled one period
+    either side, so a target cell straddling the source's seam picks up
+    both parts.
     """
-    for name, edges in (("source", src_edges), ("target", tgt_edges)):
-        span = abs(edges[-1] - edges[0])
+    for name, intervals in (("source", src), ("target", tgt)):
+        span = intervals.max() - intervals.min()
         if span > _LON_WRAP * (1.0 + 1e-9):
             raise ValueError(
                 f"{name} longitude bounds span {span:g} degrees, more than one "
                 f"period of {_LON_WRAP:g}"
             )
-    src_min = src_edges.min()
-    shift = np.floor((tgt_edges.min() - src_min) / _LON_WRAP) * _LON_WRAP
-    tgt = tgt_edges - shift
-    weights = sum(
-        overlap_weights_1d(src_edges + k * _LON_WRAP, tgt) for k in (-1, 0, 1)
+    shift = np.floor((tgt.min() - src.min()) / _LON_WRAP) * _LON_WRAP
+    tgt = tgt - shift
+    weights = (
+        _overlap_intervals(src - _LON_WRAP, tgt)
+        + _overlap_intervals(src, tgt)
+        + _overlap_intervals(src + _LON_WRAP, tgt)
     )
-    return np.deg2rad(weights)
+    return weights * np.deg2rad(1.0)
 
 
-def _sin_lat(edges: np.ndarray) -> np.ndarray:
-    return np.sin(np.deg2rad(np.clip(edges, -90.0, 90.0)))
+def _sin_lat(intervals: np.ndarray) -> np.ndarray:
+    return np.sin(np.deg2rad(np.clip(intervals, -90.0, 90.0)))
+
+
+def _cell_lengths(intervals: np.ndarray) -> np.ndarray:
+    return np.abs(intervals[:, 1] - intervals[:, 0])
 
 
 def regrid_conservative(
@@ -495,12 +544,16 @@ def regrid_conservative(
     \text{ valid}]},\qquad \text{sum: } F_j = \sum_i \frac{w_{ij}}{a_i} f_i$$
 
     ``mode="mean"`` preserves *intensive* fields (concentration, mixing
-    ratio, flux density): the area integral $\sum_j A_j \bar f_j =
-    \sum_i a_i f_i$ is conserved when the target covers the source.
-    ``mode="sum"`` preserves *extensive* per-cell fields (mass, emission
-    per cell): each source cell's value is split among the target cells
-    in proportion to the overlapped fraction, so $\sum_j F_j = \sum_i
-    f_i$.
+    ratio, flux density). With ``normalize="destarea"`` the area integral
+    $\sum_j A_j \bar f_j = \sum_i a_i f_i$ is conserved whenever the target
+    covers the source; with ``normalize="fracarea"`` (default) it is
+    conserved only over target cells that are fully covered by unmasked
+    source cells — a partially covered or partially masked target cell
+    holds the mean of its valid part, which over-counts that cell's
+    contribution to the integral. ``mode="sum"`` preserves *extensive*
+    per-cell fields (mass, emission per cell): each source cell's value
+    is split among the target cells in proportion to the overlapped
+    fraction, so $\sum_j F_j = \sum_i f_i$.
 
     On a ``"spherical"`` geometry ``dims[0]`` is latitude and ``dims[1]``
     longitude, both in degrees, and cell areas are $R^2 \Delta\lambda
@@ -515,7 +568,9 @@ def regrid_conservative(
     cells extrapolated symmetrically. A CF ``bounds`` attribute on a
     coordinate (naming an ``(n, 2)`` variable) is honoured, and ``bounds``
     / ``target_bounds`` override both, as ``(n + 1,)`` edges or CF
-    ``(n, 2)`` bounds per dim.
+    ``(n, 2)`` bounds per dim. CF bounds need not be contiguous: cells
+    may leave gaps (or overlap), and only the overlap with each cell's
+    own ``(lo, hi)`` interval counts.
 
     Missing values: with ``skipna=True`` (default) NaN source cells carry
     no weight. ``normalize="fracarea"`` divides by the *valid* overlap, so
@@ -524,13 +579,17 @@ def regrid_conservative(
     (ESMF / xESMF naming), scaling the mean down by the valid fraction.
     A target cell with no valid overlap is NaN in every mode. With
     ``skipna=False`` any NaN source cell that touches a target cell makes
-    it NaN.
+    it NaN. Complex fields are regridded component-wise (a cell is valid
+    when both parts are finite) and stay complex.
 
     Extra dims (``time``, ``level``) broadcast; dask inputs stay lazy
     along them, while the two regridded dims must each sit in a single
     chunk. Datasets are regridded per variable: variables without either
-    dim pass through, CF bounds variables of the source grid are dropped,
-    and a variable carrying only one of the two dims raises.
+    dim pass through, CF bounds variables of the source grid are dropped
+    (those of the target grid, when it is a dataset / data array carrying
+    them, are attached), and a variable carrying only one of the two dims
+    raises. A data array output has no room for a bounds variable, so its
+    coordinates carry no dangling ``bounds`` attribute.
 
     Args:
         ds: Source dataset or data array with 1-D, strictly monotone
@@ -551,7 +610,8 @@ def regrid_conservative(
 
     Returns:
         ``ds`` on the target grid, with the target centres as coordinates
-        along ``dims`` and every other dim unchanged.
+        along ``dims`` and every other dim unchanged. Values are
+        ``float64`` (``complex128`` for complex input).
 
     Raises:
         ValueError: If an option is unknown, a dim or its coordinate is
@@ -602,24 +662,29 @@ def regrid_conservative(
     if missing:
         raise ValueError(f"input is missing dims {missing!r}; got {tuple(ds.dims)}")
 
-    src_edges = {d: _resolve_edges(ds, d, bounds, what="input") for d in dims}
-    tgt_edges = {
-        d: _resolve_edges(target, d, target_bounds, what="target") for d in dims
+    src_iv = {d: _resolve_intervals(ds, d, bounds, what="input") for d in dims}
+    tgt_iv = {
+        d: _resolve_intervals(target, d, target_bounds, what="target") for d in dims
     }
     tgt_centres = {d: _centres(target, d, what="target") for d in dims}
     d0, d1 = dims
     if geometry == "spherical":
-        src_len = {d0: _sin_lat(src_edges[d0]), d1: np.deg2rad(src_edges[d1])}
-        tgt_len = {d0: _sin_lat(tgt_edges[d0]), d1: np.deg2rad(tgt_edges[d1])}
-        w0 = overlap_weights_1d(src_len[d0], tgt_len[d0])
-        w1 = _lon_overlap_weights(src_edges[d1], tgt_edges[d1])
+        src_len = {d0: _sin_lat(src_iv[d0]), d1: np.deg2rad(src_iv[d1])}
+        tgt_len = {d0: _sin_lat(tgt_iv[d0]), d1: np.deg2rad(tgt_iv[d1])}
+        w0 = _overlap_intervals(src_len[d0], tgt_len[d0])
+        w1 = _lon_overlap_weights(src_iv[d1], tgt_iv[d1])
     else:
-        src_len, tgt_len = src_edges, tgt_edges
-        w0 = overlap_weights_1d(src_len[d0], tgt_len[d0])
-        w1 = overlap_weights_1d(src_len[d1], tgt_len[d1])
-    src_area = np.outer(np.abs(np.diff(src_len[d0])), np.abs(np.diff(src_len[d1])))
-    tgt_area = np.outer(np.abs(np.diff(tgt_len[d0])), np.abs(np.diff(tgt_len[d1])))
+        src_len, tgt_len = src_iv, tgt_iv
+        w0 = _overlap_intervals(src_len[d0], tgt_len[d0])
+        w1 = _overlap_intervals(src_len[d1], tgt_len[d1])
+    src_area = np.outer(_cell_lengths(src_len[d0]), _cell_lengths(src_len[d1]))
+    tgt_area = np.outer(_cell_lengths(tgt_len[d0]), _cell_lengths(tgt_len[d1]))
 
+    # A Dataset output carries the target's CF bounds variables that were
+    # actually used (not overridden by ``target_bounds``) alongside the
+    # ``bounds`` attr; otherwise the attr would dangle, so it is dropped.
+    keep_bounds = isinstance(ds, xr.Dataset)
+    tgt_bounds_vars: dict[str, xr.DataArray] = {}
     new_coords = {}
     for d in dims:
         attrs = (
@@ -627,6 +692,12 @@ def regrid_conservative(
             if isinstance(target, xr.Dataset | xr.DataArray)
             else {}
         )
+        cf_bounds = _cf_bounds_variable(target, d)
+        overridden = target_bounds is not None and d in target_bounds
+        if keep_bounds and cf_bounds is not None and not overridden:
+            tgt_bounds_vars[str(cf_bounds.name)] = cf_bounds
+        else:
+            attrs.pop("bounds", None)
         new_coords[d] = xr.DataArray(tgt_centres[d], dims=(d,), attrs=attrs)
 
     def _regrid(da: xr.DataArray) -> xr.DataArray:
@@ -662,6 +733,8 @@ def regrid_conservative(
                 f"dims {dims!r}; drop it or regrid it separately"
             )
     out = xr.Dataset(out_vars, attrs=dict(ds.attrs))
+    for name, bnds in tgt_bounds_vars.items():
+        out[name] = bnds.variable
     extra_coords = {
         name: coord
         for name, coord in ds.coords.items()
@@ -674,8 +747,8 @@ def _regrid_conservative_dataarray(
     da: xr.DataArray,
     *,
     dims: tuple[str, str],
-    w0: np.ndarray,
-    w1: np.ndarray,
+    w0: sparse.csr_matrix,
+    w1: sparse.csr_matrix,
     src_area: np.ndarray,
     tgt_area: np.ndarray,
     new_coords: Mapping[str, xr.DataArray],
@@ -685,25 +758,35 @@ def _regrid_conservative_dataarray(
 ) -> xr.DataArray:
     _check_dask_chunks(da, dims, func_name="regrid_conservative")
     d0, d1 = dims
-    w1_t = w1.T
+    w0 = sparse.csr_matrix(w0)
+    w1 = sparse.csr_matrix(w1)
+    out_dtype = np.complex128 if np.iscomplexobj(da.data) else np.float64
+
+    def _weights(x: np.ndarray) -> np.ndarray:
+        """``w0 @ x @ w1.T`` over the two trailing axes of ``x``."""
+        return _contract(w0, _contract(w1, x, -1), -2)
 
     def _kernel(field: np.ndarray) -> np.ndarray:
-        f = np.asarray(field, dtype=float)
+        f = np.asarray(field)
+        f = f if np.iscomplexobj(f) else np.asarray(f, dtype=float)
+        # ``np.where(..., np.nan)`` on complex data gives ``nan+0j``: fill
+        # uncovered cells with NaN in both parts instead.
+        fill = complex(np.nan, np.nan) if np.iscomplexobj(f) else np.nan
         valid = np.isfinite(f)
         f0 = np.where(valid, f, 0.0)
         if mode == "sum":
             f0 = np.divide(f0, src_area, out=np.zeros_like(f0), where=src_area > 0)
-        num = w0 @ (f0 @ w1_t)
-        valid_w = w0 @ (valid.astype(float) @ w1_t)
+        num = _weights(f0)
+        valid_w = _weights(valid.astype(float))
         covered = valid_w > 0
         if mode == "mean":
             den = valid_w if normalize == "fracarea" else tgt_area
-            out = np.where(covered, num / np.where(covered, den, 1.0), np.nan)
+            out = np.where(covered, num / np.where(covered, den, 1.0), fill)
         else:
-            out = np.where(covered, num, np.nan)
+            out = np.where(covered, num, fill)
         if not skipna:
-            invalid_w = w0 @ ((~valid).astype(float) @ w1_t)
-            out = np.where(invalid_w > 0, np.nan, out)
+            invalid_w = _weights((~valid).astype(float))
+            out = np.where(invalid_w > 0, fill, out)
         return out
 
     out = xr.apply_ufunc(
@@ -713,7 +796,7 @@ def _regrid_conservative_dataarray(
         output_core_dims=[[d0, d1]],
         exclude_dims={d0, d1},
         dask="parallelized",
-        output_dtypes=[np.float64],
+        output_dtypes=[out_dtype],
         keep_attrs=True,
         dask_gufunc_kwargs={
             "output_sizes": {d0: w0.shape[0], d1: w1.shape[0]},
@@ -721,3 +804,16 @@ def _regrid_conservative_dataarray(
         },
     )
     return out.assign_coords(new_coords).transpose(*da.dims)
+
+
+def _contract(w: sparse.csr_matrix, x: np.ndarray, axis: int) -> np.ndarray:
+    """Apply the sparse ``(m, n)`` matrix ``w`` along ``axis`` of ``x``.
+
+    ``x`` is flattened to ``(n, -1)`` with ``axis`` in front so the product
+    is a single sparse-dense matmul; the result has size ``m`` along
+    ``axis`` and every other axis unchanged.
+    """
+    front = np.moveaxis(x, axis, 0)
+    rest = front.shape[1:]
+    y = w @ front.reshape(front.shape[0], -1)
+    return np.moveaxis(np.asarray(y).reshape((w.shape[0], *rest)), 0, axis)
