@@ -5,11 +5,15 @@
 **ERA5 pressure levels.** `reanalysis-era5-pressure-levels` (catalog short
 name `era5.pressure_levels`) now describes the CDS pressure-level fields
 `u`, `v`, `w` (omega, Pa s⁻¹), `t`, `z` (geopotential) and `q`, each with a
-`cds` alias so `CDSSource.download("era5.pressure_levels",
-variables=["u", "v"], levels=PressureLevels([1000, 925]))` emits the CDS
-form names without hand-typing them. The single-level preset gains `blh`
-(boundary-layer height). The `wrf` aliases on `u`, `v`, `q` and `blh` name
-the raw `wrfout` variables that map onto the same CF quantity.
+`cds` alias so
+`CDSSource(...).download("reanalysis-era5-pressure-levels", Path("uv.nc"), variables=["u", "v"], levels=PressureLevels([1000, 925]))`
+emits the CDS form names without hand-typing them (`era5.pressure_levels`
+is the catalog short name for that dataset id — see
+`describe("era5.pressure_levels")`). The single-level preset gains `blh`
+(boundary-layer height). The `wrf` aliases on `u`, `v` and `blh` name the
+raw `wrfout` variables that map onto the same CF quantity; `q` carries no
+`wrf` alias because `QVAPOR` is a mixing ratio w.r.t. dry air and must be
+converted (`q = r / (1 + r)`) before it is CF specific humidity.
 
 **Methane / trace gas.** `xch4`, `xch4_bias_corrected`, `xch4_precision`,
 `column_averaging_kernel`, `ch4_profile_apriori`, `dry_air_subcolumns` and

@@ -313,12 +313,14 @@ Z = Variable(
     cmap="viridis",
 )
 
+# No ``wrf`` alias: ``QVAPOR`` is a mixing ratio w.r.t. dry air and must be
+# converted first (q = r / (1 + r)).
 Q = Variable(
     name="q",
     standard_name="specific_humidity",
     long_name="Specific humidity",
     units="kg kg-1",
-    aliases={"cds": "specific_humidity", "wrf": "QVAPOR"},
+    aliases={"cds": "specific_humidity"},
     valid_range=(0.0, 0.05),
     cmap="Blues",
 )

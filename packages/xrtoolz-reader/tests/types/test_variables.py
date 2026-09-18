@@ -147,7 +147,8 @@ def test_era5_pressure_level_cds_aliases():
     # WRF raw names ride along for the wrfout opener.
     assert resolve("u").for_source("wrf") == "U"
     assert resolve("blh").for_source("wrf") == "PBLH"
-    assert resolve("q").for_source("wrf") == "QVAPOR"
+    # QVAPOR is a dry-air mixing ratio, not specific humidity: no wrf alias.
+    assert "wrf" not in resolve("q").aliases
 
 
 def test_methane_tropomi_aliases():
