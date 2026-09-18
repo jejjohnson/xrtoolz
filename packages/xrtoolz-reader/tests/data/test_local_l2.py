@@ -372,6 +372,45 @@ def test_open_emit_missing_variable_raises(tmp_path: Path):
         open_emit_ch4_l2b(tmp_path / "e.nc")
 
 
+def test_open_emit_accepts_methane_plume_complex(emit_files: tuple[Path, Path]):
+    # The distributed EMIT_L2B_CH4ENH files name the raster this way.
+    raster, glt = emit_files
+    renamed = raster.with_name("plume.nc")
+    xr.open_dataset(raster).load().rename(
+        ch4_enhancement="methane_plume_complex"
+    ).to_netcdf(renamed)
+    ds = open_emit_ch4_l2b(renamed, glt_path=glt)
+    assert "ch4_enhancement" in ds.data_vars
+    assert "methane_plume_complex" not in ds.variables
+    assert ds["ch4_enhancement"].attrs["units"] == "ppm m"
+
+
+def test_open_emit_geotransform_applies_rotation(emit_files: tuple[Path, Path]):
+    raster, glt_path = emit_files
+    glt = xr.open_dataset(glt_path).load()
+    # GDAL order [ulx, a, b, uly, d, e]; b and d are the rotation terms.
+    glt.attrs["geotransform"] = [-100.0, 0.01, 0.002, 35.0, 0.003, -0.01]
+    rotated = glt_path.with_name("rot.nc")
+    glt.to_netcdf(rotated)
+    ds = open_emit_ch4_l2b(raster, glt_path=rotated)
+    # Cell (row jj=1, col ii=2), centre offsets 1.5 / 2.5.
+    assert ds["lon"].values[1, 2] == pytest.approx(-100.0 + 2.5 * 0.01 + 1.5 * 0.002)
+    assert ds["lat"].values[1, 2] == pytest.approx(35.0 + 2.5 * 0.003 - 1.5 * 0.01)
+
+
+def test_open_emit_glt_keeps_scalar_time_variable(emit_files: tuple[Path, Path]):
+    raster, glt = emit_files
+    ds = xr.open_dataset(raster).load()
+    ds.attrs.pop("time_coverage_start")  # only the scalar variable is left
+    ds = ds.assign(time=np.datetime64("2023-08-02T11:00:00"))
+    timed = raster.with_name("timed.nc")
+    ds.to_netcdf(timed)
+    out = open_emit_ch4_l2b(timed, glt_path=glt)
+    assert out.sizes["time"] == 1
+    assert out["ch4_enhancement"].dims == ("time", "y", "x")
+    assert out["time"].values[0] == np.datetime64("2023-08-02T11:00:00")
+
+
 def test_open_ghgsat_promotes_lonlat(tmp_path: Path):
     path = write_synthetic_ghgsat(tmp_path / "plume.nc")
     ds = open_ghgsat_ch4_l2(path)
@@ -450,6 +489,31 @@ def test_source_open_bbox_rejects_antimeridian(tropomi_file: Path):
         )
 
 
+def test_source_open_bbox_360_box_on_180_dataset(tmp_path: Path):
+    # Swath lon = -12, -11, -10; a 350..355 box means -10..-5 here.
+    path = write_synthetic_tropomi(tmp_path / "west.nc", lon0=-12.0)
+    ds = LocalL2Source().open(
+        "tropomi.ch4",
+        path=path,
+        bbox=BBox(lon_min=350.0, lon_max=355.0, lat_min=40.0, lat_max=43.0),
+        qa_min=0.0,
+    )
+    assert ds.sizes["ground_pixel"] == 1
+    np.testing.assert_array_equal(np.unique(ds["lon"].values), [-10.0])
+
+
+def test_source_open_bbox_180_box_on_360_dataset(tmp_path: Path):
+    # Swath lon = 350, 351, 352; a -9..-8 box means 351..352 here.
+    path = write_synthetic_tropomi(tmp_path / "east.nc", lon0=350.0)
+    ds = LocalL2Source().open(
+        "tropomi.ch4",
+        path=path,
+        bbox=BBox(lon_min=-9.0, lon_max=-8.0, lat_min=40.0, lat_max=43.0),
+        qa_min=0.0,
+    )
+    np.testing.assert_array_equal(np.unique(ds["lon"].values), [351.0, 352.0])
+
+
 def test_source_open_forwards_qa_and_variables(tropomi_file: Path):
     ds = LocalL2Source().open(
         "tropomi.ch4", path=tropomi_file, variables=["xch4", "qa_value"], qa_min=0.5
@@ -486,9 +550,10 @@ def test_source_open_emit_scenes_concatenate(tmp_path: Path):
     r2, g2 = tmp_path / "r2.nc", tmp_path / "g2.nc"
     write_synthetic_emit(r1, g1)
     write_synthetic_emit(r2, g2)
-    ds = LocalL2Source().open("emit.ch4", paths=[r1, r2], glt_path=g1)
+    ds = LocalL2Source().open("emit.ch4", paths=[r1, r2], glt_paths=[g1, g2])
     assert ds["ch4_enhancement"].dims == ("time", "y", "x")
     assert ds.sizes["time"] == 2
+    assert ds["lon"].dims == ("y", "x")  # both scenes went through their GLT
     # Scenes are sliced on the time index.
     sub = LocalL2Source().open(
         "emit.ch4",
@@ -504,3 +569,39 @@ def test_source_open_emit_scenes_concatenate(tmp_path: Path):
         time=TimeRange.parse("2020-01-01", "2020-01-02"),
     )
     assert empty.sizes["time"] == 0
+
+
+def test_source_open_glt_paths_must_line_up_with_paths(tmp_path: Path):
+    r1, g1 = tmp_path / "r1.nc", tmp_path / "g1.nc"
+    r2, g2 = tmp_path / "r2.nc", tmp_path / "g2.nc"
+    write_synthetic_emit(r1, g1)
+    write_synthetic_emit(r2, g2)
+    src = LocalL2Source()
+    with pytest.raises(ValueError, match="glt_paths has 1 entries but paths has 2"):
+        src.open("emit.ch4", paths=[r1, r2], glt_paths=[g1])
+    # One lookup table cannot serve several scenes.
+    with pytest.raises(ValueError, match="pass glt_paths="):
+        src.open("emit.ch4", paths=[r1, r2], glt_path=g1)
+    with pytest.raises(ValueError, match="not both"):
+        src.open("emit.ch4", paths=[r1], glt_path=g1, glt_paths=[g1])
+    # A single scene still takes glt_path= as before.
+    assert "lon" in src.open("emit.ch4", paths=[r1], glt_path=g1).coords
+
+
+def test_source_open_scene_time_masks_out_of_order_paths(tmp_path: Path):
+    early, glt = tmp_path / "early.nc", tmp_path / "g.nc"
+    write_synthetic_emit(early, glt)
+    late = tmp_path / "late.nc"
+    ds = xr.open_dataset(early).load()
+    ds.attrs["time_coverage_start"] = "2023-09-15T10:00:00Z"
+    ds.to_netcdf(late)
+    # Later scene first: the ``time`` index is not monotonic, so a label
+    # slice would fail — the window is a mask on the coordinate instead.
+    out = LocalL2Source().open(
+        "emit.ch4",
+        paths=[late, early],
+        glt_paths=[glt, glt],
+        time=TimeRange.parse("2023-08-01", "2023-08-02"),
+    )
+    assert out.sizes["time"] == 1
+    assert out["time"].values[0] == np.datetime64("2023-08-01T10:00:00")

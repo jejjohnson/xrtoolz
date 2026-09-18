@@ -4,7 +4,8 @@ A Sentinel-5P TROPOMI methane L2 granule (`S5P_*_L2__CH4____*.nc`) spreads one
 retrieval over four NetCDF groups. `LocalL2Source` flattens them into a single
 CF Dataset, renames the variables to the registry names, and applies the
 quality, bounding-box and time screening in one call. The file itself has to
-be on disk already (Earthdata acquisition is a separate step).
+be on disk already (Earthdata acquisition is a separate step), and reading it
+needs a NetCDF backend: `pip install 'xrtoolz-reader[local]'`.
 
 ## One granule, screened
 
@@ -89,6 +90,7 @@ p_layer = ds["sp"] - ds["layer"] * ds["pressure_interval"]   # Pa, (time, scanli
 
 ```python
 emit = src.open("emit.ch4", path="EMIT_L2B_CH4ENH_...nc", glt_path="EMIT_..._GLT.nc", bbox=box)
+scenes = src.open("emit.ch4", paths=[scene_a, scene_b], glt_paths=[glt_a, glt_b])
 plume = src.open("ghgsat.ch4", path="GHGSat_plume.nc")
 ```
 

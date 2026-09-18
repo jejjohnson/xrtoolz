@@ -4449,6 +4449,9 @@ cmems = [
 grib = [
     { name = "cfgrib" },
 ]
+local = [
+    { name = "netcdf4" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -4476,13 +4479,14 @@ requires-dist = [
     { name = "netcdf4", marker = "extra == 'aemet'", specifier = ">=1.6" },
     { name = "netcdf4", marker = "extra == 'cds'", specifier = ">=1.6" },
     { name = "netcdf4", marker = "extra == 'cds-insitu'", specifier = ">=1.6" },
+    { name = "netcdf4", marker = "extra == 'local'", specifier = ">=1.6" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "pandas", specifier = ">=2.1" },
     { name = "pyarrow", marker = "extra == 'aemet'", specifier = ">=24.0.0" },
     { name = "pyarrow", marker = "extra == 'cds-insitu'", specifier = ">=24.0.0" },
     { name = "xarray", specifier = ">=2024.10" },
 ]
-provides-extras = ["cmems", "cds", "grib", "cds-insitu", "aemet"]
+provides-extras = ["cmems", "cds", "grib", "cds-insitu", "aemet", "local"]
 
 [package.metadata.requires-dev]
 dev = [

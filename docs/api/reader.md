@@ -30,7 +30,9 @@ resolve through `xrreader.resolve` and stamp CF attributes through
 already on disk — nothing is fetched (`download()` raises
 `NotImplementedError`). The catalog short names `tropomi.ch4`, `emit.ch4` and
 `ghgsat.ch4` (`source="local"`) each map to a product *opener* that turns one
-file into a flat CF Dataset:
+file into a flat CF Dataset. The openers read NetCDF, and the core install
+ships no backend for it — install the `local` extra
+(`pip install 'xrtoolz-reader[local]'`, which adds `netcdf4`):
 
 | Short name | Opener | Kind | Layout |
 |---|---|---|---|
@@ -54,23 +56,30 @@ offset is folded into a `scanline_time` `(time, scanline)` datetime64
 coordinate. `qa_value < qa_min` pixels are set to NaN (`subset_where`, shape
 preserved); `keep_groups=True` keeps the raw product names.
 
-**EMIT.** The L2B enhancement raster (`ch4_enhancement` in ppm m, plus
-`ch4_uncertainty` when present) is read from a NetCDF container; `rioxarray`
-is not an `xrreader` dependency, so GeoTIFF distributions have to be converted
-first. With `glt_path` the scene is orthorectified through the geometric
-lookup table (`glt_x` / `glt_y`, 1-based, `0` = no data) and the 2-D `lon` /
-`lat` of the orthorectified grid come from the GLT's own `lon` / `lat` or its
-GDAL `geotransform` attribute.
+**EMIT.** The L2B enhancement raster (`methane_plume_complex` as distributed,
+or the registry alias `ch4_enhancement` — either becomes `ch4_enhancement` in
+ppm m — plus `ch4_uncertainty` when present) is read from a NetCDF container;
+`rioxarray` is not an `xrreader` dependency, so GeoTIFF distributions have to
+be converted first. With `glt_path` the scene is orthorectified through the
+geometric lookup table (`glt_x` / `glt_y`, 1-based, `0` = no data) and the
+2-D `lon` / `lat` of the orthorectified grid come from the GLT's own `lon` /
+`lat` or its GDAL `geotransform` attribute (full six-coefficient affine). A
+scalar `time` variable on the raster is carried through as the scene
+timestamp. Several scenes take one lookup table each via
+`glt_paths=[...]`, zipped with `paths=[...]`.
 
 **GHGSat.** A per-plume NetCDF with `xch4` (ppb) and/or `ch4_enhancement` on
 `(y, x)` and 2-D `latitude` / `longitude`, promoted to `lon` / `lat` coords.
 
 `LocalL2Source.open(dataset_id, path=..., bbox=..., time=..., qa_min=...,
 variables=...)` applies the screening after the opener: `bbox` through
-`subset_bbox` on the 2-D coordinates (`where(..., drop=True)`), `time` as a
-per-scanline mask on `scanline_time` for swaths or a `subset_time` slice for
-scenes, and `paths=[a, b]` concatenates granules along `time` in the order
-given. `subset_bbox`, `subset_where` and `subset_time` now live in
+`subset_bbox` on the 2-D coordinates (`where(..., drop=True)`) after the box
+is normalised to the dataset's longitude convention (`[-180, 180]` when any
+`lon` is negative, `[0, 360]` when any exceeds 180 — a box that still crosses
+the antimeridian afterwards raises), `time` as a per-scanline mask on
+`scanline_time` for swaths or a mask on the `time` coordinate for scenes, and
+`paths=[a, b]` concatenates granules along `time` in the order given.
+`subset_bbox`, `subset_where` and `subset_time` now live in
 `xrreader.types` (pure xarray) and are re-exported unchanged by
 `xrtoolz.geo`, so the reader can screen without importing `xrtoolz`. See the
 [TROPOMI recipe](../recipes/tropomi_ch4_screen.md) for a worked example.

@@ -20,6 +20,9 @@ from xrreader.types import CH4_ENHANCEMENT, apply_cf_attrs
 
 _RASTER_DIMS = {"downtrack": "y", "crosstrack": "x", "ortho_y": "y", "ortho_x": "x"}
 _UNCERTAINTY = "ch4_uncertainty"
+# Name of the enhancement raster in the distributed EMIT_L2B_CH4ENH files;
+# the registry alias (``ch4_enhancement``) is accepted as well.
+_PLUME_COMPLEX = "methane_plume_complex"
 
 
 def open_emit_ch4_l2b(
@@ -29,19 +32,25 @@ def open_emit_ch4_l2b(
 ) -> xr.Dataset:
     """Open an EMIT L2B CH4 enhancement scene as a flat CF Dataset.
 
-    The raster carries ``ch4_enhancement`` (ppm m) and, when present,
-    ``ch4_uncertainty`` on ``(y, x)``. With ``glt_path`` the scene is
+    The raster carries the plume enhancement (ppm m) as either
+    ``methane_plume_complex`` (the distributed variable name) or
+    ``ch4_enhancement`` (the registry alias) — renamed to
+    ``ch4_enhancement`` — and, when present, ``ch4_uncertainty`` on
+    ``(y, x)``. With ``glt_path`` the scene is
     orthorectified through EMIT's geometric lookup table: ``glt_x`` /
     ``glt_y`` hold the 1-based raw-pixel column / row that fills each
     orthorectified cell (``0`` marks no data), and the 2-D ``lon`` /
     ``lat`` of the orthorectified grid come from the GLT file's own
     ``lon`` / ``lat`` variables or, failing that, its GDAL ``geotransform``
-    attribute. Without a GLT, 2-D ``lon`` / ``lat`` are taken from the
-    raster file itself when it has them.
+    attribute (the full six-coefficient affine, rotation terms included).
+    Without a GLT, 2-D ``lon`` / ``lat`` are taken from the raster file
+    itself when it has them. A scalar ``time`` variable on the raster
+    survives orthorectification and becomes the scene timestamp.
 
     Args:
-        path: NetCDF raster with ``ch4_enhancement`` on ``(y, x)``
-            (EMIT's ``downtrack`` / ``crosstrack`` dims are renamed).
+        path: NetCDF raster with ``methane_plume_complex`` /
+            ``ch4_enhancement`` on ``(y, x)`` (EMIT's ``downtrack`` /
+            ``crosstrack`` dims are renamed).
         glt_path: Optional geometric lookup table NetCDF.
 
     Returns:
@@ -49,15 +58,17 @@ def open_emit_ch4_l2b(
         file exposes a timestamp) with 2-D ``lon`` / ``lat`` coordinates.
 
     Raises:
-        KeyError: If ``ch4_enhancement`` is missing from the raster.
+        KeyError: If neither ``methane_plume_complex`` nor
+            ``ch4_enhancement`` is in the raster.
         ValueError: If the GLT exposes neither ``lon``/``lat`` nor a
             ``geotransform``.
     """
     ds = xr.open_dataset(path)
     ds = ds.rename({k: v for k, v in _RASTER_DIMS.items() if k in ds.dims})
-    name = CH4_ENHANCEMENT.for_source("emit")
-    if name not in ds.data_vars:
-        raise KeyError(f"{path!s} has no {name!r} variable")
+    candidates = (CH4_ENHANCEMENT.for_source("emit"), _PLUME_COMPLEX)
+    name = next((n for n in candidates if n in ds.data_vars), None)
+    if name is None:
+        raise KeyError(f"{path!s} has none of {candidates!r}")
     ds = ds.rename({name: CH4_ENHANCEMENT.name}) if name != CH4_ENHANCEMENT.name else ds
     if glt_path is not None:
         ds = _orthorectify(ds, xr.open_dataset(glt_path))
@@ -85,13 +96,14 @@ def _orthorectify(ds: xr.Dataset, glt: xr.Dataset) -> xr.Dataset:
         lon = glt["lon"].values
         lat = glt["lat"].values
     elif "geotransform" in glt.attrs:
-        ulx, dx, _, uly, _, dy = (float(v) for v in glt.attrs["geotransform"])
+        # GDAL order: [ulx, a, b, uly, d, e] — b / d are the rotation terms.
+        ulx, a, b, uly, d, e = (float(v) for v in glt.attrs["geotransform"])
         jj, ii = np.indices(gx.shape)
-        lon = ulx + (ii + 0.5) * dx
-        lat = uly + (jj + 0.5) * dy
+        lon = ulx + (ii + 0.5) * a + (jj + 0.5) * b
+        lat = uly + (ii + 0.5) * d + (jj + 0.5) * e
     else:
         raise ValueError("GLT carries neither lon/lat variables nor a geotransform")
-    coords = {
+    coords: dict[str, object] = {
         "lon": (
             ("y", "x"),
             lon,
@@ -103,4 +115,6 @@ def _orthorectify(ds: xr.Dataset, glt: xr.Dataset) -> xr.Dataset:
             {"standard_name": "latitude", "units": "degrees_north"},
         ),
     }
+    if "time" in ds.variables and ds["time"].ndim == 0:
+        coords["time"] = ds["time"]  # scene timestamp, see attach_scene_time
     return xr.Dataset(out, coords=coords, attrs=dict(ds.attrs))
