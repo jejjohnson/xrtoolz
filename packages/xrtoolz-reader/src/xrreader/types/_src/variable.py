@@ -355,6 +355,7 @@ XCH4_PRECISION = Variable(
     units="1e-9",
     aliases={"tropomi": "methane_mixing_ratio_precision"},
     valid_range=(0.0, 100.0),
+    cmap="viridis",
 )
 
 CH4_ENHANCEMENT = Variable(
@@ -371,6 +372,7 @@ COLUMN_AK = Variable(
     units="1",
     aliases={"tropomi": "column_averaging_kernel"},
     valid_range=(0.0, 2.0),
+    cmap="viridis",
 )
 
 CH4_PRIOR_PROFILE = Variable(
@@ -378,6 +380,7 @@ CH4_PRIOR_PROFILE = Variable(
     long_name="A-priori CH4 profile per layer",
     units="mol m-2",
     aliases={"tropomi": "methane_profile_apriori"},
+    cmap="viridis",
 )
 
 DRY_AIR_SUBCOLUMNS = Variable(
@@ -385,6 +388,7 @@ DRY_AIR_SUBCOLUMNS = Variable(
     long_name="Dry-air sub-columns per layer",
     units="mol m-2",
     aliases={"tropomi": "dry_air_subcolumns"},
+    cmap="viridis",
 )
 
 QA_VALUE = Variable(
@@ -393,6 +397,7 @@ QA_VALUE = Variable(
     units="1",
     aliases={"tropomi": "qa_value"},
     valid_range=(0.0, 1.0),
+    cmap="viridis",
 )
 
 CH4_COLUMN = Variable(
