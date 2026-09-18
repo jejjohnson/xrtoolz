@@ -4092,7 +4092,7 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "cartopy" },
@@ -4288,7 +4288,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-grad"
-version = "0.0.1"
+version = "0.0.3"
 source = { editable = "packages/xrtoolz-grad" }
 dependencies = [
     { name = "finitediffx" },
@@ -4402,7 +4402,7 @@ docs = [
     { name = "mkdocs-jupyter", specifier = ">=0.26.2" },
     { name = "mkdocs-material", specifier = ">=9.7.6" },
     { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.3" },
-    { name = "pygments", specifier = ">=2.19,<2.21" },
+    { name = "pygments", specifier = ">=2.19,<2.22" },
     { name = "watermark", specifier = ">=2.6.0" },
     { name = "xrtoolz", editable = "packages/xrtoolz" },
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
@@ -4411,12 +4411,12 @@ docs = [
     { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
 ]
-lint = [{ name = "ruff", specifier = ">=0.15.10,<0.16" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
+lint = [{ name = "ruff", specifier = ">=0.15.10,<0.17" }]
+typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.77" }]
 
 [[package]]
 name = "xrtoolz-reader"
-version = "0.0.2"
+version = "0.0.3"
 source = { editable = "packages/xrtoolz-reader" }
 dependencies = [
     { name = "numpy" },
