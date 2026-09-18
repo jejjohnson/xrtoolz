@@ -85,7 +85,7 @@ def column_integral(
 
     Returns:
         ``da`` reduced over ``dim``; units are ``da`` units × coordinate
-        units.
+        units. A NaN at any level makes the whole column NaN.
 
     Raises:
         ValueError: If ``dim`` is missing, has fewer than two levels, no
@@ -115,9 +115,9 @@ def column_integral(
     if method == "trapezoid":
         f_lo, f_hi = _lo_hi(f, dim)
         z_lo, z_hi = _lo_hi(z, dim)
-        out = (0.5 * (f_lo + f_hi) * (z_hi - z_lo)).sum(dim)
+        out = (0.5 * (f_lo + f_hi) * (z_hi - z_lo)).sum(dim, skipna=False)
     else:
-        out = (f * _cell_widths(z, dim)).sum(dim)
+        out = (f * _cell_widths(z, dim)).sum(dim, skipna=False)
     return out.rename(da.name)
 
 
@@ -144,7 +144,8 @@ def hypsometric_height(
     ln(p_s / p_0)``, using that level's virtual temperature for the
     surface layer. For an isothermal column this reduces to
     ``z = (R_d T / g) ln(p_s / p)`` exactly. Levels with ``p > p_s`` get
-    negative heights (extrapolated below ground).
+    negative heights (extrapolated below ground). A NaN temperature at a
+    level invalidates that level and every level above it.
 
     ``pressure`` and ``surface_pressure`` must share units (only ratios
     enter). A 1-D pressure coordinate may be ordered either way; a
@@ -190,7 +191,7 @@ def hypsometric_height(
     dz_layers = (R_D / G) * 0.5 * (tv_lo + tv_hi) * np.log(p_lo / p_hi)
     first = {level: slice(0, 1)}
     dz_first = (R_D / G) * tv_pos.isel(first) * np.log(ps / p_pos.isel(first))
-    z = xr.concat([dz_first, dz_layers], dim=level).cumsum(level)
+    z = xr.concat([dz_first, dz_layers], dim=level).cumsum(level, skipna=False)
     if surface_height is not None:
         z = z + ds[surface_height]
     if flip:
@@ -241,14 +242,21 @@ def pbl_height_bulk_richardson(
     Vogelezang & Holtslag (1996) form without the surface-friction term,
     with the surface values taken from the lowest level ``s``:
 
-    ``Ri_b(z) = g (θ_v(z) − θ_{v,s}) (z − z_s) / (θ_{v,s} (u(z)² + v(z)²))``
+    ``Ri_b(z) = g (θ_v(z) − θ_{v,s}) (z − z_s)
+    / (θ_{v,s} ((u(z) − u_s)² + (v(z) − v_s)²))``
 
     ``h`` is the first height (scanning upward from the level above the
     surface) where ``Ri_b ≥ Ri_crit``, linearly interpolated between the
     bracketing levels. Columns that never reach ``Ri_crit`` get NaN rather
     than the top level. The surface level itself is assigned ``Ri_b = 0``;
-    a calm level aloft (``u = v = 0``) counts as ``Ri_b = +∞``, so ``h``
-    stops at the level below it.
+    a level aloft with no shear relative to the surface (``u = u_s``,
+    ``v = v_s``) takes the sign of the numerator: ``+∞`` when stably
+    stratified (so ``h`` stops at the level below it), ``−∞`` when
+    unstable (never a crossing) and ``0`` when ``θ_v = θ_{v,s}``.
+
+    The vertical ordering is read from ``height``: profiles may be surface
+    first or top first (they are flipped internally), but every column must
+    share one orientation.
 
     Args:
         ds: Dataset with virtual potential temperature, wind components and
@@ -268,25 +276,45 @@ def pbl_height_bulk_richardson(
         reduced away.
 
     Raises:
-        ValueError: If ``theta_v`` or ``height`` lack ``level``.
+        ValueError: If ``theta_v`` or ``height`` lack ``level``, or if the
+            vertical orientation of ``height`` differs between columns.
     """
     thv = ds[theta_v]
     z = ds[height]
     for label, da in ((theta_v, thv), (height, z)):
         if level not in da.dims:
             raise ValueError(f"{label!r} does not carry the level dim {level!r}")
+    # Orientation from the height field: flip top-first profiles so the
+    # surface is level 0. Columns whose end levels are NaN are ignored.
+    z_first, z_last = z.isel({level: 0}), z.isel({level: -1})
+    n_top_first = int((z_first > z_last).sum())
+    n_surface_first = int((z_first < z_last).sum())
+    if n_top_first and n_surface_first:
+        raise ValueError(
+            f"{height!r} is surface-first in some columns and top-first in "
+            "others; the vertical orientation must be consistent"
+        )
+    if n_top_first:
+        ds = ds.isel({level: slice(None, None, -1)})
+        thv, z = ds[theta_v], ds[height]
     surface = {level: 0}
     thv_s = thv.isel(surface)
     z_s = z.isel(surface)
-    shear2 = ds[u] ** 2 + ds[v] ** 2
-    # Calm levels (zero shear) have infinite Ri_b: mask the denominator so
-    # the division never warns, then restore +inf where the shear was zero
-    # (NaN inputs stay NaN). The surface level is zeroed in the kernel.
+    shear2 = (ds[u] - ds[u].isel(surface)) ** 2 + (ds[v] - ds[v].isel(surface)) ** 2
+    numerator = G * (thv - thv_s) * (z - z_s)
+    # Calm levels (zero shear relative to the surface) have infinite Ri_b
+    # with the sign of the numerator (0 where the numerator is zero too):
+    # mask the denominator so the division never warns, then restore the
+    # limit where the shear was zero (NaN inputs stay NaN). The surface
+    # level is zeroed in the kernel.
     calm = shear2 == 0.0
-    ri = (G * (thv - thv_s) * (z - z_s) / (thv_s * shear2.where(~calm))).where(
-        ~calm, np.inf
-    )
+    calm_ri = xr.where(numerator > 0.0, np.inf, 0.0).where(numerator >= 0.0, -np.inf)
+    calm_ri = calm_ri.where(numerator.notnull())
+    ri = (numerator / (thv_s * shear2.where(~calm))).where(~calm, calm_ri)
     ri, z_b = xr.broadcast(_positional(ri, level), _positional(z, level))
+    if ri.chunks is not None or z_b.chunks is not None:
+        # The kernel needs the whole column: one chunk along ``level``.
+        ri, z_b = ri.chunk({level: -1}), z_b.chunk({level: -1})
     h = xr.apply_ufunc(
         _first_crossing,
         ri,

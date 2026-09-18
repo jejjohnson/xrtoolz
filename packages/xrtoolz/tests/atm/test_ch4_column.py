@@ -125,6 +125,15 @@ def test_ak_applies_per_pixel(ds_ak):
     np.testing.assert_allclose(out, 1842.2541666666668, rtol=1e-12)
 
 
+def test_ak_all_nan_pixel_stays_nan(ds_ak):
+    # A QA-masked pixel (all layers NaN) must come out NaN, not 0.
+    ds = ds_ak.expand_dims(pixel=2).copy(deep=True)
+    ds["x"][0, :] = np.nan
+    out = _smooth(ds)
+    assert np.isnan(float(out[0]))
+    assert float(out[1]) == pytest.approx(1842.2541666666668, rel=1e-12)
+
+
 def test_ak_requires_layer_dim(ds_ak):
     with pytest.raises(ValueError, match="layer"):
         _smooth(ds_ak, level="lev")
@@ -162,7 +171,10 @@ def test_uniform_vmr_gives_vmr_times_dry_air_column(ds_profile):
     n_dry = dry_air_column(ds_profile)["dry_air_column"]
     np.testing.assert_allclose(column, 1.9e-6 * n_dry, rtol=1e-12)
     assert column.dims == ("x",)
-    assert column.attrs["standard_name"] == "atmosphere_mole_content_of_methane"
+    # Molecules m^-2, not the CF mol m^-2 mole content: no standard_name.
+    assert "standard_name" not in column.attrs
+    assert column.attrs["units"] == "m-2"
+    assert "molecules per square metre" in column.attrs["long_name"]
 
 
 def test_mixing_ratio_to_column_is_linear_and_orientation_free(ds_profile):

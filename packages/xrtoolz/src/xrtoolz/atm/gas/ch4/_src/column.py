@@ -23,10 +23,11 @@ _DRY_AIR_COLUMN = Variable(
     long_name="Dry-air column number density",
     units="m-2",
 )
+# No CF ``standard_name``: ``atmosphere_mole_content_of_methane`` is in
+# mol m⁻², whereas this column carries molecules per square metre.
 _CH4_COLUMN = Variable(
     name="ch4_column",
-    standard_name="atmosphere_mole_content_of_methane",
-    long_name="Methane column number density",
+    long_name="Methane column number density (molecules per square metre)",
     units="m-2",
 )
 
@@ -63,7 +64,8 @@ def apply_column_averaging_kernel(
     Returns:
         ``ds`` with ``name`` added (CF
         ``dry_atmosphere_mole_fraction_of_methane``, units copied from
-        ``profile``); the ``level`` dim is reduced away.
+        ``profile``); the ``level`` dim is reduced away. A NaN in any layer
+        (e.g. a QA-masked pixel) makes the result NaN.
 
     Raises:
         ValueError: If ``profile`` lacks ``level``.
@@ -74,7 +76,9 @@ def apply_column_averaging_kernel(
     x_a = ds[prior]
     h = ds[pressure_weights]
     a = ds[averaging_kernel]
-    smoothed = (h * x_a).sum(level) + (h * a * (x - x_a)).sum(level)
+    smoothed = (h * x_a).sum(level, skipna=False) + (h * a * (x - x_a)).sum(
+        level, skipna=False
+    )
     variable = Variable(
         name=name,
         standard_name="dry_atmosphere_mole_fraction_of_methane",
@@ -154,8 +158,9 @@ def mixing_ratio_to_column(
         name: Name of the output variable.
 
     Returns:
-        ``ds`` with ``name`` added (CF ``atmosphere_mole_content_of_methane``,
-        molecules m⁻²); the ``level`` dim is reduced away.
+        ``ds`` with ``name`` added (molecules m⁻², ``units="m-2"``; no CF
+        ``standard_name`` since the CF mole-content name is in mol m⁻²);
+        the ``level`` dim is reduced away.
     """
     chi = ds[vmr]
     if specific_humidity is not None:

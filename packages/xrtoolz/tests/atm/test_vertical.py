@@ -64,6 +64,19 @@ def test_column_integral_with_per_column_coordinate_stays_lazy():
     np.testing.assert_allclose(out2.compute(), 100.0)
 
 
+@pytest.mark.parametrize("method", ["trapezoid", "sum"])
+def test_column_integral_nan_level_makes_column_nan(method):
+    # A NaN at any level must poison that column (no silent NaN skipping),
+    # while untouched columns integrate as before.
+    z = np.linspace(0.0, 100.0, 6)
+    values = np.ones((2, z.size))
+    values[0, 3] = np.nan
+    field = xr.DataArray(values, dims=("x", "z"), coords={"z": z})
+    out = column_integral(field, method=method)
+    assert np.isnan(float(out[0]))
+    assert float(out[1]) == pytest.approx(100.0)
+
+
 def test_column_integral_errors():
     z = np.array([0.0, 1.0])
     field = xr.DataArray(np.ones(2), dims="z")
@@ -126,6 +139,18 @@ def test_surface_height_offset_and_humidity(ds_isothermal):
     np.testing.assert_allclose(wet, dry * (1.0 + 0.61 * 0.01), rtol=1e-12)
 
 
+def test_hypsometric_nan_temperature_invalidates_levels_above(ds_isothermal):
+    # NaN at level 2 of column 0: levels 0-1 are still anchored to the
+    # surface, level 2 and everything above are NaN; column 1 is untouched.
+    ds = ds_isothermal.copy(deep=True)
+    ds["temperature"][2, 0] = np.nan
+    clean = hypsometric_height(ds_isothermal, pressure="level")["height"]
+    out = hypsometric_height(ds, pressure="level")["height"]
+    np.testing.assert_allclose(out[:2, 0], clean[:2, 0], rtol=1e-12)
+    assert np.isnan(out[2:, 0]).all()
+    np.testing.assert_allclose(out[:, 1], clean[:, 1], rtol=1e-12)
+
+
 def test_hypsometric_requires_level_dim(ds_isothermal):
     with pytest.raises(ValueError, match="level"):
         hypsometric_height(ds_isothermal, pressure="sp")
@@ -184,6 +209,61 @@ def test_pbl_height_per_column_and_lazy(ds_pbl):
     out = pbl_height_bulk_richardson(ds, theta_v="theta_v")["pbl_height"]
     assert out.chunks is not None
     np.testing.assert_allclose(out.compute(), ds_pbl.attrs["h_closed_form"](0.25))
+
+
+def test_pbl_height_invariant_to_constant_wind_offset(ds_pbl):
+    # The shear is referenced to the surface wind, so a uniform offset in
+    # (u, v) leaves Ri_b -- and hence h -- unchanged.
+    shifted = ds_pbl.assign(u=ds_pbl["u"] + 3.0, v=ds_pbl["v"] - 2.0)
+    out = pbl_height_bulk_richardson(shifted, theta_v="theta_v")["pbl_height"]
+    assert float(out) == pytest.approx(ds_pbl.attrs["h_closed_form"](0.25), rel=1e-12)
+
+
+def test_pbl_height_with_vertically_chunked_input(ds_pbl):
+    pytest.importorskip("dask")
+    ds = ds_pbl.expand_dims(x=3).chunk({"x": 1, "level": 10})
+    out = pbl_height_bulk_richardson(ds, theta_v="theta_v")["pbl_height"]
+    assert out.chunks is not None
+    np.testing.assert_allclose(out.compute(), ds_pbl.attrs["h_closed_form"](0.25))
+
+
+def test_pbl_height_top_first_profile_matches_flipped(ds_pbl):
+    top_first = ds_pbl.isel(level=slice(None, None, -1))
+    out = pbl_height_bulk_richardson(top_first, theta_v="theta_v")["pbl_height"]
+    assert float(out) == pytest.approx(ds_pbl.attrs["h_closed_form"](0.25), rel=1e-12)
+
+
+def test_pbl_height_rejects_mixed_orientation(ds_pbl):
+    z = ds_pbl["z_agl"].values
+    mixed = ds_pbl.expand_dims(x=2).assign_coords(
+        z_agl=(("level", "x"), np.stack([z, z[::-1]], axis=-1))
+    )
+    with pytest.raises(ValueError, match="orientation"):
+        pbl_height_bulk_richardson(mixed, theta_v="theta_v")
+
+
+def test_pbl_unstable_calm_level_does_not_cross(ds_pbl):
+    # Level 1 is unstable (theta_v below the surface value) with no shear
+    # relative to the surface: Ri_b -> -inf there, which must not count as
+    # a crossing of a positive Ri_crit. The rest of the column is the
+    # closed-form profile, so h (Ri_crit = 1 sits between levels 3 and 4)
+    # is unaffected.
+    theta_v = ds_pbl["theta_v"].values.copy()
+    u = ds_pbl["u"].values.copy()
+    theta_v[1] -= 2.0
+    u[1] = u[0]
+    ds = ds_pbl.assign(theta_v=("level", theta_v), u=("level", u))
+    out = pbl_height_bulk_richardson(ds, theta_v="theta_v", ri_crit=1.0)
+    assert float(out["pbl_height"]) == pytest.approx(
+        ds_pbl.attrs["h_closed_form"](1.0), rel=1e-12
+    )
+    # An entirely calm, unstable column never crosses at all.
+    calm = ds_pbl.assign(
+        theta_v=300.0 - 0.005 * ds_pbl["z_agl"], u=xr.zeros_like(ds_pbl["u"])
+    )
+    assert np.isnan(
+        float(pbl_height_bulk_richardson(calm, theta_v="theta_v")["pbl_height"])
+    )
 
 
 def test_pbl_requires_level_dim(ds_pbl):
