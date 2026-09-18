@@ -154,7 +154,9 @@ def xy_to_lonlat(
     return np.asarray(lon), np.asarray(lat)
 
 
-_UTM_LAT_LIMIT = 84.0
+# UTM covers 80°S–84°N (the polar caps use UPS instead).
+_UTM_LAT_MIN = -80.0
+_UTM_LAT_MAX = 84.0
 
 
 def _utm_zone(lon: float, lat: float) -> int:
@@ -197,8 +199,8 @@ def utm_crs_for(lon: float, lat: float, *, datum: str = "WGS 84") -> str:
         ``"<AUTH>:<code>"`` string, e.g. ``"EPSG:32613"``.
 
     Raises:
-        ValueError: If ``abs(lat) > 84`` (outside the UTM domain — use a
-            polar stereographic CRS instead), or if ``datum`` is not
+        ValueError: If ``lat`` is outside ``[-80, 84]`` (the UTM domain —
+            use a polar stereographic CRS instead), or if ``datum`` is not
             ``"WGS 84"`` and the database has no UTM CRS for that zone.
 
     Example:
@@ -210,10 +212,12 @@ def utm_crs_for(lon: float, lat: float, *, datum: str = "WGS 84") -> str:
 
     """
     lat = float(lat)
-    if not abs(lat) <= _UTM_LAT_LIMIT:
+    # Chained comparison is False for NaN, so NaN is rejected too.
+    if not _UTM_LAT_MIN <= lat <= _UTM_LAT_MAX:
         raise ValueError(
-            f"utm_crs_for: UTM is only defined for |lat| <= {_UTM_LAT_LIMIT}°, "
-            f"got lat={lat}. Use a polar stereographic CRS for the poles."
+            "utm_crs_for: UTM is only defined for "
+            f"{_UTM_LAT_MIN}° <= lat <= {_UTM_LAT_MAX}°, got lat={lat}. "
+            "Use a polar stereographic CRS for the poles."
         )
     lon = (float(lon) + 180.0) % 360.0 - 180.0
     zone = _utm_zone(lon, lat)
@@ -235,9 +239,30 @@ def utm_crs_for(lon: float, lat: float, *, datum: str = "WGS 84") -> str:
     return f"EPSG:{326 if hemisphere == 'N' else 327}{zone:02d}"
 
 
+def _check_metric_crs(crs: str) -> None:
+    """Raise ``ValueError`` unless ``crs`` is projected with metre axes."""
+    parsed = CRS(crs)
+    units = sorted({axis.unit_name for axis in parsed.axis_info})
+    if not parsed.is_projected:
+        raise ValueError(
+            f"LocalFrame: crs {crs!r} is not a projected CRS (axes in {units}); "
+            "offsets would not be metres. Pass a projected CRS such as a UTM zone."
+        )
+    if any(axis.unit_conversion_factor != 1.0 for axis in parsed.axis_info):
+        raise ValueError(
+            f"LocalFrame: crs {crs!r} has axes in {units}, not metres; "
+            "offsets would be mislabelled as metres. Pass a metre-based "
+            "projected CRS such as a UTM zone."
+        )
+
+
 @functools.cache
 def _frame_transformers(crs: str) -> tuple[Transformer, Transformer]:
-    """``(lonlat → crs, crs → lonlat)`` transformers, cached per CRS string."""
+    """``(lonlat → crs, crs → lonlat)`` transformers, cached per CRS string.
+
+    Validates the CRS once per string (see :func:`_check_metric_crs`).
+    """
+    _check_metric_crs(crs)
     forward = Transformer.from_crs("EPSG:4326", crs, always_xy=True)
     inverse = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
     return forward, inverse
@@ -253,12 +278,16 @@ class LocalFrame:
     :class:`pyproj.Transformer` pair is cached at module level per CRS.
 
     Attributes:
-        crs: Any CRS specifier accepted by :class:`pyproj.CRS`, kept in
-            string form (e.g. ``"EPSG:32613"``).
+        crs: A projected CRS with metre axes, as any specifier accepted by
+            :class:`pyproj.CRS`, kept in string form (e.g. ``"EPSG:32613"``).
         origin_lon: WGS-84 longitude of the origin, degrees east.
         origin_lat: WGS-84 latitude of the origin, degrees north.
         origin_xy: ``(x0, y0)`` of the origin projected into ``crs``,
             computed at construction.
+
+    Raises:
+        ValueError: If ``crs`` is geographic or its axes are not in metres
+            (e.g. ``"EPSG:2263"``, US survey feet).
 
     Example:
         >>> from xrtoolz.geo import local_frame
@@ -362,7 +391,8 @@ def local_frame(
         The frame; ``frame.to_xy(origin_lon, origin_lat)`` is ``(0, 0)``.
 
     Raises:
-        ValueError: If ``crs`` is ``None`` and ``abs(origin_lat) > 84``.
+        ValueError: If ``crs`` is ``None`` and ``origin_lat`` is outside
+            ``[-80, 84]``, or if ``crs`` is not a metric projected CRS.
     """
     if crs is None:
         crs = utm_crs_for(origin_lon, origin_lat)
@@ -382,11 +412,14 @@ def assign_local_xy(
 ) -> xr.Dataset:
     """Add metric ``x``/``y`` coordinates (metres from ``frame``'s origin).
 
-    Both 1-D rectilinear and 2-D swath geographic coordinates are
-    supported. Because a UTM grid is not axis-aligned with lon/lat, the
-    output coordinates are always 2-D: for 1-D ``lon``/``lat`` they are
-    broadcast onto ``(lat_dim, lon_dim)``; for 2-D ``lon``/``lat`` (e.g.
-    ``(scanline, ground_pixel)``) they share the input dims.
+    Rectilinear grids, swaths and point tracks are supported. Because a
+    UTM grid is not axis-aligned with lon/lat, gridded output is 2-D: for
+    1-D ``lon``/``lat`` on *different* dims they are broadcast onto
+    ``(lat_dim, lon_dim)``; for 2-D ``lon``/``lat`` (e.g.
+    ``(scanline, ground_pixel)``) they share the input dims. Paired 1-D
+    ``lon``/``lat`` on the *same* dim (along-track points, e.g.
+    ``lon(obs)``/``lat(obs)``) are transformed elementwise and yield 1-D
+    ``x``/``y`` on that dim.
 
     Args:
         ds: Dataset carrying geographic coordinates.
@@ -397,7 +430,8 @@ def assign_local_xy(
         y: Name of the output north coordinate.
 
     Returns:
-        ``ds`` with 2-D ``x``/``y`` coordinates (``units="m"``) and
+        ``ds`` with ``x``/``y`` coordinates (``units="m"``; 2-D for grids
+        and swaths, 1-D for point tracks) and
         ``ds.attrs["local_frame"] = frame.to_dict()``.
 
     Raises:
@@ -405,9 +439,13 @@ def assign_local_xy(
             same dimensions.
     """
     lon_da, lat_da = ds[lon], ds[lat]
-    if lon_da.ndim == 1 and lat_da.ndim == 1:
+    if lon_da.ndim == 1 and lat_da.ndim == 1 and lon_da.dims == lat_da.dims:
+        # Along-track points: one (lon, lat) pair per element, no meshgrid.
+        lon2d, lat2d = lon_da.values, lat_da.values
+        dims: tuple[str, ...] = (str(lon_da.dims[0]),)
+    elif lon_da.ndim == 1 and lat_da.ndim == 1:
         lon2d, lat2d = np.meshgrid(lon_da.values, lat_da.values)
-        dims: tuple[str, ...] = (str(lat_da.dims[0]), str(lon_da.dims[0]))
+        dims = (str(lat_da.dims[0]), str(lon_da.dims[0]))
     elif lon_da.ndim == 2 and lon_da.dims == lat_da.dims:
         lon2d, lat2d = lon_da.values, lat_da.values
         dims = tuple(str(d) for d in lon_da.dims)

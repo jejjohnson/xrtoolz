@@ -1152,8 +1152,9 @@ class AssignLocalXY(Operator):
         y: Name of the output north coordinate.
 
     Returns:
-        The dataset with 2-D ``x``/``y`` coordinates in metres and
-        ``attrs["local_frame"]`` set.
+        The dataset with ``x``/``y`` coordinates in metres (2-D for grids
+        and swaths, 1-D for along-track points) and ``attrs["local_frame"]``
+        set.
     """
 
     def __init__(

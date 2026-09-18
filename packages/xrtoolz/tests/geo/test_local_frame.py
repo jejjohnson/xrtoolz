@@ -49,10 +49,16 @@ def test_utm_crs_for_other_datum():
     assert utm_crs_for(*PERMIAN, datum="NAD83") == "EPSG:26913"
 
 
-@pytest.mark.parametrize("lat", [84.5, -84.5, 90.0, np.nan])
+@pytest.mark.parametrize("lat", [84.5, -80.5, 90.0, np.nan])
 def test_utm_crs_for_raises_outside_utm_latitudes(lat):
-    with pytest.raises(ValueError, match="84"):
+    # UTM spans 80°S–84°N: the southern edge is tighter than the northern.
+    with pytest.raises(ValueError, match=r"-80\.0° <= lat <= 84\.0°"):
         utm_crs_for(0.0, lat)
+
+
+@pytest.mark.parametrize("lat", [-80.0, 84.0])
+def test_utm_crs_for_accepts_utm_latitude_edges(lat):
+    assert utm_crs_for(0.0, lat) == ("EPSG:32631" if lat > 0 else "EPSG:32731")
 
 
 # ============== LocalFrame ================================================
@@ -72,6 +78,20 @@ def test_local_frame_explicit_crs():
     frame = local_frame(*PERMIAN, crs="EPSG:3857")
     assert frame.crs == "EPSG:3857"
     assert frame == LocalFrame("EPSG:3857", *PERMIAN)
+
+
+@pytest.mark.parametrize(
+    ("crs", "unit"),
+    [
+        ("EPSG:2263", "US survey foot"),  # projected, but feet
+        ("EPSG:4326", "degree"),  # geographic
+    ],
+)
+def test_local_frame_rejects_non_metre_crs(crs, unit):
+    with pytest.raises(ValueError, match=unit):
+        LocalFrame(crs, *PERMIAN)
+    with pytest.raises(ValueError, match=unit):
+        local_frame(*PERMIAN, crs=crs)
 
 
 def test_local_frame_round_trip_within_one_millimetre():
@@ -163,6 +183,30 @@ def test_assign_local_xy_swath_gives_2d_coords_on_swath_dims():
     out = assign_local_xy(ds, frame)
     assert out["x"].dims == ("scanline", "ground_pixel")
     assert out["y"].dims == ("scanline", "ground_pixel")
+    xx, yy = frame.to_xy(ds["lon"].values, ds["lat"].values)
+    np.testing.assert_allclose(out["x"].values, xx)
+    np.testing.assert_allclose(out["y"].values, yy)
+    assert out.attrs["local_frame"] == frame.to_dict()
+
+
+def _track() -> xr.Dataset:
+    n = 7
+    return xr.Dataset(
+        {"xch4": ("obs", np.zeros(n))},
+        coords={
+            "lon": ("obs", np.linspace(-103.0, -102.0, n)),
+            "lat": ("obs", np.linspace(31.0, 32.0, n)),
+        },
+    )
+
+
+def test_assign_local_xy_along_track_points_give_1d_coords_on_shared_dim():
+    frame = local_frame(*PERMIAN)
+    ds = _track()
+    out = assign_local_xy(ds, frame)
+    assert out["x"].dims == ("obs",)
+    assert out["y"].dims == ("obs",)
+    assert out["x"].attrs["units"] == "m"
     xx, yy = frame.to_xy(ds["lon"].values, ds["lat"].values)
     np.testing.assert_allclose(out["x"].values, xx)
     np.testing.assert_allclose(out["y"].values, yy)

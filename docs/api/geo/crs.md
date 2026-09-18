@@ -14,8 +14,9 @@ at a site (UTM zone picked from the origin).
 `local_frame(origin_lon, origin_lat)` picks the UTM zone containing the
 origin and returns a frozen, JSON-serialisable `LocalFrame` whose `to_xy`
 gives metres east / north of the origin and whose `to_lonlat` inverts it.
-`assign_local_xy` stamps those coordinates onto a dataset (1-D rectilinear
-or 2-D swath lon/lat); `calc_latlon` is the inverse direction for gridded
+`assign_local_xy` stamps those coordinates onto a dataset (1-D rectilinear,
+2-D swath, or paired 1-D along-track lon/lat on one dim); `calc_latlon` is
+the inverse direction for gridded
 rasters that already carry projected `x`/`y` axes.
 
 ::: xrtoolz.geo.utm_crs_for
