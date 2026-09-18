@@ -9,8 +9,10 @@ true physics lives here; anything domain-agnostic belongs in
 
 `open_wrfout` turns a WRF-ARW `wrfout` file into a CF Dataset on
 `(time, level, y, x)`: the `Times` char rows (or `XTIME` minutes) become a
-`datetime64[s]` axis, `U` / `V` / `W` are destaggered to mass points,
-and the split base + perturbation fields are recombined,
+`datetime64[s]` axis, `U` / `V` / `W` are destaggered to mass points
+(`U` / `V` rotated from grid- to earth-relative when the file carries
+`COSALPHA` / `SINALPHA`), and the split base + perturbation fields are
+recombined,
 
 $$
 p = P + PB,\qquad
@@ -27,6 +29,7 @@ Everything stays lazy, so `chunks={"time": 1}` keeps the file dask backed.
         - open_wrfout
         - destagger
         - wrf_time
+        - wrf_wind
         - wrf_height_agl
         - wrf_temperature
 

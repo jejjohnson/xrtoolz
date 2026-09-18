@@ -2,12 +2,14 @@
 
 ``wrfout_d0X_*.nc`` files are not CF: time is a ``Times`` char array (or
 ``XTIME`` minutes), ``U`` / ``V`` / ``W`` sit on staggered faces,
-temperature is a perturbation potential temperature ``T`` around 300 K,
-pressure and geopotential are split into base + perturbation (``P + PB``,
-``PH + PHB``), and height above ground has to be reconstructed per column
-from the geopotential and ``HGT``. :func:`open_wrfout` does all of that
-lazily (no data are materialised, so ``chunks=`` keeps everything dask
-backed) and returns a Dataset on ``(time, level, y, x)``.
+and are grid-relative (rotated to earth-relative via ``COSALPHA`` /
+``SINALPHA`` when the file carries them), temperature is a perturbation
+potential temperature ``T`` around 300 K, pressure and geopotential are
+split into base + perturbation (``P + PB``, ``PH + PHB``), and height above
+ground has to be reconstructed per column from the geopotential and
+``HGT``. :func:`open_wrfout` does all of that lazily (no data are
+materialised, so ``chunks=`` keeps everything dask backed) and returns a
+Dataset on ``(time, level, y, x)``.
 """
 
 from __future__ import annotations
@@ -59,6 +61,8 @@ _W = Variable(
     long_name="Vertical velocity",
     units="m s-1",
 )
+_U_GRID = Variable(name="u", long_name="grid-relative U wind component", units="m s-1")
+_V_GRID = Variable(name="v", long_name="grid-relative V wind component", units="m s-1")
 _PRESSURE = Variable(
     name="pressure", standard_name="air_pressure", long_name="Pressure", units="Pa"
 )
@@ -232,11 +236,61 @@ def _clean(da: xr.DataArray) -> xr.DataArray:
     return out
 
 
+def _static(da: xr.DataArray) -> xr.DataArray:
+    """Drop a ``time`` axis that WRF stamps on a field that never changes.
+
+    ``HGT`` / ``XLONG`` / ``XLAT`` / ``COSALPHA`` / ``SINALPHA`` carry a
+    ``Time`` axis in every ``wrfout`` but only vary on moving nests, so the
+    axis is collapsed only when every step equals the first. The comparison
+    is a coordinate-sized computation, so it is evaluated even for dask.
+    """
+    if "time" not in da.dims:
+        return da
+    first = da.isel(time=0)
+    if da.sizes["time"] <= 1 or bool((da == first).all().values):
+        return first
+    return da
+
+
+def wrf_wind(ds: xr.Dataset) -> tuple[xr.DataArray, xr.DataArray]:
+    """Horizontal wind on mass points, earth-relative where possible.
+
+    ``U`` / ``V`` are destaggered onto mass points. When the file carries
+    the map-rotation fields ``COSALPHA`` / ``SINALPHA`` the components are
+    rotated from grid-relative to earth-relative,
+    ``u_e = u cos α − v sin α``, ``v_e = v cos α + u sin α``, and stamped
+    with the CF ``eastward_wind`` / ``northward_wind`` names. Otherwise the
+    grid-relative components are returned with no ``standard_name`` and the
+    attr ``grid_relative = "true"``.
+
+    Args:
+        ds: Raw ``wrfout`` Dataset (dims renamed) with ``U`` and ``V``.
+
+    Returns:
+        ``(u, v)`` on mass points [m s⁻¹].
+    """
+    u = destagger(_clean(ds["U"]), "x_stag")
+    v = destagger(_clean(ds["V"]), "y_stag")
+    if "COSALPHA" in ds and "SINALPHA" in ds:
+        cos_a = _static(_clean(ds["COSALPHA"]))
+        sin_a = _static(_clean(ds["SINALPHA"]))
+        u, v = u * cos_a - v * sin_a, v * cos_a + u * sin_a
+        return (
+            apply_cf_attrs(u, "u", overwrite=True),
+            apply_cf_attrs(v, "v", overwrite=True),
+        )
+    u = apply_cf_attrs(u, _U_GRID, overwrite=True)
+    v = apply_cf_attrs(v, _V_GRID, overwrite=True)
+    u.attrs["grid_relative"] = "true"
+    v.attrs["grid_relative"] = "true"
+    return u, v
+
+
 def open_wrfout(
     path: str | Path,
     *,
     times: slice | None = None,
-    variables: Sequence[str] | None = None,
+    variables: str | Sequence[str] | None = None,
     chunks: Mapping[str, int] | None = None,
 ) -> xr.Dataset:
     """Open a ``wrfout`` file as a CF-conformant Dataset.
@@ -247,21 +301,28 @@ def open_wrfout(
       south-west mass point, from ``DX`` / ``DY``), ``level`` (int index),
       ``z_agl(time, level, y, x)`` (m above ground), and 2-D ``lon`` /
       ``lat`` from ``XLONG`` / ``XLAT`` when present.
-    - data_vars (all on mass points): ``u``, ``v``, ``w`` (m s⁻¹,
-      destaggered), ``temperature`` (K), ``pressure`` (Pa), ``pbl_height``
-      (m, from ``PBLH``), ``terrain`` (m, from ``HGT``, 2-D), plus any raw
-      variable named in ``variables`` (dims renamed, otherwise untouched).
+    - data_vars (all on mass points): ``u``, ``v`` (m s⁻¹, destaggered and
+      rotated to earth-relative when ``COSALPHA`` / ``SINALPHA`` are in the
+      file — see :func:`wrf_wind`), ``w`` (m s⁻¹, destaggered),
+      ``temperature`` (K), ``pressure`` (Pa), ``pbl_height`` (m, from
+      ``PBLH``), ``terrain`` (m, from ``HGT``), plus any raw variable named
+      in ``variables`` (dims renamed, otherwise untouched).
     - attrs: ``DX``, ``DY``, ``MAP_PROJ``, ``CEN_LAT``, ``CEN_LON``,
       ``TRUELAT1`` / ``2``, ``STAND_LON`` copied through for CRS work.
 
-    CF ``standard_name`` / ``units`` are stamped via
+    ``HGT``, ``XLONG`` and ``XLAT`` lose their ``time`` axis only when they
+    are the same at every step; on a moving nest they keep it. CF
+    ``standard_name`` / ``units`` are stamped via
     :func:`xrreader.apply_cf_attrs`. Nothing is materialised, so
-    ``chunks={"time": 1}`` keeps every variable dask backed.
+    ``chunks={"time": 1}`` keeps every variable dask backed. The returned
+    Dataset owns the file handle: closing it (or leaving a ``with`` block)
+    closes the file.
 
     Args:
         path: ``wrfout`` NetCDF file.
         times: Optional ``slice`` over the file's time axis.
-        variables: Raw WRF variable names to pass through (e.g. ``"QVAPOR"``).
+        variables: Raw WRF variable name(s) to pass through (e.g.
+            ``"QVAPOR"`` or ``["QVAPOR", "QCLOUD"]``).
         chunks: Dask chunks keyed by the *output* dimension names.
 
     Returns:
@@ -271,19 +332,20 @@ def open_wrfout(
         ValueError: If no time axis can be built (see :func:`wrf_time`).
         KeyError: If a name in ``variables`` is not in the file.
     """
+    if isinstance(variables, str):
+        variables = [variables]
     raw = xr.open_dataset(path, decode_times=False)
+    close = raw._close  # rename/isel/chunk drop it; re-attached on the output
     raw = raw.rename({k: v for k, v in _DIMS.items() if k in raw.dims})
     if times is not None:
         raw = raw.isel(time=times)
     if chunks:
         raw = raw.chunk(chunks)
 
-    terrain = raw["HGT"]
-    if "time" in terrain.dims:
-        terrain = terrain.isel(time=0)
+    u, v = wrf_wind(raw)
     data_vars: dict[str, xr.DataArray] = {
-        "u": apply_cf_attrs(destagger(_clean(raw["U"]), "x_stag"), "u", overwrite=True),
-        "v": apply_cf_attrs(destagger(_clean(raw["V"]), "y_stag"), "v", overwrite=True),
+        "u": u,
+        "v": v,
         "w": apply_cf_attrs(
             destagger(_clean(raw["W"]), "level_stag"), _W, overwrite=True
         ),
@@ -294,7 +356,9 @@ def open_wrfout(
             _clean(raw["P"] + raw["PB"]), _PRESSURE, overwrite=True
         ),
         "pbl_height": apply_cf_attrs(_clean(raw["PBLH"]), "blh", overwrite=True),
-        "terrain": apply_cf_attrs(_clean(terrain), _TERRAIN, overwrite=True),
+        "terrain": apply_cf_attrs(
+            _static(_clean(raw["HGT"])), _TERRAIN, overwrite=True
+        ),
     }
     for name in variables or ():
         data_vars[name] = raw[name]
@@ -315,10 +379,11 @@ def open_wrfout(
     }
     for name, key, variable in (("lon", "XLONG", _LON), ("lat", "XLAT", _LAT)):
         if key in raw:
-            field = raw[key]
-            if "time" in field.dims:
-                field = field.isel(time=0)
-            coords[name] = apply_cf_attrs(_clean(field), variable, overwrite=True)
+            coords[name] = apply_cf_attrs(
+                _static(_clean(raw[key])), variable, overwrite=True
+            )
 
     attrs = {k: raw.attrs[k] for k in _PROJECTION_ATTRS if k in raw.attrs}
-    return xr.Dataset(data_vars, coords=coords, attrs=attrs)
+    out = xr.Dataset(data_vars, coords=coords, attrs=attrs)
+    out.set_close(close)
+    return out

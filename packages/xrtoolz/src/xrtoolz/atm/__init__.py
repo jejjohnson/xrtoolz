@@ -7,7 +7,7 @@ Content:
 
 - ``open_wrfout``: WRF-ARW ``wrfout`` → CF Dataset on ``(time, level, y,
   x)`` (time decode, destagger, physical temperature / pressure, height
-  above ground), with the ``destagger`` / ``wrf_time`` /
+  above ground), with the ``destagger`` / ``wrf_time`` / ``wrf_wind`` /
   ``wrf_height_agl`` / ``wrf_temperature`` helpers it is built from.
 - Wind diagnostics: ``wind_speed``, ``wind_direction`` (meteorological
   "from" bearing by default) and their inverse ``wind_components``.
@@ -33,6 +33,7 @@ from xrtoolz.atm._src.wrf import (
     wrf_height_agl,
     wrf_temperature,
     wrf_time,
+    wrf_wind,
 )
 from xrtoolz.atm.operators import (
     ColumnIntegral,
@@ -62,4 +63,5 @@ __all__ = [
     "wrf_height_agl",
     "wrf_temperature",
     "wrf_time",
+    "wrf_wind",
 ]

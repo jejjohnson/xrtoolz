@@ -12,8 +12,9 @@ from xrtoolz.atm import (
     wrf_height_agl,
     wrf_temperature,
     wrf_time,
+    wrf_wind,
 )
-from xrtoolz.atm._src.wrf import KAPPA, P_REFERENCE
+from xrtoolz.atm._src.wrf import _DIMS, KAPPA, P_REFERENCE
 
 from .conftest import write_synthetic_wrfout
 
@@ -223,6 +224,102 @@ def test_open_wrfout_times_slice_and_raw_variables(synthetic_wrf):
     np.testing.assert_allclose(ds["QVAPOR"], spec.qvapor(zz)[1:3], rtol=1e-12)
     with pytest.raises(KeyError):
         open_wrfout(spec.path, variables=["NOPE"])
+
+
+def test_open_wrfout_variables_accepts_bare_str(synthetic_wrf):
+    # A bare name must not be iterated character by character.
+    ds = open_wrfout(synthetic_wrf.path, variables="QVAPOR")
+    assert "QVAPOR" in ds.data_vars
+    assert not {"Q", "V", "A", "P", "O", "R"} & set(ds.data_vars)
+    xr.testing.assert_identical(
+        ds["QVAPOR"], open_wrfout(synthetic_wrf.path, variables=["QVAPOR"])["QVAPOR"]
+    )
+
+
+def test_open_wrfout_rotates_grid_relative_wind(tmp_path):
+    alpha = 0.6  # radians; the fixture writes U / V rotated by -alpha
+    spec = write_synthetic_wrfout(tmp_path / "wrfout.nc", alpha=alpha)
+    ds = open_wrfout(spec.path)
+    tt, zz, yy, xx = spec.grid()
+    u_e, v_e = spec.u(xx, yy, zz, tt), spec.v(xx, yy, zz, tt)
+    np.testing.assert_allclose(ds["u"], u_e, rtol=1e-12)
+    np.testing.assert_allclose(ds["v"], v_e, rtol=1e-12)
+    assert ds["u"].attrs["standard_name"] == "eastward_wind"
+    assert ds["v"].attrs["standard_name"] == "northward_wind"
+    assert "grid_relative" not in ds["u"].attrs
+    # The rotation is not a no-op: the raw destaggered components differ.
+    raw = xr.open_dataset(spec.path, decode_times=False)
+    u_grid = destagger(raw["U"], "west_east_stag")
+    assert not np.allclose(u_grid, u_e)
+    np.testing.assert_allclose(u_grid, u_e * np.cos(alpha) + v_e * np.sin(alpha))
+
+
+def test_wrf_wind_helper_on_raw_file(tmp_path):
+    spec = write_synthetic_wrfout(tmp_path / "wrfout.nc", alpha=-0.3)
+    raw = xr.open_dataset(spec.path, decode_times=False).rename(_DIMS)
+    u, v = wrf_wind(raw)
+    tt, zz, yy, xx = spec.grid()
+    np.testing.assert_allclose(u, spec.u(xx, yy, zz, tt), rtol=1e-12)
+    np.testing.assert_allclose(v, spec.v(xx, yy, zz, tt), rtol=1e-12)
+
+
+def test_open_wrfout_without_cosalpha_keeps_grid_relative_wind(tmp_path):
+    spec = write_synthetic_wrfout(tmp_path / "wrfout.nc", with_alpha=False)
+    ds = open_wrfout(spec.path)
+    tt, zz, yy, xx = spec.grid()
+    # alpha == 0 so grid-relative == the analytic wind; values are untouched.
+    np.testing.assert_allclose(ds["u"], spec.u(xx, yy, zz, tt), rtol=1e-12)
+    np.testing.assert_allclose(ds["v"], spec.v(xx, yy, zz, tt), rtol=1e-12)
+    for name, component in (("u", "U"), ("v", "V")):
+        attrs = ds[name].attrs
+        assert "standard_name" not in attrs, name
+        assert attrs["long_name"] == f"grid-relative {component} wind component"
+        assert attrs["grid_relative"] == "true"
+        assert attrs["units"] == "m s-1"
+
+
+def test_open_wrfout_moving_nest_keeps_time_axis_on_static_fields(tmp_path):
+    spec = write_synthetic_wrfout(tmp_path / "wrfout.nc", moving_nest=True)
+    ds = open_wrfout(spec.path)
+    for name in ("lon", "lat", "terrain"):
+        assert ds[name].dims == ("time", "y", "x"), name
+    steps = np.arange(spec.n_time)
+    np.testing.assert_allclose(
+        ds["lon"].isel(y=0), -3.0 + 0.01 * (np.arange(spec.n_x) + steps[:, None])
+    )
+    np.testing.assert_allclose(
+        ds["lat"].isel(x=0), 40.0 + 0.009 * (np.arange(spec.n_y) + steps[:, None])
+    )
+    np.testing.assert_allclose(
+        ds["terrain"].isel(y=0, x=0), spec.terrain + 10.0 * steps
+    )
+    # The static file still collapses (default fixture is time-invariant).
+    static = open_wrfout(write_synthetic_wrfout(tmp_path / "static.nc").path)
+    assert static["lon"].dims == ("y", "x") and static["terrain"].dims == ("y", "x")
+
+
+def test_open_wrfout_context_manager_closes_file(synthetic_wrf, monkeypatch):
+    calls: list[int] = []
+    real_open = xr.open_dataset
+
+    def spy(*args, **kwargs):
+        ds = real_open(*args, **kwargs)
+        inner = ds._close
+
+        def closer():
+            calls.append(1)
+            inner()
+
+        ds.set_close(closer)
+        return ds
+
+    monkeypatch.setattr(xr, "open_dataset", spy)
+    with open_wrfout(synthetic_wrf.path) as ds:
+        np.testing.assert_allclose(ds["terrain"], synthetic_wrf.terrain)
+        assert calls == []
+    assert calls == [1]
+    ds.close()  # idempotent: xarray clears the callback after the first close
+    assert calls == [1]
 
 
 @pytest.mark.parametrize("hgt_time_axis", [True, False])

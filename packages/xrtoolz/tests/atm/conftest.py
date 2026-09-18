@@ -107,8 +107,18 @@ def write_synthetic_wrfout(
     hgt_time_axis: bool = True,
     with_times: bool = True,
     with_xtime: bool = True,
+    with_alpha: bool = True,
+    alpha: float = 0.0,
+    moving_nest: bool = False,
 ) -> SyntheticWrf:
-    """Write a flat-terrain synthetic ``wrfout`` and return its analytic spec."""
+    """Write a flat-terrain synthetic ``wrfout`` and return its analytic spec.
+
+    ``U`` / ``V`` are written as the *grid-relative* components of the
+    analytic wind, i.e. the analytic ``u`` / ``v`` rotated by ``-alpha``
+    (radians); with ``with_alpha`` the file also carries ``COSALPHA`` /
+    ``SINALPHA`` so :func:`open_wrfout` can rotate them back. ``moving_nest``
+    shifts ``XLONG`` / ``XLAT`` / ``HGT`` by one grid step per time step.
+    """
     spec = SyntheticWrf(
         path=path,
         dx=dx,
@@ -125,8 +135,17 @@ def write_synthetic_wrfout(
     y_stag = dy * (np.arange(n_y + 1, dtype=np.float64) - 0.5)
 
     tt, zz, yy, xx = spec.grid()
-    u = spec.u(*spec.grid(x=x_stag)[::-1])
-    v = spec.v(*spec.grid(y=y_stag)[::-1])
+    cos_a, sin_a = np.cos(alpha), np.sin(alpha)
+    # Grid-relative components: the analytic (earth-relative) wind rotated
+    # by ``-alpha``, so that ``u_e = u cos a - v sin a`` recovers it.
+    u_grid = (
+        spec.u(*spec.grid(x=x_stag)[::-1]) * cos_a
+        + spec.v(*spec.grid(x=x_stag)[::-1]) * sin_a
+    )
+    v_grid = (
+        spec.v(*spec.grid(y=y_stag)[::-1]) * cos_a
+        - spec.u(*spec.grid(y=y_stag)[::-1]) * sin_a
+    )
     w = spec.w(*spec.grid(z=spec.z_stag)[::-1])
     ph = 0.05 * GRAVITY * spec.grid(z=spec.z_stag)[1]
     phb = GRAVITY * (terrain + spec.grid(z=spec.z_stag)[1]) - ph
@@ -135,13 +154,18 @@ def write_synthetic_wrfout(
     theta_pert = spec.theta(zz) - THETA_BASE
     hgt = np.full((n_time, n_y, n_x), terrain)
     pblh = spec.pbl_height(xx[:, 0], yy[:, 0], tt[:, 0])
-    xlong = np.broadcast_to(-3.0 + 0.01 * np.arange(n_x), (n_time, n_y, n_x))
-    xlat = np.broadcast_to(40.0 + 0.009 * np.arange(n_y)[:, None], (n_time, n_y, n_x))
+    shift = np.arange(n_time)[:, None, None] if moving_nest else 0
+    xlong = np.broadcast_to(-3.0 + 0.01 * (np.arange(n_x) + shift), (n_time, n_y, n_x))
+    xlat = np.broadcast_to(
+        40.0 + 0.009 * (np.arange(n_y)[:, None] + shift), (n_time, n_y, n_x)
+    )
+    if moving_nest:
+        hgt = hgt + 10.0 * shift
 
     mass = ("Time", "bottom_top", "south_north", "west_east")
     fields = {
-        "U": (("Time", "bottom_top", "south_north", "west_east_stag"), u, "X"),
-        "V": (("Time", "bottom_top", "south_north_stag", "west_east"), v, "Y"),
+        "U": (("Time", "bottom_top", "south_north", "west_east_stag"), u_grid, "X"),
+        "V": (("Time", "bottom_top", "south_north_stag", "west_east"), v_grid, "Y"),
         "W": (("Time", "bottom_top_stag", "south_north", "west_east"), w, "Z"),
         "PH": (("Time", "bottom_top_stag", "south_north", "west_east"), ph, "Z"),
         "PHB": (("Time", "bottom_top_stag", "south_north", "west_east"), phb, "Z"),
@@ -156,6 +180,18 @@ def write_synthetic_wrfout(
     }
     if not hgt_time_axis:
         fields["HGT"] = (("south_north", "west_east"), hgt[0], "")
+    if with_alpha:
+        shape = (n_time, n_y, n_x)
+        fields["COSALPHA"] = (
+            ("Time", "south_north", "west_east"),
+            np.full(shape, cos_a),
+            "",
+        )
+        fields["SINALPHA"] = (
+            ("Time", "south_north", "west_east"),
+            np.full(shape, sin_a),
+            "",
+        )
 
     # netCDF4 < 1.7.5 sets ``.shape`` on the arrays it writes, which NumPy
     # 2.5 deprecates; the fixture is not the place to surface that.
