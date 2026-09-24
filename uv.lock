@@ -992,6 +992,22 @@ wheels = [
 ]
 
 [[package]]
+name = "georeader-spaceml"
+version = "2.3.5"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "geopandas" },
+    { name = "mercantile" },
+    { name = "numpy" },
+    { name = "rasterio" },
+    { name = "shapely" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/75/0b/cc0d17c80384b15eec0dfa45a57a44811b929a2dd3326338bc0edb7eb782/georeader_spaceml-2.3.5.tar.gz", hash = "sha256:e959ec85184f0b94f3f7e0e6ddbd11aceb25dc6ba12c748123b1a6ef5c2f1804", size = 1164781, upload-time = "2026-07-07T06:38:13.465Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/04/68/8d26fbb99b3a4c9e5fa63568d318b48adfba2828210d4759125b83a4b70d/georeader_spaceml-2.3.5-py3-none-any.whl", hash = "sha256:3058f9984d5199c137434b037efe4411c7fd84d6856b4c01798c22b715ae085b", size = 1184414, upload-time = "2026-07-07T06:38:14.962Z" },
+]
+
+[[package]]
 name = "ghp-import"
 version = "2.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1710,6 +1726,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz", hash = "sha256:bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba", size = 8729, upload-time = "2022-08-14T12:40:10.846Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/b3/38/89ba8ad64ae25be8de66a6d463314cf1eb366222074cfda9ee839c56a4b4/mdurl-0.1.2-py3-none-any.whl", hash = "sha256:84008a41e51615a49fc9966191ff91509e3c40b939176e643fd50a5c2196b8f8", size = 9979, upload-time = "2022-08-14T12:40:09.779Z" },
+]
+
+[[package]]
+name = "mercantile"
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d2/c6/87409bcb26fb68c393fa8cf58ba09363aa7298cfb438a0109b5cb14bc98b/mercantile-1.2.1.tar.gz", hash = "sha256:fa3c6db15daffd58454ac198b31887519a19caccee3f9d63d17ae7ff61b3b56b", size = 26352, upload-time = "2021-04-21T14:42:41.096Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b2/d6/de0cc74f8d36976aeca0dd2e9cbf711882ff8e177495115fd82459afdc4d/mercantile-1.2.1-py3-none-any.whl", hash = "sha256:30f457a73ee88261aab787b7069d85961a5703bb09dc57a170190bc042cd023f", size = 14779, upload-time = "2021-04-21T14:42:39.841Z" },
 ]
 
 [[package]]
@@ -4092,7 +4120,7 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.0.2"
+version = "0.0.3"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "cartopy" },
@@ -4124,6 +4152,11 @@ dependencies = [
 image = [
     { name = "scikit-image" },
 ]
+vector = [
+    { name = "geopandas" },
+    { name = "rasterio" },
+    { name = "shapely" },
+]
 wavelets = [
     { name = "pywavelets" },
 ]
@@ -4131,6 +4164,7 @@ wavelets = [
 [package.dev-dependencies]
 dev = [
     { name = "geopandas" },
+    { name = "georeader-spaceml" },
     { name = "httpx" },
     { name = "loguru" },
     { name = "pre-commit" },
@@ -4162,6 +4196,7 @@ requires-dist = [
     { name = "cartopy", specifier = ">=0.22" },
     { name = "dask", extras = ["array"], specifier = ">=2024.10" },
     { name = "einx", specifier = ">=0.4" },
+    { name = "geopandas", marker = "extra == 'vector'", specifier = ">=1.1.3" },
     { name = "jaxtyping", specifier = ">=0.2.34" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "netcdf4", specifier = ">=1.6" },
@@ -4171,11 +4206,13 @@ requires-dist = [
     { name = "pipekit", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit" },
     { name = "pyproj", specifier = ">=3.6" },
     { name = "pywavelets", marker = "extra == 'wavelets'", specifier = ">=1.4" },
+    { name = "rasterio", marker = "extra == 'vector'", specifier = ">=1.3" },
     { name = "regionmask", specifier = ">=0.12" },
     { name = "rioxarray", specifier = ">=0.15" },
     { name = "scikit-image", marker = "extra == 'image'", specifier = ">=0.21" },
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "scipy", specifier = ">=1.12" },
+    { name = "shapely", marker = "extra == 'vector'", specifier = ">=2.0" },
     { name = "xarray", specifier = ">=2024.10" },
     { name = "xrft", specifier = ">=1.0" },
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
@@ -4185,11 +4222,12 @@ requires-dist = [
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
     { name = "xskillscore", specifier = ">=0.0.26" },
 ]
-provides-extras = ["wavelets", "image"]
+provides-extras = ["wavelets", "image", "vector"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "geopandas", specifier = ">=1.1.3" },
+    { name = "georeader-spaceml", specifier = ">=2.3" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "pre-commit", specifier = ">=4.5.1" },
@@ -4335,6 +4373,7 @@ source = { editable = "." }
 [package.dev-dependencies]
 dev = [
     { name = "geopandas" },
+    { name = "georeader-spaceml" },
     { name = "httpx" },
     { name = "loguru" },
     { name = "netcdf4" },
@@ -4380,6 +4419,7 @@ typecheck = [
 [package.metadata.requires-dev]
 dev = [
     { name = "geopandas", specifier = ">=1.1.3" },
+    { name = "georeader-spaceml", specifier = ">=2.3" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "loguru", specifier = ">=0.7.3" },
     { name = "netcdf4", specifier = ">=1.6" },
@@ -4414,11 +4454,11 @@ docs = [
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15.10,<0.17" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.77" }]
+typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.81" }]
 
 [[package]]
 name = "xrtoolz-reader"
-version = "0.0.3"
+version = "0.0.4"
 source = { editable = "packages/xrtoolz-reader" }
 dependencies = [
     { name = "numpy" },
