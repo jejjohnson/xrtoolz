@@ -69,7 +69,7 @@ lint = [
     "ruff>=0.15.10,<0.17",
 ]
 typecheck = [
-    "ty>=0.0.30,<0.0.81",
+    "ty>=0.0.30,<0.0.83",
 ]
 docs = [
     # mkdocstrings imports the packages to render API pages.
