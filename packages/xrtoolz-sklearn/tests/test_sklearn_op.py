@@ -203,13 +203,16 @@ def test_nan_policy_mask_on_dataset_drops_rows_across_all_variables() -> None:
     expected_input = np.column_stack([da_a.values[valid], da_b.values[valid]])
     expected = StandardScaler().fit_transform(expected_input)
 
-    # Stacked column count (3 + 2) doesn't match either variable's feature
-    # count alone, so the wrap returns the changed-feature-count layout.
-    assert out.dims == ("time", "component")
-    assert out.shape == (len(da_a["time"]), expected.shape[1])
+    # A one-to-one scaler returns the Dataset on its own grid; columns
+    # 0-2 belong to "ssh" and 3-4 to "other".
+    assert isinstance(out, xr.Dataset)
+    assert out["ssh"].dims == da_a.dims
+    assert out["other"].dims == da_b.dims
     np.testing.assert_array_equal(out["time"], ds["time"])
-    np.testing.assert_allclose(out.values[valid], expected)
-    assert np.isnan(out.values[~valid]).all()
+    np.testing.assert_allclose(out["ssh"].values[valid], expected[:, :3])
+    np.testing.assert_allclose(out["other"].values[valid], expected[:, 3:])
+    assert np.isnan(out["ssh"].values[~valid]).all()
+    assert np.isnan(out["other"].values[~valid]).all()
 
 
 def test_nan_policy_mask_all_nan_input_raises() -> None:
@@ -323,8 +326,7 @@ def test_sklearn_accessor_dataset_fit_transform() -> None:
     explicit = XarrayEstimator(StandardScaler(), sample_dim="time").fit_transform(ds)
     via_accessor = ds.sklearn.fit_transform(StandardScaler(), sample_dim="time")
 
-    np.testing.assert_array_equal(via_accessor.values, explicit.values)
-    assert via_accessor.dims == explicit.dims
+    xr.testing.assert_identical(via_accessor, explicit)
 
 
 def test_nan_policy_mask_passes_through_integer_dtype() -> None:
