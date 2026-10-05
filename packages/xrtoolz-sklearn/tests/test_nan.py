@@ -378,7 +378,56 @@ def test_mask_fit_params_only_touches_per_sample_arrays() -> None:
         keep,
     )
 
-    assert out["sample_weight"].tolist() == [1, 3]
+    assert list(out["sample_weight"]) == [1, 3]
     assert out["tag"] == "abc"
     assert out["alpha"] == 0.5
     assert out["classes"] == [0, 1]
+
+
+# ---------- review follow-ups (#332) --------------------------------------
+
+
+def test_feature_mask_ignores_rows_dropped_for_missing_y() -> None:
+    x = np.array([[1.0, np.nan], [2.0, np.nan], [3.0, 7.0]])
+    y = np.array([0.0, 1.0, np.nan])
+    wrap = XarrayEstimator(LinearRegression(), nan_policy="mask").fit(x, y)
+
+    np.testing.assert_array_equal(wrap.feature_mask_, [True, False])
+    assert wrap.coef_.shape == (1,)
+
+
+@pytest.mark.parametrize("policy", ["mask", "mask_features"])
+def test_raw_estimator_rejects_feature_masking(policy: str) -> None:
+    da = _ocean()
+    fitted = StandardScaler().fit(
+        np.nan_to_num(da.values.reshape(da.sizes["time"], -1))
+    )
+
+    with pytest.raises(ValueError, match="feature mask learned at fit time"):
+        da.sklearn.transform(fitted, sample_dim="time", nan_policy=policy)
+
+
+@pytest.mark.parametrize("policy", ["mask", "mask_features"])
+def test_numpy_inverse_transform_reapplies_the_feature_mask(policy: str) -> None:
+    rng = np.random.default_rng(0)
+    x = rng.normal(size=(10, 3))
+    x[:, 1] = np.nan
+    wrap = XarrayEstimator(StandardScaler(), nan_policy=policy)
+
+    scaled = wrap.fit_transform(x)
+    assert scaled.shape == (10, 3)
+    recon = wrap.inverse_transform(scaled)
+
+    np.testing.assert_allclose(recon[:, [0, 2]], x[:, [0, 2]])
+    assert np.isnan(recon[:, 1]).all()
+
+
+def test_mask_fit_params_subsets_sparse_matrices() -> None:
+    sparse = pytest.importorskip("scipy.sparse")
+    keep = np.array([True, False, True])
+    weights = sparse.csr_matrix(np.arange(6.0).reshape(3, 2))
+
+    out = mask_fit_params({"groups": weights}, keep)
+
+    assert sparse.issparse(out["groups"])
+    np.testing.assert_array_equal(out["groups"].toarray(), [[0, 1], [4, 5]])

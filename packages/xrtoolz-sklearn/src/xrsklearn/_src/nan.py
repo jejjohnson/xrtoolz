@@ -46,6 +46,7 @@ from typing import Any, Literal, get_args
 
 import numpy as np
 import pandas as pd
+from sklearn.utils.validation import _check_method_params
 
 
 NanPolicy = Literal["propagate", "raise", "mask", "mask_samples", "mask_features"]
@@ -291,15 +292,10 @@ def mask_fit_params(
     """
     if keep is None:
         return dict(params)
-    out: dict[str, Any] = {}
-    for key, value in params.items():
-        if (
-            not isinstance(value, str | bytes)
-            and hasattr(value, "__len__")
-            and hasattr(value, "__getitem__")
-            and len(value) == keep.size
-        ):
-            out[key] = np.asarray(value)[keep]
-        else:
-            out[key] = value
-    return out
+    # Delegate to sklearn's own routing so sparse matrices, DataFrames and
+    # other indexable containers are subset without being coerced.
+    # Strings have a length but are never per-sample.
+    routed = {k: v for k, v in params.items() if not isinstance(v, str | bytes)}
+    shape_only = np.empty((keep.size, 0))
+    subset = _check_method_params(shape_only, routed, indices=np.flatnonzero(keep))
+    return {**params, **subset}

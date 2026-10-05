@@ -49,6 +49,7 @@ from xrsklearn._src.layout import (
 from xrsklearn._src.nan import (
     MissingKind,
     NanPolicy,
+    _rows,
     check_no_missing,
     check_policy,
     learn_feature_mask,
@@ -56,6 +57,7 @@ from xrsklearn._src.nan import (
     mask_fit_params,
     masks_features,
     masks_samples,
+    missing_mask,
     restore_columns,
     restore_rows,
 )
@@ -91,6 +93,7 @@ class _Batch:
     attrs: dict[str, Any] | None = None
     valid: np.ndarray | None = None
     features: np.ndarray | None = None
+    full: np.ndarray | None = None  # fit-time X before the feature mask
 
     @property
     def n_samples(self) -> int:
@@ -456,8 +459,17 @@ class XarrayEstimator(BaseEstimator):
         if not masks_features(self.nan_policy) or space == "output":
             return
         if space == "fit":
+            batch.full = batch.arr
             keep = learn_feature_mask(batch.arr, self.missing)
         else:
+            if "feature_mask_" not in self.__dict__:
+                # A raw fitted estimator (accessor / SklearnOp) never saw the
+                # fit-time columns, so there is no mask to reapply.
+                raise ValueError(
+                    f"nan_policy={self.nan_policy!r} needs the feature mask "
+                    "learned at fit time; fit an XarrayEstimator with this "
+                    "nan_policy and pass it instead of a raw estimator."
+                )
             keep = self.__dict__.get("feature_mask_")
             if keep is not None and keep.size != batch.arr.shape[1]:
                 raise ValueError(
@@ -467,6 +479,21 @@ class XarrayEstimator(BaseEstimator):
         if keep is not None:
             batch.arr = batch.arr[:, keep]
             batch.features = keep
+
+    def _refine_feature_mask(self, batch: _Batch, y: np.ndarray | None) -> None:
+        """Relearn the fit-time feature mask from rows whose target is present.
+
+        Rows dropped for a missing ``y`` must not keep an otherwise empty
+        column alive, or sample masking would then reject every row.
+        """
+        if y is None or batch.full is None or not masks_samples(self.nan_policy):
+            return
+        usable = ~_rows(missing_mask(np.asarray(y), self.missing)).any(axis=1)
+        if usable.all() or not usable.any():
+            return
+        keep = learn_feature_mask(batch.full[usable], self.missing)
+        batch.arr = batch.full if keep is None else batch.full[:, keep]
+        batch.features = keep
 
     def _mask_samples(
         self,
@@ -684,6 +711,7 @@ class XarrayEstimator(BaseEstimator):
         batch = self._stack(x, space="fit")
         y_np, target = self._prepare_y(y, batch)
         params = self._prepare_fit_params(kwargs, batch)
+        self._refine_feature_mask(batch, y_np)
         y_np, params = self._mask_samples(batch, y_np, params)
         self.estimator_ = clone(self.estimator)
         self.estimator_.fit(batch.arr, y_np, **params)
@@ -717,6 +745,7 @@ class XarrayEstimator(BaseEstimator):
         batch = self._stack(x, space="fit")
         y_np, target = self._prepare_y(y, batch)
         params = self._prepare_fit_params(kwargs, batch)
+        self._refine_feature_mask(batch, y_np)
         y_np, params = self._mask_samples(batch, y_np, params)
         self.estimator_ = clone(self.estimator)
         if hasattr(self.estimator_, "fit_transform"):
@@ -742,10 +771,18 @@ class XarrayEstimator(BaseEstimator):
         """
         self._require_fitted()
         train = self.__dict__.get("layout_")
+        keep = self.__dict__.get("feature_mask_")
         in_feature_space = (
             train is not None
             and isinstance(x, xr.DataArray | xr.Dataset)
             and matches(x, train)
+        ) or (
+            # A full-width NumPy array (e.g. a one-to-one fit_transform output
+            # with the masked columns restored) is in feature space too.
+            isinstance(x, np.ndarray)
+            and keep is not None
+            and x.ndim == 2
+            and x.shape[1] == keep.size
         )
         batch = self._stack(x, space="features" if in_feature_space else "output")
         self._mask_samples(batch)
