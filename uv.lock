@@ -4456,7 +4456,7 @@ docs = [
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15.10,<0.17" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.83" }]
+typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.85" }]
 
 [[package]]
 name = "xrtoolz-reader"
