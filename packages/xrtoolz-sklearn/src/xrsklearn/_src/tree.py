@@ -41,7 +41,12 @@ import numpy as np
 import xarray as xr
 from sklearn.base import clone
 
-from xrsklearn._src.layout import conform_dataset, dataset_layout
+from xrsklearn._src.layout import (
+    array_layout,
+    conform_array,
+    conform_dataset,
+    dataset_layout,
+)
 
 
 if TYPE_CHECKING:
@@ -151,15 +156,20 @@ def _as_target(ds: xr.Dataset) -> xr.DataArray | xr.Dataset:
     return ds[names[0]] if len(names) == 1 else ds
 
 
-def to_tree(results: Mapping[str, Any], method: str) -> xr.DataTree:
+def to_tree(
+    results: Mapping[str, Any], method: str, base: xr.DataTree | None = None
+) -> xr.DataTree:
     """Assemble per-node results into a DataTree.
 
     Args:
         results: ``{path: DataArray | Dataset}``.
         method: The verb that produced them (names unnamed DataArrays).
+        base: The input tree. When given, the result keeps its structure:
+            nodes that took no part (excluded by ``tree_paths``, metadata
+            or coordinate-only nodes) are carried over unchanged.
 
     Returns:
-        A DataTree with one node per path.
+        A DataTree with one node per path (plus ``base``'s other nodes).
 
     Raises:
         TypeError: If a result is not a DataArray or Dataset.
@@ -177,6 +187,9 @@ def to_tree(results: Mapping[str, Any], method: str) -> xr.DataTree:
                 "DataArray / Dataset results can be assembled into a DataTree."
             )
         nodes[path] = res
+    if base is not None:
+        kept = {n.path: n.to_dataset(inherit=False) for n in base.subtree}
+        nodes = {**kept, **nodes}
     return xr.DataTree.from_dict(nodes)
 
 
@@ -218,7 +231,7 @@ def fit_per_node(
         fitted[path] = sub
     est.estimators_ = fitted
     est.tree_paths_ = tuple(nodes)
-    return to_tree(results, "fit_transform") if transform else None
+    return to_tree(results, "fit_transform", tree) if transform else None
 
 
 def apply_per_node(est: XarrayEstimator, method: str, tree: xr.DataTree) -> xr.DataTree:
@@ -227,6 +240,7 @@ def apply_per_node(est: XarrayEstimator, method: str, tree: xr.DataTree) -> xr.D
     return to_tree(
         {p: getattr(est.estimators_[p], method)(ds) for p, ds in nodes.items()},
         method,
+        tree,
     )
 
 
@@ -266,14 +280,32 @@ def _pool_targets(
 ) -> xr.DataArray | xr.Dataset | np.ndarray | None:
     if y is None or isinstance(y, np.ndarray):
         return y  # already pooled (or absent)
-    targets = node_targets(y, paths)
-    return xr.concat(
-        [t for t in targets.values() if t is not None],
-        dim=sample_dim,
-        coords="minimal",
-        compat="override",
-        join="override",
-    )
+    targets = [t for t in node_targets(y, paths).values() if t is not None]
+    if all(isinstance(t, xr.DataArray | xr.Dataset) for t in targets):
+        # Conform every target to the first one's layout so permuted target
+        # coords are reordered and mismatched ones raise, rather than being
+        # overridden positionally.
+        first = targets[0]
+        if isinstance(first, xr.Dataset):
+            ref = dataset_layout(first, sample_dim)
+            parts = [
+                conform_dataset(t, ref, where=f"y node {p!r}")
+                for p, t in zip(paths, targets, strict=True)
+            ]
+        else:
+            ref_arr = array_layout(first, sample_dim)
+            parts = [
+                conform_array(t, ref_arr, where=f"y node {p!r}")
+                for p, t in zip(paths, targets, strict=True)
+            ]
+        return xr.concat(
+            parts, dim=sample_dim, coords="minimal", compat="override", join="override"
+        )
+    if any(isinstance(t, xr.DataArray | xr.Dataset) for t in targets):
+        raise TypeError(
+            "Pooled targets must be all xarray or all NumPy; got a mix across nodes."
+        )
+    return np.concatenate([np.asarray(t) for t in targets], axis=0)
 
 
 def _split(result: Any, sample_dim: Hashable, sizes: Sequence[int]) -> list[Any]:
@@ -282,6 +314,22 @@ def _split(result: Any, sample_dim: Hashable, sizes: Sequence[int]) -> list[Any]
         result.isel({sample_dim: slice(int(lo), int(hi))})
         for lo, hi in pairwise(bounds)
     ]
+
+
+def _restore_node_meta(result: Any, node: xr.Dataset) -> Any:
+    """Give a split pooled result back its own node's scalar coords and attrs.
+
+    Pooling keeps only the first node's scalar coords (an ensemble member
+    id, say) and attrs; each split part must carry its own node's instead.
+    """
+    scalars = {k: v for k, v in node.coords.items() if v.ndim == 0}
+    result = result.assign_coords(scalars)
+    if isinstance(result, xr.Dataset):
+        result.attrs = dict(node.attrs)
+        for name in result.data_vars:
+            if name in node.data_vars:
+                result[name].attrs = dict(node[name].attrs)
+    return result
 
 
 def fit_pooled(
@@ -301,17 +349,22 @@ def fit_pooled(
     y_pooled = _pool_targets(y, list(nodes), sample_dim)
     if transform:
         out = XarrayEstimator.fit_transform(est, pooled, y_pooled, **kwargs)
-        results = dict(zip(nodes, _split(out, sample_dim, sizes), strict=True))
+        results = {
+            path: _restore_node_meta(part, nodes[path])
+            for path, part in zip(nodes, _split(out, sample_dim, sizes), strict=True)
+        }
     else:
         XarrayEstimator.fit(est, pooled, y_pooled, **kwargs)
     est.tree_paths_ = tuple(nodes)
-    return to_tree(results, "fit_transform") if transform else None
+    return to_tree(results, "fit_transform", tree) if transform else None
 
 
 def apply_pooled(est: XarrayEstimator, method: str, tree: xr.DataTree) -> xr.DataTree:
     """Run ``method`` of the one pooled estimator on every node separately."""
     nodes = select_nodes(tree, est.tree_paths)
-    return to_tree({p: getattr(est, method)(ds) for p, ds in nodes.items()}, method)
+    return to_tree(
+        {p: getattr(est, method)(ds) for p, ds in nodes.items()}, method, tree
+    )
 
 
 def score_pooled(est: XarrayEstimator, tree: xr.DataTree, y: Any) -> float:

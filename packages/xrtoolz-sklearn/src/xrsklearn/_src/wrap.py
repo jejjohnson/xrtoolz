@@ -203,6 +203,7 @@ def _explicit(
     nan_policy: NanPolicy | None,
     missing: MissingKind | None = None,
     tree_mode: TreeMode | None = None,
+    tree_paths: Sequence[str] | None = None,
 ) -> dict[str, Any]:
     """The wrapper settings a caller actually passed (``None`` = not passed)."""
     given = {
@@ -211,6 +212,7 @@ def _explicit(
         "nan_policy": nan_policy,
         "missing": missing,
         "tree_mode": tree_mode,
+        "tree_paths": None if tree_paths is None else list(tree_paths),
     }
     return {key: value for key, value in given.items() if value is not None}
 

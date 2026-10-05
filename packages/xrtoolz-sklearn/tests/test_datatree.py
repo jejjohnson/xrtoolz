@@ -363,3 +363,87 @@ def test_sklearn_op_tree_without_variable_or_output_raises(
 ) -> None:
     with pytest.raises(ValueError, match="neither `variable` nor `output_variable`"):
         SklearnOp(StandardScaler(), method="fit_transform")(ensemble)
+
+
+# ---------- review follow-ups (#333) --------------------------------------
+
+
+def test_unselected_nodes_are_kept_in_the_output(multires: xr.DataTree) -> None:
+    wrap = XarrayEstimator(
+        StandardScaler(), sample_dim="time", tree_paths=["coarse", "fine"]
+    )
+
+    out = wrap.fit_transform(multires)
+    again = wrap.transform(multires)
+
+    for tree in (out, again):
+        assert {n.path for n in tree.subtree} == {n.path for n in multires.subtree}
+        xr.testing.assert_identical(
+            tree["meta"].to_dataset(), multires["meta"].to_dataset()
+        )
+
+
+def test_pooled_numpy_targets_in_a_mapping(ensemble: xr.DataTree) -> None:
+    rng = np.random.default_rng(0)
+    y = {f"member{i}": rng.normal(size=12) for i in range(3)}
+    wrap = XarrayEstimator(
+        LinearRegression(), sample_dim="time", tree_mode="pool_samples"
+    )
+
+    wrap.fit(ensemble, y)
+
+    assert wrap.coef_.shape == (12,)
+
+
+def test_pooled_targets_are_conformed_not_overridden(ensemble: xr.DataTree) -> None:
+    rng = np.random.default_rng(0)
+
+    def target(order: list[str]) -> xr.DataArray:
+        return xr.DataArray(
+            rng.normal(size=(12, 2)),
+            dims=("time", "out"),
+            coords={"time": np.arange(12), "out": order},
+        )
+
+    wrap = XarrayEstimator(
+        LinearRegression(), sample_dim="time", tree_mode="pool_samples"
+    )
+    permuted = {
+        "member0": target(["a", "b"]),
+        "member1": target(["b", "a"]),
+        "member2": target(["a", "b"]),
+    }
+    wrap.fit(ensemble, permuted)  # same labels, other order: reordered
+
+    bad = {**permuted, "member2": target(["a", "c"])}
+    with pytest.raises(ValueError, match="member2"):
+        wrap.fit(ensemble, bad)
+
+
+def test_pooled_fit_transform_keeps_each_nodes_metadata(ensemble: xr.DataTree) -> None:
+    tree = ensemble.copy()
+    for i in range(3):
+        node = tree[f"member{i}"]
+        node.dataset = node.to_dataset().assign_coords(member=i).assign_attrs(run=i)
+    wrap = XarrayEstimator(
+        StandardScaler(), sample_dim="time", tree_mode="pool_samples"
+    )
+
+    out = wrap.fit_transform(tree)
+
+    for i in range(3):
+        node = out[f"member{i}"]
+        assert int(node["member"]) == i
+        assert node.attrs == {"run": i}
+
+
+def test_accessor_forwards_tree_paths(multires: xr.DataTree) -> None:
+    scores = multires.sklearn.fit_transform(
+        PCA(n_components=2), sample_dim="time", tree_paths=["coarse"]
+    )
+
+    assert scores["coarse"]["transformed"].dims == ("time", "component")
+    fitted = multires.sklearn.fit(
+        StandardScaler(), sample_dim="time", tree_paths=["fine"]
+    )
+    assert set(fitted.estimators_) == {"/fine"}

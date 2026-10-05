@@ -23,7 +23,7 @@ Example:
 
 from __future__ import annotations
 
-from collections.abc import Hashable
+from collections.abc import Hashable, Sequence
 from typing import Any
 
 import xarray as xr
@@ -134,10 +134,11 @@ class _SklearnAccessor:
         nan_policy: NanPolicy | None = None,
         missing: MissingKind | None = None,
         tree_mode: TreeMode | None = None,
+        tree_paths: Sequence[str] | None = None,
     ) -> XarrayEstimator:
         """An *unfitted* wrapper to fit — a fresh clone if given a wrapper."""
         overrides = _explicit(
-            sample_dim, new_feature_dim, nan_policy, missing, tree_mode
+            sample_dim, new_feature_dim, nan_policy, missing, tree_mode, tree_paths
         )
         if isinstance(estimator, XarrayEstimator):
             # Fit a configured clone: never mutate the caller's wrapper, and
@@ -183,6 +184,7 @@ class _SklearnAccessor:
         nan_policy: NanPolicy | None = None,
         missing: MissingKind | None = None,
         tree_mode: TreeMode | None = None,
+        tree_paths: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> XarrayEstimator:
         """Fit ``estimator`` on this xarray object via ``XarrayEstimator``."""
@@ -193,6 +195,7 @@ class _SklearnAccessor:
             nan_policy=nan_policy,
             missing=missing,
             tree_mode=tree_mode,
+            tree_paths=tree_paths,
         ).fit(self._obj, y=y, **kwargs)
 
     def fit_transform(
@@ -205,6 +208,7 @@ class _SklearnAccessor:
         nan_policy: NanPolicy | None = None,
         missing: MissingKind | None = None,
         tree_mode: TreeMode | None = None,
+        tree_paths: Sequence[str] | None = None,
         **kwargs: Any,
     ) -> xr.DataArray | Any:
         """Fit and transform this xarray object via ``XarrayEstimator``."""
@@ -215,6 +219,7 @@ class _SklearnAccessor:
             nan_policy=nan_policy,
             missing=missing,
             tree_mode=tree_mode,
+            tree_paths=tree_paths,
         ).fit_transform(self._obj, y=y, **kwargs)
 
     def transform(
