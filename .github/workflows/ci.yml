@@ -80,3 +80,20 @@ jobs:
         # green and flips automatically as each remediation lands.
         run: uv run pytest -m dask -v --no-cov
         working-directory: packages/xrtoolz
+
+  minimal-install:
+    # `pip install xrtoolz` with no extras: viz / metrics / ocn must import
+    # without cartopy, which ships in the optional `[maps]` extra.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "3.12"
+      - name: Install xrtoolz without extras
+        run: uv sync --package xrtoolz --no-dev
+      - name: Import smoke test
+        run: >-
+          uv run --no-sync python -c "import importlib.util as u;
+          assert u.find_spec('cartopy') is None, 'cartopy leaked into the base install';
+          import xrtoolz.viz, xrtoolz.viz.validation, xrtoolz.metrics, xrtoolz.ocn"
