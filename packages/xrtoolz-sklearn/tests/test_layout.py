@@ -311,3 +311,64 @@ def test_sklearn_op_accepts_falsy_variable_names() -> None:
     out = SklearnOp(fitted, variable=0)(ds)
 
     assert list(out.data_vars) == [0]
+
+
+# ---------- review follow-ups (#329) --------------------------------------
+
+
+def test_different_auxiliary_grid_with_same_indexes_raises() -> None:
+    rng = np.random.default_rng(1)
+    da = _cube().assign_coords(nav_lat=(("lat", "lon"), rng.normal(size=(3, 4))))
+    wrap = XarrayEstimator(StandardScaler(), sample_dim="time").fit(da)
+
+    other = da.assign_coords(nav_lat=da["nav_lat"] + 1.0)
+    with pytest.raises(ValueError, match="auxiliary coordinate 'nav_lat'"):
+        wrap.transform(other)
+    # Same grid passes, including after a permutation, and so does an input
+    # that does not carry the auxiliary coordinate at all.
+    wrap.transform(da.transpose("time", "lon", "lat"))
+    wrap.transform(da.isel(lat=slice(None, None, -1)))
+    wrap.transform(da.drop_vars("nav_lat"))
+
+
+def test_forward_output_keeps_the_input_metadata() -> None:
+    da = _cube()
+    wrap = XarrayEstimator(StandardScaler(), sample_dim="time").fit(da)
+
+    out = wrap.transform(da.rename("sst").assign_attrs(units="K"))
+
+    assert out.name == "sst"
+    assert out.attrs == {"units": "K"}
+
+
+def test_inverse_transform_restores_training_metadata() -> None:
+    da = _cube()
+    wrap = XarrayEstimator(PCA(n_components=2), sample_dim="time")
+
+    recon = wrap.inverse_transform(wrap.fit_transform(da).rename("scores"))
+
+    assert recon.name == "ssh"
+    assert recon.attrs == {"units": "m"}
+
+
+def test_restating_an_inferred_sample_dim_is_not_a_conflict() -> None:
+    da = _cube()
+    fitted = XarrayEstimator(StandardScaler()).fit(da)
+    assert fitted.sample_dim_ == "time"
+
+    da.sklearn.transform(fitted, sample_dim="time")
+    SklearnOp(fitted, method="transform", variable="ssh", sample_dim="time")(
+        da.to_dataset()
+    )
+    with pytest.raises(ValueError, match="sample_dim='lat'"):
+        da.sklearn.transform(fitted, sample_dim="lat")
+
+
+def test_sample_coord_named_like_new_feature_dim_is_dropped() -> None:
+    da = _cube().assign_coords(component=("time", np.arange(20) * 10))
+    wrap = XarrayEstimator(PCA(n_components=2), sample_dim="time")
+
+    scores = wrap.fit_transform(da)
+
+    assert scores.dims == ("time", "component")
+    np.testing.assert_array_equal(scores["component"].values, [0, 1])

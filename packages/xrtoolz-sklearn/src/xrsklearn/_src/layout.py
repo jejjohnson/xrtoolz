@@ -261,7 +261,39 @@ def conform_array(
         if dim in fit_indexes and dim in da.indexes:
             expected = layout.feature_coords[dim].to_index()
             da = _match_index(da, dim, expected, where=where)
-    return da.transpose(sample_dim, *layout.feature_dims)
+    da = da.transpose(sample_dim, *layout.feature_dims)
+    _check_auxiliary_coords(da, layout, where=where)
+    return da
+
+
+def _check_auxiliary_coords(
+    da: xr.DataArray, layout: ArrayLayout, *, where: str
+) -> None:
+    """Raise if a non-index feature coord on ``da`` differs from fit time.
+
+    Curvilinear grids are identified by auxiliary coords such as 2-D
+    ``nav_lat(y, x)``; two grids with the same ``y``/``x`` sizes and indexes
+    would otherwise pass as identical. A coord the input does not carry is
+    not checked — there is nothing to compare.
+    """
+    for name, fit_coord in layout.feature_coords.items():
+        if name in layout.feature_coords.xindexes or name not in da.coords:
+            continue
+        got = np.asarray(da.coords[name].transpose(*fit_coord.dims).values)
+        expected = np.asarray(fit_coord.values)
+        if got.shape == expected.shape and _values_equal(got, expected):
+            continue
+        raise ValueError(
+            f"{where}: auxiliary coordinate {name!r} does not match the one "
+            "seen at fit time. The estimator's feature columns are tied to the "
+            "fit-time grid; select or regrid the input onto it first."
+        )
+
+
+def _values_equal(a: np.ndarray, b: np.ndarray) -> bool:
+    if np.issubdtype(a.dtype, np.number) and np.issubdtype(b.dtype, np.number):
+        return bool(np.allclose(a, b, rtol=1e-12, atol=0.0, equal_nan=True))
+    return bool(np.array_equal(a, b))
 
 
 def conform_dataset(
@@ -395,4 +427,11 @@ def generic_from_2d(
         raise ValueError(
             f"Cannot label sklearn output with shape {arr.shape}; expected 1-D or 2-D."
         )
-    return out.assign_coords(samples)
+    # A sample coord named like (or living on) the new output dim would clash
+    # with the generated component labels.
+    clash = [
+        name
+        for name, coord in samples.items()
+        if name == new_feature_dim or new_feature_dim in coord.dims
+    ]
+    return out.assign_coords(samples.to_dataset().drop_vars(clash).coords)

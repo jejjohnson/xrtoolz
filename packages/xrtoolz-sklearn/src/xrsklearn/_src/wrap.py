@@ -173,6 +173,9 @@ def _check_no_conflict(
 ) -> None:
     """Raise if ``overrides`` disagree with a fitted wrapper's own settings."""
     params = wrap.get_params(deep=False)
+    if params["sample_dim"] is None and "sample_dim_" in wrap.__dict__:
+        # Fitted with an inferred sample dim: restating it is not a conflict.
+        params["sample_dim"] = wrap.__dict__["sample_dim_"]
     clashes = {k: v for k, v in overrides.items() if params[k] != v}
     if clashes:
         detail = ", ".join(
@@ -464,6 +467,7 @@ class XarrayEstimator(BaseEstimator):
         *,
         grid: ArrayLayout | None = None,
         dims: tuple[Hashable, ...] | None = None,
+        input_meta: bool = True,
     ) -> xr.DataArray | np.ndarray:
         """Turn an estimator output back into a labeled array.
 
@@ -473,13 +477,20 @@ class XarrayEstimator(BaseEstimator):
             grid: Feature grid to restore when ``out`` has one column per
                 grid feature. ``None`` always yields the generic layout.
             dims: Output dim order for the grid path.
+            input_meta: On the grid path, label the output with the input's
+                name and attrs (forward methods). ``False`` keeps the
+                grid's own fit-time metadata (``inverse_transform``).
         """
         out = _restore_masked_samples(np.asarray(out), batch.valid)
         if batch.layout is None:
             return out
         assert batch.sample_dim is not None and batch.samples is not None
         if grid is not None and out.ndim == 2 and out.shape[1] == grid.n_features:
-            return grid_from_2d(out, grid, batch.samples, dims=dims)
+            result = grid_from_2d(out, grid, batch.samples, dims=dims)
+            if input_meta:
+                result = result.rename(batch.name)
+                result.attrs = dict(batch.attrs)
+            return result
         return generic_from_2d(
             out,
             batch.sample_dim,
@@ -561,7 +572,9 @@ class XarrayEstimator(BaseEstimator):
         out = self.estimator_.inverse_transform(batch.arr)
         train = self.__dict__.get("layout_")
         if isinstance(train, ArrayLayout):
-            return self._label(out, batch, grid=train, dims=train.dims)
+            return self._label(
+                out, batch, grid=train, dims=train.dims, input_meta=False
+            )
         return self._label(out, batch)
 
     @available_if(_estimator_has("predict"))
