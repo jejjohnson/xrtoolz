@@ -203,6 +203,8 @@ class _SklearnAccessor:
             missing: What counts as missing (``"nan"`` / ``"nonfinite"``).
             tree_mode: What fitting on a DataTree means (see
                 :class:`XarrayEstimator`).
+            tree_paths: DataTree nodes to fit on; by default every node with
+                data variables.
 
         Returns:
             The fitted :class:`XarrayEstimator` — keep it to transform other data.
@@ -264,6 +266,8 @@ class _SklearnAccessor:
             missing: What counts as missing (``"nan"`` / ``"nonfinite"``).
             tree_mode: What fitting on a DataTree means (see
                 :class:`XarrayEstimator`).
+            tree_paths: DataTree nodes to fit on; by default every node with
+                data variables.
 
         Returns:
             The transformed data (layout as in :meth:`XarrayEstimator.transform`).

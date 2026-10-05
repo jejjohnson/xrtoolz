@@ -913,7 +913,8 @@ class XarrayEstimator(BaseEstimator):
             >>> shuffled = da.isel(x=[2, 0, 1])  # same grid, columns permuted
             >>> bool((wrap.transform(shuffled) == wrap.transform(da)).all())
             True
-            >>> wrap.transform(da.assign_coords(x=[1, 2, 3]))  # a different grid
+            >>> # A different grid with the same shape is rejected:
+            >>> wrap.transform(da.assign_coords(x=[1, 2, 3]))  # doctest: +ELLIPSIS
             Traceback (most recent call last):
             ...
             ValueError: X: coordinate 'x' does not match the one seen at fit time ...
@@ -936,8 +937,11 @@ class XarrayEstimator(BaseEstimator):
     ) -> Output:
         """Fit on ``x`` and return its transform in one pass.
 
-        Equivalent to ``fit(x, y).transform(x)`` (using the estimator's own
-        ``fit_transform`` when it has one); the output layout follows
+        Calls the estimator's own ``fit_transform`` when it has one, else
+        ``fit`` followed by ``transform`` on the same input. These need not
+        agree: an estimator may learn the training representation jointly
+        in ``fit_transform`` (iterative factorizers do) and give different
+        values from a later ``transform``. The output layout follows
         :meth:`transform`.
 
         Args:
