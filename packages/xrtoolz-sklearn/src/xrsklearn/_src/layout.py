@@ -496,11 +496,34 @@ def matches(obj: xr.DataArray | xr.Dataset, layout: Layout) -> bool:
         ``True`` if ``obj`` has the layout's kind and feature structure.
     """
     if isinstance(layout, DatasetLayout):
-        return isinstance(obj, xr.Dataset) and set(obj.data_vars) == set(
-            layout.variables
+        return (
+            isinstance(obj, xr.Dataset)
+            and set(obj.data_vars) == set(layout.variables)
+            and all(
+                _array_matches(obj[name], arr)
+                for name, arr in zip(layout.variables, layout.arrays, strict=True)
+            )
         )
-    return (
-        isinstance(obj, xr.DataArray)
-        and layout.sample_dim in obj.dims
-        and {d for d in obj.dims if d != layout.sample_dim} == set(layout.feature_dims)
-    )
+    return isinstance(obj, xr.DataArray) and _array_matches(obj, layout)
+
+
+def _array_matches(da: xr.DataArray, layout: ArrayLayout) -> bool:
+    """Dim names *and* sizes match, and so do the labels of shared indexes.
+
+    Names alone are not enough: PCA scores on ``(time, component)`` share
+    their dim names with training data that had a ``component`` feature dim.
+    """
+    if layout.sample_dim not in da.dims:
+        return False
+    if {d for d in da.dims if d != layout.sample_dim} != set(layout.feature_dims):
+        return False
+    fit_indexes = layout.feature_coords.xindexes
+    for dim, size in zip(layout.feature_dims, layout.feature_shape, strict=True):
+        if da.sizes[dim] != size:
+            return False
+        if dim in fit_indexes and dim in da.indexes:
+            got = da.indexes[dim]
+            expected = layout.feature_coords[dim].to_index()
+            if not got.sort_values().equals(expected.sort_values()):
+                return False
+    return True

@@ -232,10 +232,36 @@ def test_nan_policy_mask_all_nan_input_raises() -> None:
 
 
 def test_sklearn_op_dataset_without_variable_or_output_variable_raises() -> None:
-    ds = xr.Dataset({"ssh": _sample_da()})
-    op = SklearnOp(StandardScaler(), sample_dim="time")
+    # A reducing estimator turns the whole Dataset into one DataArray, which
+    # needs a name to be stored.
+    ds = xr.Dataset({"ssh": _sample_da().fillna(0.0)})
+    op = SklearnOp(PCA(n_components=2), sample_dim="time", method="fit_transform")
 
     with pytest.raises(ValueError, match="neither `variable` nor `output_variable`"):
+        op(ds)
+
+
+def test_sklearn_op_one_to_one_dataset_transform_writes_back_in_place() -> None:
+    ds = xr.Dataset({"ssh": _sample_da(), "sst": _sample_da() * 2.0})
+    op = SklearnOp(StandardScaler(), sample_dim="time", method="fit_transform")
+
+    out = op(ds)
+
+    assert set(out.data_vars) == {"ssh", "sst"}
+    expected = XarrayEstimator(StandardScaler(), sample_dim="time").fit_transform(ds)
+    xr.testing.assert_allclose(out, expected)
+
+
+def test_sklearn_op_dataset_result_rejects_output_variable() -> None:
+    ds = xr.Dataset({"ssh": _sample_da(), "sst": _sample_da() * 2.0})
+    op = SklearnOp(
+        StandardScaler(),
+        sample_dim="time",
+        method="fit_transform",
+        output_variable="scaled",
+    )
+
+    with pytest.raises(ValueError, match="output_variable='scaled'"):
         op(ds)
 
 

@@ -28,7 +28,7 @@ from typing import Any, Literal, get_args
 import numpy as np
 import pandas as pd
 import xarray as xr
-from sklearn.base import BaseEstimator, clone
+from sklearn.base import BaseEstimator, clone, is_classifier, is_regressor
 from sklearn.utils.metaestimators import available_if
 
 from xrsklearn._src.layout import (
@@ -612,12 +612,22 @@ class XarrayEstimator(BaseEstimator):
         coord = None
         if classes is not None and len(classes) == out.shape[1]:
             coord = np.asarray(classes)
+        if batch.sample_dim == CLASS_DIM:
+            raise ValueError(
+                f"predict_proba labels classes along a {CLASS_DIM!r} dim, which "
+                f"clashes with sample_dim={CLASS_DIM!r}; rename the sample "
+                "dimension first."
+            )
         return self._generic(out, batch, feature_dim=CLASS_DIM, feature_coord=coord)
 
     def _record_fit(self, batch: _Batch, target: Layout | None) -> None:
         self.sample_dim_ = batch.sample_dim
         self.layout_ = batch.layout
-        self.target_layout_ = target
+        # Only supervised predictions live in y-space; an unsupervised
+        # estimator (KMeans) accepts and ignores y, so its labels must not
+        # inherit the target's name, attrs or grid.
+        supervised = is_classifier(self.estimator_) or is_regressor(self.estimator_)
+        self.target_layout_ = target if supervised else None
 
     # ---------- sklearn-style verbs ---------------------------------------
 

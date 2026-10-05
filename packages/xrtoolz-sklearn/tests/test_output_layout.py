@@ -221,3 +221,46 @@ def test_numpy_inputs_still_pass_through(method: str) -> None:
     wrap = XarrayEstimator(est).fit(x, x[:, 0])
 
     assert isinstance(getattr(wrap, method)(x), np.ndarray)
+
+
+# ---------- review follow-ups (#330) --------------------------------------
+
+
+def test_pca_round_trip_when_feature_dim_is_named_component() -> None:
+    rng = np.random.default_rng(0)
+    da = xr.DataArray(
+        rng.normal(size=(30, 6)),
+        dims=("time", "component"),
+        coords={"time": np.arange(30), "component": np.arange(10, 16)},
+    )
+    wrap = XarrayEstimator(PCA(n_components=3), sample_dim="time")
+
+    recon = wrap.inverse_transform(wrap.fit_transform(da))
+
+    assert recon.sizes == da.sizes
+    np.testing.assert_array_equal(recon["component"].values, da["component"].values)
+
+
+def test_predict_proba_rejects_sample_dim_named_class() -> None:
+    rng = np.random.default_rng(0)
+    x = xr.DataArray(rng.normal(size=(20, 3)), dims=("class", "feature"))
+    y = xr.DataArray(np.arange(20) % 2, dims=("class",))
+    wrap = XarrayEstimator(LogisticRegression(), sample_dim="class").fit(x, y)
+
+    with pytest.raises(ValueError, match="clashes with sample_dim='class'"):
+        wrap.predict_proba(x)
+
+
+def test_unsupervised_predict_ignores_the_target_layout() -> None:
+    rng = np.random.default_rng(0)
+    x = xr.DataArray(rng.normal(size=(20, 3)), dims=("time", "feature"))
+    y = xr.DataArray(
+        rng.normal(size=20), dims=("time",), name="sst", attrs={"units": "K"}
+    )
+    wrap = XarrayEstimator(KMeans(n_clusters=2, n_init=1, random_state=0)).fit(x, y)
+
+    labels = wrap.predict(x)
+
+    assert labels.name != "sst"
+    assert labels.attrs == {}
+    assert wrap.target_layout_ is None
