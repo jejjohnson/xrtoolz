@@ -14,6 +14,7 @@ it, and only resolving an actual projection calls
 
 from __future__ import annotations
 
+import importlib
 from types import ModuleType
 from typing import Any
 
@@ -43,8 +44,9 @@ PRESETS: dict[str, dict[str, Any]] = _build_presets()
 
 def _require_cartopy() -> ModuleType:
     """Return :mod:`cartopy.crs`, or raise a pointer to the ``[maps]`` extra."""
+    # importlib keeps static checkers from requiring the optional extra.
     try:
-        import cartopy.crs as ccrs
+        ccrs = importlib.import_module("cartopy.crs")
     except ImportError as e:
         raise ImportError(
             "cartopy is required for projected map panels; "
