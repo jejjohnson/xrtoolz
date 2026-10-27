@@ -104,3 +104,15 @@ def test_variable_inference_needs_exactly_one_grid(tmp_path: Path) -> None:
     assert "ch4_emission_flux" in open_ch4_inventory(path, variable="b")
     with pytest.raises(KeyError, match="no variable"):
         open_ch4_inventory(path, variable="missing")
+
+
+def test_units_are_relabelled_under_keep_attrs(tmp_path: Path) -> None:
+    lat, lon = np.array([0.0]), np.array([0.0])
+    path = _write(
+        tmp_path / "g.nc", np.array([[2.0]]), lat=lat, lon=lon, units="g m-2 s-1"
+    )
+    with xr.set_options(keep_attrs=True):
+        flux = open_ch4_inventory(path)["ch4_emission_flux"]
+    assert float(flux.squeeze()) == pytest.approx(2.0e-3)
+    assert flux.attrs["units"] == "kg m-2 s-1"
+    assert flux.attrs["units_in_file"] == "g m-2 s-1"

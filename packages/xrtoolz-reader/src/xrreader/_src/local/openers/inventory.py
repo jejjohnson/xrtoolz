@@ -86,7 +86,11 @@ def open_ch4_inventory(
     factor = _factor(units_in_file, name)
 
     flux = _wrap_and_sort(flux * factor)
-    flux = apply_cf_attrs(flux.rename(CH4_EMISSION_FLUX.name), CH4_EMISSION_FLUX)
+    # Overwrite: under `xr.set_options(keep_attrs=True)` the product above
+    # keeps the file's `units`, which would mislabel the converted values.
+    flux = apply_cf_attrs(
+        flux.rename(CH4_EMISSION_FLUX.name), CH4_EMISSION_FLUX, overwrite=True
+    )
     flux.attrs["units_in_file"] = str(units_in_file)
     flux.attrs["conversion_factor"] = factor
     out = flux.to_dataset()
