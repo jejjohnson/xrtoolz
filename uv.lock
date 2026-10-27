@@ -2314,7 +2314,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
+    { name = "ptyprocess" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -4120,7 +4120,7 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.0.4"
+version = "0.0.5"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "dask", extra = ["array"] },
@@ -4254,7 +4254,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-core"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/xrtoolz-core" }
 dependencies = [
     { name = "numpy" },
@@ -4542,7 +4542,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-sklearn"
-version = "0.0.1"
+version = "0.0.2"
 source = { editable = "packages/xrtoolz-sklearn" }
 dependencies = [
     { name = "numpy" },

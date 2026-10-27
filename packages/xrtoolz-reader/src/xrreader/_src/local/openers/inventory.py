@@ -24,8 +24,9 @@ from xrreader.types import CH4_EMISSION_FLUX, apply_cf_attrs
 #: Seconds in a Julian year (365.25 d), the year in the ``a⁻¹`` conversions.
 SECONDS_PER_YEAR: float = 365.25 * 86_400.0
 
-#: Accepted flux units → factor to kg m⁻² s⁻¹ (spelling variants included).
+# 1 Mg km⁻² a⁻¹ = 10³ kg / 10⁶ m² / (365.25 · 86 400 s)
 _PER_YEAR_MG_KM2 = 1.0e3 / 1.0e6 / SECONDS_PER_YEAR
+#: Accepted flux units → factor to kg m⁻² s⁻¹ (spelling variants included).
 UNIT_FACTORS: dict[str, float] = {
     "kg m-2 s-1": 1.0,
     "kg m**-2 s**-1": 1.0,
@@ -51,21 +52,25 @@ def open_ch4_inventory(
 ) -> xr.Dataset:
     """Open a gridded CH₄ emission inventory as a flux in kg m⁻² s⁻¹.
 
-    The flux variable is ``variable`` or, when omitted, the one data
-    variable on both ``lat`` and ``lon`` (``latitude`` / ``longitude`` are
-    renamed first). Its units come from ``units`` or its ``units``
-    attribute and must be an area flux in :data:`UNIT_FACTORS`; the values
-    are multiplied by that factor, so with ``f`` the factor,
-    ``F [kg m⁻² s⁻¹] = f · F_file``. Longitudes in [0, 360) are wrapped to
-    [-180, 180), and both axes are sorted ascending.
+    F [kg m⁻² s⁻¹] = f · F_file,  f = ``UNIT_FACTORS[units]``.
+
+    Algorithm:
+        1. Open the file and rename ``latitude`` / ``longitude`` to ``lat`` /
+           ``lon``.
+        2. Pick the flux variable: ``variable``, or the one data variable on
+           both ``lat`` and ``lon``.
+        3. Look up the factor f of its units (``units`` overrides the file's
+           attribute) and scale.
+        4. Wrap longitudes in [0, 360) to [-180, 180), sort both axes, and
+           stamp the CF attributes over whatever the scaling kept.
 
     Args:
         path: NetCDF file of the inventory (one sector or a total).
         variable: Name of the flux variable; inferred when ``None``.
-        units: Units of the flux, overriding the file's ``units``
-            attribute (for files that omit or misspell it).
-        source: Free-text provenance (e.g. ``"EDGAR v8.0"``), stored in
-            the ``source`` attribute.
+        units: Units of the flux, overriding the file's ``units`` attribute
+            (for files that omit or misspell it).
+        source: Free-text provenance (e.g. ``"EDGAR v8.0"``), stored in the
+            ``source`` attribute.
 
     Returns:
         Dataset with ``ch4_emission_flux`` on ``([time,] lat, lon)`` in
@@ -73,19 +78,48 @@ def open_ch4_inventory(
         attributes recording what was converted.
 
     Raises:
-        KeyError: If ``variable`` is not in the file, or no variable (or
-            more than one) lies on ``lat`` and ``lon`` when inferring it.
+        KeyError: If ``variable`` is not in the file, or no variable (or more
+            than one) lies on ``lat`` and ``lon`` when inferring it.
         ValueError: If the units are missing or not an accepted area flux.
+
+    Examples:
+        A GFEI-style grid in Mg km⁻² a⁻¹ on 0–360° longitudes:
+
+        >>> import tempfile, pathlib
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> path = pathlib.Path(tempfile.mkdtemp()) / "gfei.nc"
+        >>> attrs = {"units": "Mg km-2 a-1"}
+        >>> xr.Dataset(
+        ...     {"emis_ch4": (("lat", "lon"), np.ones((1, 2)), attrs)},
+        ...     coords={"lat": [32.05], "lon": [257.85, 257.95]},
+        ... ).to_netcdf(path)
+        >>> flux = open_ch4_inventory(path)["ch4_emission_flux"]
+        >>> flux["lon"].values.round(2).tolist(), flux.attrs["units"]
+        ([-102.15, -102.05], 'kg m-2 s-1')
+        >>> bool(np.allclose(flux, 1e3 / 1e6 / (365.25 * 86_400.0)))
+        True
+
+        Per-cell totals are refused rather than converted with a guessed
+        period:
+
+        >>> open_ch4_inventory(path, units="Tonnes")
+        ... # doctest: +IGNORE_EXCEPTION_DETAIL
+        Traceback (most recent call last):
+        ...
+        ValueError: 'emis_ch4' is in 'Tonnes', which is not an accepted area flux
     """
-    ds = promote_lonlat(xr.open_dataset(path))
-    name = variable if variable is not None else _infer_flux_variable(ds, path)
-    if name not in ds.data_vars:
+    dataset = promote_lonlat(xr.open_dataset(path))
+    name = _infer_flux_variable(dataset, path) if variable is None else variable
+    if name not in dataset.data_vars:
         raise KeyError(f"{path!s} has no variable {name!r}")
-    flux = ds[name]
-    units_in_file = units if units is not None else flux.attrs.get("units")
+    flux_in_file = dataset[name]
+    units_in_file = units if units is not None else flux_in_file.attrs.get("units")
     factor = _factor(units_in_file, name)
 
-    flux = _wrap_and_sort(flux * factor)
+    # F = f · F_file
+    flux = flux_in_file * factor
+    flux = _wrap_and_sort(flux)
     # Overwrite: under `xr.set_options(keep_attrs=True)` the product above
     # keeps the file's `units`, which would mislabel the converted values.
     flux = apply_cf_attrs(
@@ -94,14 +128,19 @@ def open_ch4_inventory(
     flux.attrs["units_in_file"] = str(units_in_file)
     flux.attrs["conversion_factor"] = factor
     out = flux.to_dataset()
-    out.attrs = dict(ds.attrs)
+    out.attrs = dict(dataset.attrs)
     if source is not None:
         out.attrs["source"] = source
     return out
 
 
-def _infer_flux_variable(ds: xr.Dataset, path: str | Path) -> str:
-    gridded = [str(n) for n, v in ds.data_vars.items() if {"lat", "lon"} <= set(v.dims)]
+def _infer_flux_variable(dataset: xr.Dataset, path: str | Path) -> str:
+    """The one data variable on both ``lat`` and ``lon``."""
+    gridded = [
+        str(name)
+        for name, values in dataset.data_vars.items()
+        if {"lat", "lon"} <= set(values.dims)
+    ]
     if len(gridded) != 1:
         raise KeyError(
             f"{path!s}: expected one variable on (lat, lon) to infer the flux, "
@@ -111,11 +150,13 @@ def _infer_flux_variable(ds: xr.Dataset, path: str | Path) -> str:
 
 
 def _factor(units: object, name: str) -> float:
+    """f such that F [kg m⁻² s⁻¹] = f · F_file, from the (normalised) units."""
     if units is None:
         raise ValueError(
             f"{name!r} has no `units` attribute; pass `units=` (one of "
             f"{sorted(UNIT_FACTORS)})"
         )
+    # collapse runs of whitespace so "kg  m-2 s-1" matches
     key = " ".join(str(units).split())
     if key not in UNIT_FACTORS:
         raise ValueError(
@@ -126,11 +167,14 @@ def _factor(units: object, name: str) -> float:
     return UNIT_FACTORS[key]
 
 
-def _wrap_and_sort(da: xr.DataArray) -> xr.DataArray:
-    lon = da["lon"]
+def _wrap_and_sort(flux: xr.DataArray) -> xr.DataArray:
+    """Longitudes into [-180, 180), both axes ascending."""
+    lon = flux["lon"]
     if float(lon.max()) >= 180.0:
-        da = da.assign_coords(lon=((lon + 180.0) % 360.0) - 180.0)
-    return da.sortby("lat").sortby("lon")
+        # λ ← ((λ + 180) mod 360) − 180
+        wrapped = ((lon + 180.0) % 360.0) - 180.0
+        flux = flux.assign_coords(lon=wrapped)
+    return flux.sortby("lat").sortby("lon")
 
 
 __all__ = ["SECONDS_PER_YEAR", "UNIT_FACTORS", "open_ch4_inventory"]
