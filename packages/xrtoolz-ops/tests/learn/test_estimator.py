@@ -282,3 +282,13 @@ def test_tree_scores_invert_even_when_a_variable_is_named_like_them(tree_mode) -
     ).fit(tree)
     back = est.inverse_transform(est.transform(tree))
     assert back["a"]["transformed"].dims == ("time", "lat", "lon")
+
+
+def test_scalar_coordinates_come_from_the_input_not_the_fit() -> None:
+    ens = xr.concat([_cube(0), _cube(1)], dim="member").assign_coords(member=[0, 1])
+    est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(ens.sel(member=0))
+    assert int(est.transform(ens.sel(member=1))["member"]) == 1
+    pca = XarrayEstimator(PCA(2), sample_dims="time", feature_dim="component")
+    scores = pca.fit(ens.sel(member=0)).transform(ens.sel(member=1))
+    assert int(scores["member"]) == 1
+    assert int(pca.inverse_transform(scores)["member"]) == 1
