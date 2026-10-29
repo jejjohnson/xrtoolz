@@ -322,3 +322,27 @@ def test_predict_proba_is_labelled_by_class() -> None:
         tree, {"/a": y}
     )
     assert list(fitted.predict_proba(tree)["a"]["class"].values) == ["dry", "wet"]
+
+
+def test_another_curvilinear_grid_is_refused() -> None:
+    da = _cube().assign_coords(nav_lat=(("lat", "lon"), np.arange(12.0).reshape(3, 4)))
+    est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(da)
+    est.transform(da)  # the same grid
+    other = da.assign_coords(nav_lat=da["nav_lat"] + 1.0)
+    with pytest.raises(ValueError, match="another 'nav_lat' coordinate"):
+        est.transform(other)
+    tree = xr.DataTree.from_dict(
+        {"a": xr.Dataset({"ssh": da}), "b": xr.Dataset({"ssh": other})}
+    )
+    with pytest.raises(ValueError, match="another 'nav_lat' coordinate"):
+        XarrayEstimator(
+            StandardScaler(), sample_dims="time", tree_mode="pool_samples"
+        ).fit(tree)
+
+
+def test_dataset_attrs_survive_rebuilding() -> None:
+    ds = xr.Dataset({"u": _cube()}, attrs={"Conventions": "CF-1.8"})
+    est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(ds)
+    assert est.transform(ds).attrs == {"Conventions": "CF-1.8"}
+    pca = XarrayEstimator(PCA(2), sample_dims="time", feature_dim="component").fit(ds)
+    assert pca.inverse_transform(pca.transform(ds)).attrs == {"Conventions": "CF-1.8"}

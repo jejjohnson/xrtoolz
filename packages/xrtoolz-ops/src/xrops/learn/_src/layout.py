@@ -53,6 +53,7 @@ class Layout:
 
     variables: tuple[Variable, ...]
     is_array: bool
+    attrs: dict[Hashable, Any] = dataclasses.field(default_factory=dict)
 
     @property
     def n_features(self) -> int:
@@ -72,6 +73,8 @@ class Samples:
     dims: tuple[Hashable, ...]
     sizes: tuple[int, ...]
     coords: dict[Hashable, xr.DataArray]
+    #: the input Dataset's own attrs (``None`` for a DataArray input)
+    attrs: dict[Hashable, Any] | None = None
 
 
 def _items(
@@ -148,6 +151,31 @@ def _align(da: xr.DataArray, dim: Hashable, want: Any, what: str) -> xr.DataArra
     return da.isel({dim: pos})
 
 
+def _check_auxiliary(da: xr.DataArray, ref: Variable, name: Hashable) -> None:
+    """Reject a grid whose auxiliary feature coordinates differ from the fit's.
+
+    Two curvilinear grids can share their ``y`` / ``x`` indexes and sizes but
+    not ``nav_lat(y, x)``; the columns would then mean other places.
+    """
+    for k, want in ref.coords.items():
+        if k in want.dims or k not in da.coords:
+            continue
+        have = da.coords[k]
+        if set(have.dims) != set(want.dims) or not np.array_equal(
+            have.transpose(*want.dims).values, want.values, equal_nan=_has_nan(want)
+        ):
+            raise ValueError(
+                f"XarrayEstimator: variable {name!r} has another {k!r} coordinate "
+                "than the fit-time grid."
+            )
+
+
+def _has_nan(c: xr.DataArray) -> bool:
+    return np.issubdtype(c.dtype, np.floating) or np.issubdtype(
+        c.dtype, np.complexfloating
+    )
+
+
 def _names(dims: Sequence[Hashable]) -> Sequence[str]:
     """xarray dim names for `pipekit_array.to_rows`, which types them ``str``."""
     return cast("Sequence[str]", tuple(dims))
@@ -198,6 +226,7 @@ def pack(
             for d in ref.feature_dims:
                 if d in ref.coords and d in da.indexes:
                     da = _align(da, d, ref.coords[d].to_index(), f"variable {name!r}")
+            _check_auxiliary(da, ref, name)
         rows, _ = to_rows(da.transpose(*order, *features), _names(order))
         blocks.append(rows)
         variables.append(
@@ -214,11 +243,13 @@ def pack(
                 attrs=dict(da.attrs),
             )
         )
-    layout = fitted or Layout(tuple(variables), is_array)
+    attrs = None if is_array else dict(obj.attrs)
+    layout = fitted or Layout(tuple(variables), is_array, attrs or {})
     samples = Samples(
         dims=order,
         sizes=tuple(first.sizes[d] for d in order),
         coords={k: c for k, c in first.coords.items() if set(c.dims) <= set(order)},
+        attrs=attrs,
     )
     return DimArray(_concat(blocks, axis=1), (SAMPLE, FEATURE)), layout, samples
 
@@ -303,7 +334,8 @@ def unpack(
         ]
         if layout.is_array:
             return arrays[0]
-        return xr.Dataset({da.name: da for da in arrays})
+        attrs = layout.attrs if samples.attrs is None else samples.attrs
+        return xr.Dataset({da.name: da for da in arrays}, attrs=attrs)
     new = out.dims[1]
     da = xr.DataArray(
         data.reshape(*samples.sizes, data.shape[1]),
