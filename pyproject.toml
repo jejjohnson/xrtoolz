@@ -19,8 +19,6 @@ xrtoolz = { workspace = true }
 xrtoolz-ops = { workspace = true }
 xrtoolz-core = { workspace = true }
 xrtoolz-grad = { workspace = true }
-xrtoolz-einx = { workspace = true }
-xrtoolz-sklearn = { workspace = true }
 xrtoolz-products = { workspace = true }
 # The Operator / Sequential / Graph composition core lives in the pipekit
 # monorepo. Pull it from GitHub until the first PyPI release lands; the
@@ -64,8 +62,6 @@ dev = [
     "xrtoolz-ops",
     "xrtoolz-core",
     "xrtoolz-grad",
-    "xrtoolz-einx",
-    "xrtoolz-sklearn",
     "xrtoolz-products",
 ]
 lint = [
@@ -80,8 +76,6 @@ docs = [
     "xrtoolz-ops",
     "xrtoolz-core",
     "xrtoolz-grad",
-    "xrtoolz-einx",
-    "xrtoolz-sklearn",
     "xrtoolz-products",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.6",
@@ -121,7 +115,7 @@ combine-as-imports = true
 lines-after-imports = 2
 # The workspace sources live under packages/*/src, so root-level files
 # (docs notebooks) need the first-party classification made explicit.
-known-first-party = ["xrtoolz", "xrops", "xrcore", "xrgrad", "xreinx", "xrsklearn", "xrproducts"]
+known-first-party = ["xrtoolz", "xrops", "xrcore", "xrgrad", "xrproducts"]
 
 [tool.ty.environment]
 python-version = "3.12"

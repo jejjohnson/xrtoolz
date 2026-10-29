@@ -32,12 +32,6 @@ jobs:
       - name: Test xrtoolz-grad
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz-grad
-      - name: Test xrtoolz-einx
-        run: uv run pytest -v -m "not slow and not integration"
-        working-directory: packages/xrtoolz-einx
-      - name: Test xrtoolz-sklearn
-        run: uv run pytest -v -m "not slow and not integration"
-        working-directory: packages/xrtoolz-sklearn
       - name: Test xrtoolz-products
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz-products
@@ -49,9 +43,9 @@ jobs:
         working-directory: packages/xrtoolz
       # Docstring examples in the scoped packages are executable and
       # doctested, so the docs cannot rot silently.
-      - name: Doctests (xrcore, xrgrad, xreinx, xrsklearn)
+      - name: Doctests (xrcore, xrgrad)
         run: |
-          for pkg in xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn; do
+          for pkg in xrtoolz-core xrtoolz-grad; do
             echo "--- $pkg ---"
             (cd "packages/$pkg" && uv run pytest --doctest-modules src --no-cov -q)
           done

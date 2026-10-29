@@ -70,7 +70,7 @@ re-exported from `pipekit` at the top level.
 | `atm` · `rs` | Atmospheric & remote-sensing physics (reserved; planned) |
 | [`metrics`](https://jejjohnson.github.io/xrtoolz/api/metrics/) | Pixel, spectral, multiscale, physical, masked, distributional evaluation |
 | [`budgets`](https://jejjohnson.github.io/xrtoolz/api/budgets/) | Conservation-budget residuals (heat, salt, volume, KE) |
-| [`einx`](https://jejjohnson.github.io/xrtoolz/api/einx/) | Named-tensor algebra (einsum / rearrange / reduce by dim name) |
+| [`learn`](https://jejjohnson.github.io/xrtoolz/api/learn/) | scikit-learn on DataArrays, Datasets and DataTrees, and the `.sklearn` accessor |
 | [`inference`](https://jejjohnson.github.io/xrtoolz/api/inference/) | `ModelOp` wrappers for sklearn / JAX / framework-agnostic models |
 | [`viz`](https://jejjohnson.github.io/xrtoolz/api/viz/) | Cartopy axes, colormap registry, V1–V5 validation panels |
 
@@ -86,8 +86,8 @@ uv add xrtoolz
 
 The repository is a uv workspace; the installable distributions live
 under `packages/*` (the repo root itself ships no code). `xrtoolz`
-depends on its five workspace siblings plus
-[`pipekit`](https://github.com/jejjohnson/pipekit) — all pre-PyPI —
+depends on its four workspace siblings plus
+[`pipekit`](https://github.com/jejjohnson/pipekit) and pipekit-array — all pre-PyPI —
 so a Git install must name each of them explicitly:
 
 ```bash
@@ -95,10 +95,9 @@ uv pip install \
   "xrtoolz @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz" \
   "xrtoolz-core @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-core" \
   "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
-  "xrtoolz-einx @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-einx" \
-  "xrtoolz-sklearn @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-sklearn" \
   "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
-  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit"
+  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \
+  "pipekit-array @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit-array"
 ```
 
 For development, clone and let the workspace resolve everything instead
