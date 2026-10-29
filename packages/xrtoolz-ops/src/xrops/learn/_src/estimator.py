@@ -365,7 +365,9 @@ class XarrayEstimator(Operator):
             estimators = self.estimators_
         else:
             estimators = dict.fromkeys(nodes, self)
-        out = {}
+        # nodes that take no part (metadata only, coordinates only, unfitted)
+        # come through unchanged, with their own attrs
+        out = {n.path: n.to_dataset(inherit=False) for n in tree.subtree}
         for path, est in estimators.items():
             ds = nodes[path]
             layout = est.layout_
@@ -381,7 +383,8 @@ class XarrayEstimator(Operator):
                 arg: Any = ds[names[0]]
             else:
                 arg = ds
-            out[path] = _as_node(est._run(method, arg), method)
+            result = _as_node(est._run(method, arg), method)
+            out[path] = result.assign_attrs({**out[path].attrs, **result.attrs})
         return xr.DataTree.from_dict(out)
 
 

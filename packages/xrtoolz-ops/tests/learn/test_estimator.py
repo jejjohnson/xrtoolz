@@ -292,3 +292,19 @@ def test_scalar_coordinates_come_from_the_input_not_the_fit() -> None:
     scores = pca.fit(ens.sel(member=0)).transform(ens.sel(member=1))
     assert int(scores["member"]) == 1
     assert int(pca.inverse_transform(scores)["member"]) == 1
+
+
+@pytest.mark.parametrize("tree_mode", ["per_node", "pool_samples"])
+def test_tree_outputs_keep_metadata_only_nodes(tree_mode) -> None:
+    tree = xr.DataTree.from_dict(
+        {
+            "/": xr.Dataset(attrs={"title": "run"}),
+            "/a": xr.Dataset({"ssh": _cube()}, attrs={"region": "a"}),
+            "/meta": xr.Dataset(attrs={"note": "kept"}),
+        }
+    )
+    est = XarrayEstimator(StandardScaler(), sample_dims="time", tree_mode=tree_mode)
+    out = est.fit(tree).transform(tree)
+    assert out.attrs == {"title": "run"} and out["meta"].attrs == {"note": "kept"}
+    assert out["a"].attrs == {"region": "a"}
+    assert out["a"]["ssh"].dims == ("time", "lat", "lon")

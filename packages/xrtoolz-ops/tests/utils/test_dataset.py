@@ -64,3 +64,13 @@ def test_pack_rejects_mismatched_dims() -> None:
     )
     with pytest.raises(ValueError, match="share dims"):
         pack_dataset(ds)
+
+
+def test_each_variables_attrs_survive_the_round_trip(ds) -> None:
+    ds = ds.assign(u=ds["u"].assign_attrs(units="K", source="a"))
+    ds = ds.assign(v=ds["v"].assign_attrs(units="Pa", source="a"))
+    packed = pack_dataset(ds)
+    assert packed.attrs == {"source": "a"}
+    restored = unpack_dataset(packed)
+    assert restored["u"].attrs == {"units": "K", "source": "a"}
+    assert restored["v"].attrs == {"units": "Pa", "source": "a"}
