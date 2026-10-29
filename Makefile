@@ -36,7 +36,7 @@ PKG_VERSION := $(shell grep -E '^version\s*=' packages/xrtoolz/pyproject.toml 2>
 # ---------------------------------------------------------------------------
 # Workspace members (packages/<distribution> -> src/<import name>)
 # ---------------------------------------------------------------------------
-PACKAGES := xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn xrtoolz-products xrtoolz-ops xrtoolz
+PACKAGES := xrtoolz-core xrtoolz-grad xrtoolz-products xrtoolz-ops xrtoolz
 
 # ---------------------------------------------------------------------------
 # ANSI colours
@@ -123,8 +123,6 @@ typecheck: ## 🔬 Type-check with ty (all packages)
 	@printf "$(YELLOW)>>> Running type checks...$(RESET)\n"
 	cd packages/xrtoolz-core && uv run --group typecheck ty check src/xrcore
 	cd packages/xrtoolz-grad && uv run --group typecheck ty check src/xrgrad
-	cd packages/xrtoolz-einx && uv run --group typecheck ty check src/xreinx
-	cd packages/xrtoolz-sklearn && uv run --group typecheck ty check src/xrsklearn
 	cd packages/xrtoolz-products && uv run --group typecheck ty check src/xrproducts
 	cd packages/xrtoolz-ops && uv run --group typecheck ty check src/xrops
 	@printf "$(GREEN)>>> ✅ Type check passed!$(RESET)\n"
@@ -158,8 +156,8 @@ test-slow: ## 🐢 Run only the slow/integration tiers (no coverage)
 	@printf "$(GREEN)>>> ✅ Tests passed!$(RESET)\n"
 
 test-doctest: ## 📚 Run docstring examples (doctests) for the scoped packages
-	@printf "$(YELLOW)>>> Running doctests (xrcore, xrgrad, xreinx, xrsklearn)...$(RESET)\n"
-	@for pkg in xrtoolz-core xrtoolz-grad xrtoolz-einx xrtoolz-sklearn; do \
+	@printf "$(YELLOW)>>> Running doctests (xrcore, xrgrad)...$(RESET)\n"
+	@for pkg in xrtoolz-core xrtoolz-grad; do \
 		printf "$(BLUE)--- $$pkg ---$(RESET)\n"; \
 		(cd packages/$$pkg && uv run pytest --doctest-modules src --no-cov -q) || exit 1; \
 	done

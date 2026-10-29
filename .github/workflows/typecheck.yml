@@ -25,12 +25,6 @@ jobs:
       - name: Typecheck xrtoolz-grad
         run: uv run --group typecheck ty check src/xrgrad
         working-directory: packages/xrtoolz-grad
-      - name: Typecheck xrtoolz-einx
-        run: uv run --group typecheck ty check src/xreinx
-        working-directory: packages/xrtoolz-einx
-      - name: Typecheck xrtoolz-sklearn
-        run: uv run --group typecheck ty check src/xrsklearn
-        working-directory: packages/xrtoolz-sklearn
       - name: Typecheck xrtoolz-products
         run: uv run --group typecheck ty check src/xrproducts
         working-directory: packages/xrtoolz-products

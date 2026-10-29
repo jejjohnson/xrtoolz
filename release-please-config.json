@@ -60,28 +60,6 @@
         "src/xrgrad/__init__.py"
       ]
     },
-    "packages/xrtoolz-einx": {
-      "release-type": "python",
-      "package-name": "xrtoolz-einx",
-      "component": "xrtoolz-einx",
-      "changelog-path": "CHANGELOG.md",
-      "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "extra-files": [
-        "src/xreinx/__init__.py"
-      ]
-    },
-    "packages/xrtoolz-sklearn": {
-      "release-type": "python",
-      "package-name": "xrtoolz-sklearn",
-      "component": "xrtoolz-sklearn",
-      "changelog-path": "CHANGELOG.md",
-      "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": true,
-      "extra-files": [
-        "src/xrsklearn/__init__.py"
-      ]
-    },
     "packages/xrtoolz-products": {
       "release-type": "python",
       "package-name": "xrtoolz-products",

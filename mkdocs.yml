@@ -35,8 +35,6 @@ plugins:
             - packages/xrtoolz-ops/src
             - packages/xrtoolz-core/src
             - packages/xrtoolz-grad/src
-            - packages/xrtoolz-einx/src
-            - packages/xrtoolz-sklearn/src
             - packages/xrtoolz-products/src
           options:
             docstring_style: google
@@ -65,8 +63,6 @@ nav:
       - Overview: packages/index.md
       - xrtoolz-core (xrcore): packages/core.md
       - xrtoolz-grad (xrgrad): packages/grad.md
-      - xrtoolz-einx (xreinx): packages/einx.md
-      - xrtoolz-sklearn (xrsklearn): packages/sklearn.md
       - xrtoolz-products (xrproducts): packages/reader.md
   - Design:
       - Overview: design/README.md
@@ -90,11 +86,6 @@ nav:
       - Bridge Modules:
           - Overview: design/bridges/README.md
           - Cross-cutting: design/bridges/overview.md
-          - einx (named-tensor algebra):
-              - Vision: design/bridges/einx/vision.md
-              - Architecture: design/bridges/einx/architecture.md
-              - API: design/bridges/einx/api.md
-              - Decisions: design/bridges/einx/decisions.md
           - linalg (structured linear algebra):
               - Vision: design/bridges/linalg/vision.md
               - Architecture: design/bridges/linalg/architecture.md
@@ -154,8 +145,6 @@ nav:
       - Data Acquisition:
           - Archive Readers (xrproducts): api/reader.md
       - Bridges & Integration:
-          - Named-tensor Algebra (xreinx): api/einx.md
-          - scikit-learn Bridge (xrsklearn): api/sklearn.md
           - scikit-learn on xarray (xrops.learn): api/learn.md
           - Inference: api/inference.md
           - Visualization: api/viz.md
