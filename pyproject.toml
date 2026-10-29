@@ -40,6 +40,10 @@ dev = [
     "pytest>=9.0.3",
     "pytest-cov>=7.1.0",
     "pre-commit>=4.5.1",
+    # The tests exercise xrops.learn, the decomposition presets and knn/KDE
+    # gridding, which need the [sklearn] extra; the published base stays
+    # without it.
+    "scikit-learn>=1.4",
     # xrtoolz test fixtures (HTTP mocks, vector IO, Zarr round-trips).
     "httpx>=0.28.1",
     "geopandas>=1.1.3",
