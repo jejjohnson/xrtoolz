@@ -23,6 +23,7 @@ members = [
     "xrtoolz-einx",
     "xrtoolz-grad",
     "xrtoolz-monorepo",
+    "xrtoolz-ops",
     "xrtoolz-reader",
     "xrtoolz-sklearn",
 ]
@@ -2314,7 +2315,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -4123,134 +4124,42 @@ name = "xrtoolz"
 version = "0.0.6"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
-    { name = "dask", extra = ["array"] },
-    { name = "einx" },
-    { name = "jaxtyping" },
-    { name = "matplotlib" },
-    { name = "netcdf4" },
-    { name = "numpy" },
-    { name = "numpy-groupies" },
-    { name = "pandas" },
-    { name = "pipekit" },
-    { name = "pyproj" },
-    { name = "regionmask" },
-    { name = "rioxarray" },
-    { name = "scikit-learn" },
-    { name = "scipy" },
-    { name = "xarray" },
-    { name = "xrft" },
     { name = "xrtoolz-core" },
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
+    { name = "xrtoolz-ops" },
     { name = "xrtoolz-reader" },
     { name = "xrtoolz-sklearn" },
-    { name = "xskillscore" },
 ]
 
 [package.optional-dependencies]
 image = [
-    { name = "scikit-image" },
+    { name = "xrtoolz-ops", extra = ["image"] },
 ]
 maps = [
-    { name = "cartopy" },
+    { name = "xrtoolz-ops", extra = ["maps"] },
 ]
 vector = [
-    { name = "geopandas" },
-    { name = "rasterio" },
-    { name = "shapely" },
+    { name = "xrtoolz-ops", extra = ["vector"] },
 ]
 wavelets = [
-    { name = "pywavelets" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "geopandas" },
-    { name = "georeader-spaceml" },
-    { name = "httpx" },
-    { name = "loguru" },
-    { name = "pre-commit" },
-    { name = "pyarrow" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "zarr" },
-]
-docs = [
-    { name = "ipykernel" },
-    { name = "jupytext" },
-    { name = "matplotlib" },
-    { name = "mkdocs" },
-    { name = "mkdocs-jupyter" },
-    { name = "mkdocs-material" },
-    { name = "mkdocstrings", extra = ["python"] },
-    { name = "pygments" },
-    { name = "watermark" },
-]
-lint = [
-    { name = "ruff" },
-]
-typecheck = [
-    { name = "ty" },
+    { name = "xrtoolz-ops", extra = ["wavelets"] },
 ]
 
 [package.metadata]
 requires-dist = [
-    { name = "cartopy", marker = "extra == 'maps'", specifier = ">=0.22" },
-    { name = "dask", extras = ["array"], specifier = ">=2024.10" },
-    { name = "einx", specifier = ">=0.4" },
-    { name = "geopandas", marker = "extra == 'vector'", specifier = ">=1.1.3" },
-    { name = "jaxtyping", specifier = ">=0.2.34" },
-    { name = "matplotlib", specifier = ">=3.8" },
-    { name = "netcdf4", specifier = ">=1.6" },
-    { name = "numpy", specifier = ">=1.26" },
-    { name = "numpy-groupies", specifier = ">=0.11" },
-    { name = "pandas", specifier = ">=2.1" },
-    { name = "pipekit", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit" },
-    { name = "pyproj", specifier = ">=3.6" },
-    { name = "pywavelets", marker = "extra == 'wavelets'", specifier = ">=1.4" },
-    { name = "rasterio", marker = "extra == 'vector'", specifier = ">=1.3" },
-    { name = "regionmask", specifier = ">=0.12" },
-    { name = "rioxarray", specifier = ">=0.15" },
-    { name = "scikit-image", marker = "extra == 'image'", specifier = ">=0.21" },
-    { name = "scikit-learn", specifier = ">=1.4" },
-    { name = "scipy", specifier = ">=1.12" },
-    { name = "shapely", marker = "extra == 'vector'", specifier = ">=2.0" },
-    { name = "xarray", specifier = ">=2024.10" },
-    { name = "xrft", specifier = ">=1.0" },
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
+    { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
+    { name = "xrtoolz-ops", extras = ["image"], marker = "extra == 'image'", editable = "packages/xrtoolz-ops" },
+    { name = "xrtoolz-ops", extras = ["maps"], marker = "extra == 'maps'", editable = "packages/xrtoolz-ops" },
+    { name = "xrtoolz-ops", extras = ["vector"], marker = "extra == 'vector'", editable = "packages/xrtoolz-ops" },
+    { name = "xrtoolz-ops", extras = ["wavelets"], marker = "extra == 'wavelets'", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
-    { name = "xskillscore", specifier = ">=0.0.26" },
 ]
 provides-extras = ["wavelets", "image", "maps", "vector"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "geopandas", specifier = ">=1.1.3" },
-    { name = "georeader-spaceml", specifier = ">=2.3" },
-    { name = "httpx", specifier = ">=0.28.1" },
-    { name = "loguru", specifier = ">=0.7.3" },
-    { name = "pre-commit", specifier = ">=4.5.1" },
-    { name = "pyarrow", specifier = ">=24.0.0" },
-    { name = "pytest", specifier = ">=9.0.3" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "zarr", specifier = ">=3.1.6" },
-]
-docs = [
-    { name = "ipykernel", specifier = ">=7.2.0" },
-    { name = "jupytext", specifier = ">=1.19.1" },
-    { name = "matplotlib", specifier = ">=3.8" },
-    { name = "mkdocs", specifier = ">=1.6.1" },
-    { name = "mkdocs-jupyter", specifier = ">=0.26.2" },
-    { name = "mkdocs-material", specifier = ">=9.7.6" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.3" },
-    { name = "pygments", specifier = ">=2.19,<2.21" },
-    { name = "watermark", specifier = ">=2.6.0" },
-]
-lint = [{ name = "ruff", specifier = ">=0.15.10" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-core"
@@ -4388,6 +4297,7 @@ dev = [
     { name = "xrtoolz-core" },
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
+    { name = "xrtoolz-ops" },
     { name = "xrtoolz-reader" },
     { name = "xrtoolz-sklearn" },
     { name = "zarr" },
@@ -4406,6 +4316,7 @@ docs = [
     { name = "xrtoolz-core" },
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
+    { name = "xrtoolz-ops" },
     { name = "xrtoolz-reader" },
     { name = "xrtoolz-sklearn" },
 ]
@@ -4434,6 +4345,7 @@ dev = [
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
+    { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
     { name = "zarr", specifier = ">=3.1.6" },
@@ -4452,11 +4364,146 @@ docs = [
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
+    { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15.10,<0.18" }]
 typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.90" }]
+
+[[package]]
+name = "xrtoolz-ops"
+version = "0.0.0"
+source = { editable = "packages/xrtoolz-ops" }
+dependencies = [
+    { name = "dask", extra = ["array"] },
+    { name = "einx" },
+    { name = "jaxtyping" },
+    { name = "matplotlib" },
+    { name = "netcdf4" },
+    { name = "numpy" },
+    { name = "numpy-groupies" },
+    { name = "pandas" },
+    { name = "pipekit" },
+    { name = "pyproj" },
+    { name = "regionmask" },
+    { name = "rioxarray" },
+    { name = "scikit-learn" },
+    { name = "scipy" },
+    { name = "xarray" },
+    { name = "xrft" },
+    { name = "xrtoolz-core" },
+    { name = "xrtoolz-einx" },
+    { name = "xrtoolz-grad" },
+    { name = "xrtoolz-reader" },
+    { name = "xrtoolz-sklearn" },
+    { name = "xskillscore" },
+]
+
+[package.optional-dependencies]
+image = [
+    { name = "scikit-image" },
+]
+maps = [
+    { name = "cartopy" },
+]
+vector = [
+    { name = "geopandas" },
+    { name = "rasterio" },
+    { name = "shapely" },
+]
+wavelets = [
+    { name = "pywavelets" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "geopandas" },
+    { name = "georeader-spaceml" },
+    { name = "httpx" },
+    { name = "loguru" },
+    { name = "pre-commit" },
+    { name = "pyarrow" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "zarr" },
+]
+docs = [
+    { name = "ipykernel" },
+    { name = "jupytext" },
+    { name = "matplotlib" },
+    { name = "mkdocs" },
+    { name = "mkdocs-jupyter" },
+    { name = "mkdocs-material" },
+    { name = "mkdocstrings", extra = ["python"] },
+    { name = "pygments" },
+    { name = "watermark" },
+]
+lint = [
+    { name = "ruff" },
+]
+typecheck = [
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "cartopy", marker = "extra == 'maps'", specifier = ">=0.22" },
+    { name = "dask", extras = ["array"], specifier = ">=2024.10" },
+    { name = "einx", specifier = ">=0.4" },
+    { name = "geopandas", marker = "extra == 'vector'", specifier = ">=1.1.3" },
+    { name = "jaxtyping", specifier = ">=0.2.34" },
+    { name = "matplotlib", specifier = ">=3.8" },
+    { name = "netcdf4", specifier = ">=1.6" },
+    { name = "numpy", specifier = ">=1.26" },
+    { name = "numpy-groupies", specifier = ">=0.11" },
+    { name = "pandas", specifier = ">=2.1" },
+    { name = "pipekit", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit" },
+    { name = "pyproj", specifier = ">=3.6" },
+    { name = "pywavelets", marker = "extra == 'wavelets'", specifier = ">=1.4" },
+    { name = "rasterio", marker = "extra == 'vector'", specifier = ">=1.3" },
+    { name = "regionmask", specifier = ">=0.12" },
+    { name = "rioxarray", specifier = ">=0.15" },
+    { name = "scikit-image", marker = "extra == 'image'", specifier = ">=0.21" },
+    { name = "scikit-learn", specifier = ">=1.4" },
+    { name = "scipy", specifier = ">=1.12" },
+    { name = "shapely", marker = "extra == 'vector'", specifier = ">=2.0" },
+    { name = "xarray", specifier = ">=2024.10" },
+    { name = "xrft", specifier = ">=1.0" },
+    { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
+    { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
+    { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
+    { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
+    { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
+    { name = "xskillscore", specifier = ">=0.0.26" },
+]
+provides-extras = ["wavelets", "image", "maps", "vector"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "geopandas", specifier = ">=1.1.3" },
+    { name = "georeader-spaceml", specifier = ">=2.3" },
+    { name = "httpx", specifier = ">=0.28.1" },
+    { name = "loguru", specifier = ">=0.7.3" },
+    { name = "pre-commit", specifier = ">=4.5.1" },
+    { name = "pyarrow", specifier = ">=24.0.0" },
+    { name = "pytest", specifier = ">=9.0.3" },
+    { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "zarr", specifier = ">=3.1.6" },
+]
+docs = [
+    { name = "ipykernel", specifier = ">=7.2.0" },
+    { name = "jupytext", specifier = ">=1.19.1" },
+    { name = "matplotlib", specifier = ">=3.8" },
+    { name = "mkdocs", specifier = ">=1.6.1" },
+    { name = "mkdocs-jupyter", specifier = ">=0.26.2" },
+    { name = "mkdocs-material", specifier = ">=9.7.6" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.3" },
+    { name = "pygments", specifier = ">=2.19,<2.21" },
+    { name = "watermark", specifier = ">=2.6.0" },
+]
+lint = [{ name = "ruff", specifier = ">=0.15.10" }]
+typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-reader"

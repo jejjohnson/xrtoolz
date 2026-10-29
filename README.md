@@ -27,11 +27,10 @@ xarray-specific operator families on top.
 ## Quick start
 
 ```python
-import xrtoolz
-from xrtoolz import Sequential
-from xrtoolz.geo import RemoveMean
-from xrtoolz.ocn import Streamfunction, GeostrophicVelocities
-from xrtoolz.viz.validation import SpatialMapPanel
+from pipekit import Sequential
+from xrops.geo import RemoveMean
+from xrops.ocn import Streamfunction, GeostrophicVelocities
+from xrops.viz.validation import SpatialMapPanel
 
 # Geostrophic surface currents from sea-surface height, as one pipeline
 pipeline = Sequential(

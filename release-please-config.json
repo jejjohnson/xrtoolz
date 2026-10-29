@@ -27,6 +27,17 @@
         "src/xrtoolz/__init__.py"
       ]
     },
+    "packages/xrtoolz-ops": {
+      "release-type": "python",
+      "package-name": "xrtoolz-ops",
+      "component": "xrtoolz-ops",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "bump-patch-for-minor-pre-major": true,
+      "extra-files": [
+        "src/xrops/__init__.py"
+      ]
+    },
     "packages/xrtoolz-core": {
       "release-type": "python",
       "package-name": "xrtoolz-core",
