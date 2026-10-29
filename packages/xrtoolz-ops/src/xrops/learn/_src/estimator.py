@@ -331,7 +331,13 @@ class XarrayEstimator(Operator):
             table, samples = self._pack_output(x)
         else:
             table, _, samples = pack(x, self.sample_dims, self.layout_)
-        return unpack(getattr(self.fitted_, method)(table), self.layout_, samples)
+        out = unpack(getattr(self.fitted_, method)(table), self.layout_, samples)
+        classes = getattr(self.estimator_, "classes_", None)
+        dim = self.feature_dim or "class"
+        if method == "predict_proba" and classes is not None and dim in out.dims:
+            # label the probability columns with the classes they belong to
+            out = out.assign_coords({dim: list(classes)})
+        return out
 
     def _pack_output(self, z: Any) -> tuple[DimArray, Samples]:
         """``transform``'s output (sample dims plus one dim) as a table."""
