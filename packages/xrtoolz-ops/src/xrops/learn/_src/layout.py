@@ -125,6 +125,24 @@ def _features(
     return ref.feature_dims
 
 
+def _align(da: xr.DataArray, dim: Hashable, want: Any, what: str) -> xr.DataArray:
+    """``da`` with ``dim`` in the order of the labels ``want``, matched by label.
+
+    Raises:
+        ValueError: ``da``'s labels on ``dim`` are not a permutation of ``want``.
+    """
+    have = da.indexes.get(dim)
+    if have is None or have.equals(want):
+        return da
+    pos = have.get_indexer(want)
+    if have.has_duplicates or len(have) != len(want) or (pos < 0).any():
+        raise ValueError(
+            f"XarrayEstimator: {what} has other {dim!r} labels than the fit-time "
+            "ones; pass the same labels, in any order."
+        )
+    return da.isel({dim: pos})
+
+
 def _names(dims: Sequence[Hashable]) -> Sequence[str]:
     """xarray dim names for `pipekit_array.to_rows`, which types them ``str``."""
     return cast("Sequence[str]", tuple(dims))
@@ -151,7 +169,7 @@ def pack(
         obj: A DataArray, or a Dataset whose every variable has the sample dims.
         sample_dims: The dims whose entries are samples.
         fitted: The fit-time layout; given, ``obj`` must have its variables
-            and feature grids (feature dims in any order).
+            and feature grids (feature dims and coordinate labels in any order).
 
     Returns:
         The table, the layout (``fitted`` when given) and the samples, whose
@@ -170,6 +188,11 @@ def pack(
     for i, (name, da) in enumerate(items):
         ref = None if fitted is None else fitted.variables[i]
         features = _features(name, da, sample_dims, ref)
+        if ref is not None:
+            # match feature columns by label, not position (permuted coordinates)
+            for d in ref.feature_dims:
+                if d in ref.coords and d in da.indexes:
+                    da = _align(da, d, ref.coords[d].to_index(), f"variable {name!r}")
         rows, _ = to_rows(da.transpose(*order, *features), _names(order))
         blocks.append(rows)
         variables.append(
@@ -203,7 +226,8 @@ def pack_target(y: Any, samples: Samples) -> DimArray:
     Raises:
         TypeError: ``y`` is not a DataArray.
         ValueError: ``y`` lacks a sample dim, has more than one other dim,
-            or its sample sizes differ from the input's.
+            or its sample sizes or labels differ from the input's. Labels
+            in another order are matched to the input's.
     """
     if not isinstance(y, xr.DataArray):
         raise TypeError(
@@ -218,6 +242,10 @@ def pack_target(y: Any, samples: Samples) -> DimArray:
         )
     if tuple(y.sizes[d] for d in samples.dims) != samples.sizes:
         raise ValueError("XarrayEstimator: y's sample sizes differ from the input's.")
+    for d in samples.dims:
+        # match targets to samples by label, not position
+        if d in samples.coords and d in y.indexes:
+            y = _align(y, d, samples.coords[d].to_index(), "y")
     rows, _ = to_rows(y.transpose(*samples.dims, *rest), _names(samples.dims))
     return (
         DimArray(rows, (SAMPLE, "__target__"))

@@ -238,3 +238,24 @@ def test_a_stacked_multiindex_sample_dim_survives() -> None:
     scores = xr.concat(patches, dim="point")
     assert scores.indexes["point"].equals(ps.indexes["point"])
     np.testing.assert_allclose(scores.values, est.transform(ps).values)
+
+
+def test_permuted_feature_labels_are_matched_by_label() -> None:
+    da = _cube()
+    est = XarrayEstimator(PCA(2), sample_dims="time", feature_dim="component").fit(da)
+    shuffled = da.isel(lon=[2, 0, 3, 1], lat=[1, 2, 0])
+    np.testing.assert_allclose(est.transform(shuffled).values, est.transform(da).values)
+    with pytest.raises(ValueError, match="other 'lon' labels"):
+        est.transform(da.assign_coords(lon=da["lon"] + 10.0))
+
+
+def test_a_target_in_another_sample_order_is_matched_by_label() -> None:
+    da = _cube()
+    y = da.mean(("lat", "lon"))
+    est = XarrayEstimator(LinearRegression(), sample_dims="time")
+    shuffled = y.isel(time=np.random.default_rng(1).permutation(10))
+    np.testing.assert_allclose(
+        est.fit(da, shuffled).predict(da).values, y.values, atol=1e-8
+    )
+    with pytest.raises(ValueError, match="other 'time' labels"):
+        est.fit(da, y.assign_coords(time=y["time"] + 100))
