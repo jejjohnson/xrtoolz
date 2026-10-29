@@ -272,3 +272,13 @@ def test_one_to_one_outputs_invert_on_their_grids() -> None:
     est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(tree)
     back = est.inverse_transform(est.transform(tree))
     xr.testing.assert_allclose(back["a"].to_dataset(), tree["a"].to_dataset())
+
+
+@pytest.mark.parametrize("tree_mode", ["per_node", "pool_samples"])
+def test_tree_scores_invert_even_when_a_variable_is_named_like_them(tree_mode) -> None:
+    tree = xr.DataTree.from_dict({"a": xr.Dataset({"transformed": _cube()})})
+    est = XarrayEstimator(
+        PCA(2), sample_dims="time", feature_dim="component", tree_mode=tree_mode
+    ).fit(tree)
+    back = est.inverse_transform(est.transform(tree))
+    assert back["a"]["transformed"].dims == ("time", "lat", "lon")

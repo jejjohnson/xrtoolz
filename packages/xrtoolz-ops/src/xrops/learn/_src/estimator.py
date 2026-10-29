@@ -71,12 +71,16 @@ def _node_target(y: Any, path: str) -> xr.DataArray | None:
 
 def _on_fitted_grid(x: Any, sample_dims: tuple[Hashable, ...], layout: Layout) -> bool:
     """Whether ``x`` has the fitted variables and feature dims (a one-to-one output)."""
-    if isinstance(x, xr.Dataset):
-        return True
-    if not isinstance(x, xr.DataArray) or not layout.is_array:
-        return False
-    features = set(x.dims) - set(sample_dims)
-    return features == set(layout.variables[0].feature_dims)
+    if isinstance(x, xr.Dataset) and not layout.is_array:
+        variables = {v.name: v for v in layout.variables}
+        return set(x.data_vars) == set(variables) and all(
+            set(x[name].dims) - set(sample_dims) == set(v.feature_dims)
+            for name, v in variables.items()
+        )
+    if isinstance(x, xr.DataArray) and layout.is_array:
+        features = set(x.dims) - set(sample_dims)
+        return features == set(layout.variables[0].feature_dims)
+    return False
 
 
 def _as_node(result: xr.DataArray | xr.Dataset, method: str) -> xr.Dataset:
@@ -370,8 +374,7 @@ class XarrayEstimator(Operator):
             ds = nodes[path]
             layout = est.layout_
             if method == "inverse_transform" and not (
-                layout is not None
-                and set(ds.data_vars) == {v.name for v in layout.variables}
+                layout is not None and _on_fitted_grid(ds, est.sample_dims, layout)
             ):
                 names = list(ds.data_vars)
                 if len(names) != 1:
