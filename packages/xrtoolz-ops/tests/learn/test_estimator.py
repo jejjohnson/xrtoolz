@@ -308,3 +308,17 @@ def test_tree_outputs_keep_metadata_only_nodes(tree_mode) -> None:
     assert out.attrs == {"title": "run"} and out["meta"].attrs == {"note": "kept"}
     assert out["a"].attrs == {"region": "a"}
     assert out["a"]["ssh"].dims == ("time", "lat", "lon")
+
+
+def test_predict_proba_is_labelled_by_class() -> None:
+    da = _cube()
+    y = xr.where(da.mean(("lat", "lon")) > 0, "wet", "dry")
+    est = XarrayEstimator(LogisticRegression(), sample_dims="time").fit(da, y)
+    proba = est.predict_proba(da)
+    assert list(proba["class"].values) == ["dry", "wet"]
+    np.testing.assert_array_equal(proba.idxmax("class").values, est.predict(da).values)
+    tree = xr.DataTree.from_dict({"a": xr.Dataset({"ssh": da})})
+    fitted = XarrayEstimator(LogisticRegression(), sample_dims="time").fit(
+        tree, {"/a": y}
+    )
+    assert list(fitted.predict_proba(tree)["a"]["class"].values) == ["dry", "wet"]
