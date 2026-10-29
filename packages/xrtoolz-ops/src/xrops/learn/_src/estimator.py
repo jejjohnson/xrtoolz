@@ -69,6 +69,16 @@ def _node_target(y: Any, path: str) -> xr.DataArray | None:
     )
 
 
+def _on_fitted_grid(x: Any, sample_dims: tuple[Hashable, ...], layout: Layout) -> bool:
+    """Whether ``x`` has the fitted variables and feature dims (a one-to-one output)."""
+    if isinstance(x, xr.Dataset):
+        return True
+    if not isinstance(x, xr.DataArray) or not layout.is_array:
+        return False
+    features = set(x.dims) - set(sample_dims)
+    return features == set(layout.variables[0].feature_dims)
+
+
 def _as_node(result: xr.DataArray | xr.Dataset, method: str) -> xr.Dataset:
     if isinstance(result, xr.Dataset):
         return result
@@ -276,9 +286,10 @@ class XarrayEstimator(Operator):
         """Map ``transform``'s output back to the fitted variables and grids.
 
         Args:
-            z: A DataArray with the sample dims and one output dim (or a
-                DataTree of them, one variable per node). A Dataset raises
-                ``TypeError``.
+            z: ``transform``'s output: a DataArray with the sample dims and
+                one output dim (scores); or, for a one-to-one transform (a
+                scaler), the fitted variables on their grids, as a DataArray
+                or Dataset; or a DataTree of either.
 
         Returns:
             The fitted variables on their grids; features dropped by
@@ -310,7 +321,9 @@ class XarrayEstimator(Operator):
             )
         if self.fitted_ is None or self.layout_ is None:
             raise ValueError("XarrayEstimator is not fitted: call fit(x) first.")
-        if method == "inverse_transform":
+        if method == "inverse_transform" and not _on_fitted_grid(
+            x, self.sample_dims, self.layout_
+        ):
             table, samples = self._pack_output(x)
         else:
             table, _, samples = pack(x, self.sample_dims, self.layout_)
@@ -355,7 +368,11 @@ class XarrayEstimator(Operator):
         out = {}
         for path, est in estimators.items():
             ds = nodes[path]
-            if method == "inverse_transform":
+            layout = est.layout_
+            if method == "inverse_transform" and not (
+                layout is not None
+                and set(ds.data_vars) == {v.name for v in layout.variables}
+            ):
                 names = list(ds.data_vars)
                 if len(names) != 1:
                     raise ValueError(

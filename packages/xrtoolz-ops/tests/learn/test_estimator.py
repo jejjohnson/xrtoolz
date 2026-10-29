@@ -259,3 +259,16 @@ def test_a_target_in_another_sample_order_is_matched_by_label() -> None:
     )
     with pytest.raises(ValueError, match="other 'time' labels"):
         est.fit(da, y.assign_coords(time=y["time"] + 100))
+
+
+def test_one_to_one_outputs_invert_on_their_grids() -> None:
+    da = _cube()
+    est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(da)
+    xr.testing.assert_allclose(est.inverse_transform(est.transform(da)), da)
+    ds = xr.Dataset({"u": da, "v": da.isel(lat=0) * 2.0})
+    est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(ds)
+    xr.testing.assert_allclose(est.inverse_transform(est.transform(ds)), ds)
+    tree = xr.DataTree.from_dict({"a": xr.Dataset({"u": da, "v": da * 2.0})})
+    est = XarrayEstimator(StandardScaler(), sample_dims="time").fit(tree)
+    back = est.inverse_transform(est.transform(tree))
+    xr.testing.assert_allclose(back["a"].to_dataset(), tree["a"].to_dataset())
