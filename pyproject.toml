@@ -27,6 +27,7 @@ xrtoolz-products = { workspace = true }
 # published wheel metadata still carries the PyPI-flavoured `pipekit>=…`
 # requirement from each member's [project] table.
 pipekit = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit" }
+pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array" }
 
 [build-system]
 requires = ["hatchling"]
