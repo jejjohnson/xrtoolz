@@ -62,7 +62,12 @@ class Layout:
 
 @dataclasses.dataclass(frozen=True, eq=False)
 class Samples:
-    """The sample dims of one call's input, in table-row order, with their coords."""
+    """The sample dims of one call's input, in table-row order.
+
+    ``coords`` holds that input's coordinates on the sample dims and its
+    scalar coordinates (a selected ``member`` or level), so outputs carry the
+    labels of the data passed in, not the fit-time ones.
+    """
 
     dims: tuple[Hashable, ...]
     sizes: tuple[int, ...]
@@ -202,7 +207,9 @@ def pack(
                 feature_dims=features,
                 feature_sizes=tuple(da.sizes[d] for d in features),
                 coords={
-                    k: c for k, c in da.coords.items() if set(c.dims) <= set(features)
+                    k: c
+                    for k, c in da.coords.items()
+                    if c.dims and set(c.dims) <= set(features)
                 },
                 attrs=dict(da.attrs),
             )
@@ -211,11 +218,7 @@ def pack(
     samples = Samples(
         dims=order,
         sizes=tuple(first.sizes[d] for d in order),
-        coords={
-            k: c
-            for k, c in first.coords.items()
-            if c.dims and set(c.dims) <= set(order)
-        },
+        coords={k: c for k, c in first.coords.items() if set(c.dims) <= set(order)},
     )
     return DimArray(_concat(blocks, axis=1), (SAMPLE, FEATURE)), layout, samples
 

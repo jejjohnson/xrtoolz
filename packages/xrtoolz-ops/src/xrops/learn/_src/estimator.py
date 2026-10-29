@@ -350,11 +350,7 @@ class XarrayEstimator(Operator):
         samples = Samples(
             dims=order,
             sizes=tuple(z.sizes[d] for d in order),
-            coords={
-                k: c
-                for k, c in z.coords.items()
-                if c.dims and set(c.dims) <= set(order)
-            },
+            coords={k: c for k, c in z.coords.items() if set(c.dims) <= set(order)},
         )
         return DimArray(rows, (SAMPLE, str(rest[0]))), samples
 
