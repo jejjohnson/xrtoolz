@@ -4,5 +4,6 @@
   "packages/xrtoolz-grad": "0.0.3",
   "packages/xrtoolz-einx": "0.0.1",
   "packages/xrtoolz-sklearn": "0.0.2",
-  "packages/xrtoolz-reader": "0.0.5"
+  "packages/xrtoolz-reader": "0.0.5",
+  "packages/xrtoolz-ops": "0.0.0"
 }

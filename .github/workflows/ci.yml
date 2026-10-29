@@ -41,8 +41,11 @@ jobs:
       - name: Test xrtoolz-reader
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz-reader
-      - name: Test xrtoolz
+      - name: Test xrtoolz-ops
         run: uv run pytest -v -m "not slow and not integration"
+        working-directory: packages/xrtoolz-ops
+      - name: Test xrtoolz (umbrella)
+        run: uv run pytest -v
         working-directory: packages/xrtoolz
       # Docstring examples in the scoped packages are executable and
       # doctested, so the docs cannot rot silently.
@@ -57,12 +60,12 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: coverage-report
-          path: packages/xrtoolz/coverage.xml
+          path: packages/xrtoolz-ops/coverage.xml
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
         uses: codecov/codecov-action@v7
         with:
-          files: packages/xrtoolz/coverage.xml
+          files: packages/xrtoolz-ops/coverage.xml
           fail_ci_if_error: false
 
   dask:
@@ -79,10 +82,10 @@ jobs:
         # Tier-2/3 gaps are registered as strict xfails, so this job stays
         # green and flips automatically as each remediation lands.
         run: uv run pytest -m dask -v --no-cov
-        working-directory: packages/xrtoolz
+        working-directory: packages/xrtoolz-ops
 
   minimal-install:
-    # `pip install xrtoolz` with no extras: viz / metrics / ocn must import
+    # `pip install xrtoolz-ops` with no extras: viz / metrics / ocn must import
     # without cartopy, which ships in the optional `[maps]` extra.
     runs-on: ubuntu-latest
     steps:
@@ -90,10 +93,10 @@ jobs:
       - uses: astral-sh/setup-uv@v7
         with:
           python-version: "3.12"
-      - name: Install xrtoolz without extras
-        run: uv sync --package xrtoolz --no-dev
+      - name: Install xrtoolz-ops without extras
+        run: uv sync --package xrtoolz-ops --no-dev
       - name: Import smoke test
         run: >-
           uv run --no-sync python -c "import importlib.util as u;
           assert u.find_spec('cartopy') is None, 'cartopy leaked into the base install';
-          import xrtoolz.viz, xrtoolz.viz.validation, xrtoolz.metrics, xrtoolz.ocn"
+          import xrops.viz, xrops.viz.validation, xrops.metrics, xrops.ocn"

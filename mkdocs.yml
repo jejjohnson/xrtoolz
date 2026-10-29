@@ -32,7 +32,7 @@ plugins:
       handlers:
         python:
           paths:
-            - packages/xrtoolz/src
+            - packages/xrtoolz-ops/src
             - packages/xrtoolz-core/src
             - packages/xrtoolz-grad/src
             - packages/xrtoolz-einx/src
@@ -148,7 +148,6 @@ nav:
       - Domain Physics:
           - Oceanography: api/ocn.md
           - Atmosphere: api/atm.md
-          - Remote Sensing: api/rs.md
       - Diagnostics:
           - Metrics: api/metrics.md
           - Budgets: api/budgets.md
