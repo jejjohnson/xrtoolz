@@ -7,7 +7,7 @@ The target grid is read with :mod:`rioxarray` (``like.rio.transform()``,
 only the I/O is xarray.
 
 ``geopandas`` / ``shapely`` are imported lazily — install them with
-``pip install 'xrops[vector]'``.
+``pip install 'xrtoolz-ops[vector]'``.
 """
 
 from __future__ import annotations

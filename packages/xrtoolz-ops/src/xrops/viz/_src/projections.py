@@ -6,7 +6,7 @@ panel call like ``SpatialMapPanel(projection="gulf_stream")`` applies
 the right ``set_extent`` + projection without the user memorising
 lat/lon bounds.
 
-Cartopy ships in the optional ``xrops[maps]`` extra and is imported
+Cartopy ships in the optional ``xrtoolz-ops[maps]`` extra and is imported
 lazily: :data:`PRESETS` and ``make_axes(projection=None)`` work without
 it, and only resolving an actual projection calls
 :func:`_require_cartopy`.
@@ -50,7 +50,7 @@ def _require_cartopy() -> ModuleType:
     except ImportError as e:
         raise ImportError(
             "cartopy is required for projected map panels; "
-            'install it with `pip install "xrops[maps]"`.'
+            'install it with `pip install "xrtoolz-ops[maps]"`.'
         ) from e
     return ccrs
 
@@ -90,7 +90,7 @@ def make_axes(
             class name (``"PlateCarree"``), an instantiated cartopy
             :class:`~cartopy.crs.Projection`, or ``None`` for plain
             matplotlib axes. Anything but ``None`` needs the
-            ``xrops[maps]`` extra (cartopy).
+            ``xrtoolz-ops[maps]`` extra (cartopy).
         fig: Optional pre-existing Figure to draw into. When ``None`` a
             new Figure is created with ``figsize``.
         figsize: Figure size when ``fig`` is ``None``.

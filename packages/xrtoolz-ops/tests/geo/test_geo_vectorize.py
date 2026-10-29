@@ -92,7 +92,7 @@ class TestVectorize:
 
     def test_missing_extra_points_at_vector_extra(self, monkeypatch):
         monkeypatch.setitem(sys.modules, "geopandas", None)
-        with pytest.raises(ImportError, match=r"xrops\[vector\]"):
+        with pytest.raises(ImportError, match=r"xrtoolz-ops\[vector\]"):
             vectorize(as_dataarray(_blobs()))
 
 

@@ -47,7 +47,7 @@ class SpatialMapPanel(_ValidationPanel):
             ``"gulf_stream"``, ``"kuroshio"``, ``"mediterranean"``), a
             cartopy class name, a cartopy CRS instance, or ``None`` for
             plain matplotlib axes (no cartopy). A projection needs the
-            ``xrops[maps]`` extra; without it the panel raises
+            ``xrtoolz-ops[maps]`` extra; without it the panel raises
             :class:`ImportError` when called.
         coastlines: Add :meth:`cartopy.mpl.geoaxes.GeoAxes.coastlines`.
             Ignored when ``projection`` is ``None``. Default ``True``.

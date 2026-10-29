@@ -7,7 +7,7 @@ both from the rasterio stack that ``rioxarray`` is built on. The
 algorithms mirror ``georeader.vectorize``; only the I/O is xarray.
 
 ``geopandas`` / ``shapely`` are imported lazily — install them with
-``pip install 'xrops[vector]'``.
+``pip install 'xrtoolz-ops[vector]'``.
 """
 
 from __future__ import annotations

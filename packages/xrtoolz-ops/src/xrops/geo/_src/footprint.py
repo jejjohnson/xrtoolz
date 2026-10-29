@@ -7,7 +7,7 @@ Mirrors ``georeader.GeoTensor.footprint`` / ``valid_footprint``; these
 are the geometries a catalog / STAC item needs.
 
 ``shapely`` is imported lazily — install it with
-``pip install 'xrops[vector]'``.
+``pip install 'xrtoolz-ops[vector]'``.
 """
 
 from __future__ import annotations

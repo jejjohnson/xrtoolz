@@ -64,12 +64,12 @@ def test_plain_axes_need_no_cartopy(no_cartopy: None) -> None:
 
 
 def test_make_axes_projection_raises_without_cartopy(no_cartopy: None) -> None:
-    with pytest.raises(ImportError, match=r"xrops\[maps\]"):
+    with pytest.raises(ImportError, match=r"xrtoolz-ops\[maps\]"):
         make_axes("gulf_stream")
     plt.close("all")
 
 
 def test_spatial_panel_projection_raises_without_cartopy(no_cartopy: None) -> None:
-    with pytest.raises(ImportError, match=r"xrops\[maps\]"):
+    with pytest.raises(ImportError, match=r"xrtoolz-ops\[maps\]"):
         SpatialMapPanel(projection="PlateCarree")(_snapshot())
     plt.close("all")

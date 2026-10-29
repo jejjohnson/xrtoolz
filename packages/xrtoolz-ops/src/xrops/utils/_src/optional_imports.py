@@ -21,7 +21,7 @@ def _require_optional(
         name = feature or module
         raise ImportError(
             f"{name} requires {package_name}. "
-            f"Install with: pip install 'xrops[{extra}]'"
+            f"Install with: pip install 'xrtoolz-ops[{extra}]'"
         ) from exc
 
 
