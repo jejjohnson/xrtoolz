@@ -19,6 +19,7 @@ from pipekit_array.estimator import NanPolicy
 from xrops.learn._src.layout import (
     SAMPLE,
     Layout,
+    Variable,
     Samples,
     concat_tables,
     pack,
@@ -70,16 +71,23 @@ def _node_target(y: Any, path: str) -> xr.DataArray | None:
 
 
 def _on_fitted_grid(x: Any, sample_dims: tuple[Hashable, ...], layout: Layout) -> bool:
-    """Whether ``x`` has the fitted variables and feature dims (a one-to-one output)."""
+    """Whether ``x`` has the fitted variables and feature grids (a one-to-one output).
+
+    Names and sizes both count: scores along a ``feature_dim`` that reuses a
+    fitted feature dim's name still have another size.
+    """
+
+    def same(da: xr.DataArray, v: Variable) -> bool:
+        features = {d: n for d, n in da.sizes.items() if d not in sample_dims}
+        return features == dict(zip(v.feature_dims, v.feature_sizes, strict=True))
+
     if isinstance(x, xr.Dataset) and not layout.is_array:
         variables = {v.name: v for v in layout.variables}
         return set(x.data_vars) == set(variables) and all(
-            set(x[name].dims) - set(sample_dims) == set(v.feature_dims)
-            for name, v in variables.items()
+            same(x[name], v) for name, v in variables.items()
         )
     if isinstance(x, xr.DataArray) and layout.is_array:
-        features = set(x.dims) - set(sample_dims)
-        return features == set(layout.variables[0].feature_dims)
+        return same(x, layout.variables[0])
     return False
 
 

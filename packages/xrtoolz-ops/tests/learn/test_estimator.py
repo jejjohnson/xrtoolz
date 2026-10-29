@@ -346,3 +346,11 @@ def test_dataset_attrs_survive_rebuilding() -> None:
     assert est.transform(ds).attrs == {"Conventions": "CF-1.8"}
     pca = XarrayEstimator(PCA(2), sample_dims="time", feature_dim="component").fit(ds)
     assert pca.inverse_transform(pca.transform(ds)).attrs == {"Conventions": "CF-1.8"}
+
+
+def test_scores_named_like_the_feature_dim_still_invert() -> None:
+    da = _cube().isel(lat=0)  # (time, lon) with four lon
+    est = XarrayEstimator(PCA(2), sample_dims="time", feature_dim="lon").fit(da)
+    scores = est.transform(da)
+    assert scores.sizes["lon"] == 2
+    assert est.inverse_transform(scores).sizes["lon"] == 4
