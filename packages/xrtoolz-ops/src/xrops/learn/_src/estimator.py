@@ -19,8 +19,8 @@ from pipekit_array.estimator import NanPolicy
 from xrops.learn._src.layout import (
     SAMPLE,
     Layout,
-    Variable,
     Samples,
+    Variable,
     concat_tables,
     pack,
     pack_target,
