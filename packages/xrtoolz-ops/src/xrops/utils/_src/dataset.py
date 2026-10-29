@@ -39,6 +39,10 @@ def pack_dataset(
         ValueError: if no variables are selected or ``new_dim`` already
             exists as a dim on the selected variables.
 
+    Each variable's attrs are kept on the ``new_dim`` coordinate (as
+    ``variable_attrs``), so :func:`unpack_dataset` restores them; the packed
+    array carries only the attrs every variable shares.
+
     Inverse of :func:`unpack_dataset`.
     """
     names = list(variables) if variables is not None else list(ds.data_vars)
@@ -59,7 +63,18 @@ def pack_dataset(
     # join="exact" rejects misaligned coords rather than silently NaN-filling
     # an outer-joined union grid, keeping pack/unpack lossless.
     stacked = xr.concat(arrays, dim=new_dim, join="exact")
-    return stacked.assign_coords({new_dim: np.array(names)})
+    stacked = stacked.assign_coords({new_dim: np.array(names)})
+    # concat keeps the first variable's attrs; keep each one's, for unpacking
+    stacked[new_dim].attrs["variable_attrs"] = {
+        name: dict(arr.attrs) for name, arr in zip(names, arrays, strict=True)
+    }
+    common = {
+        k: v
+        for k, v in arrays[0].attrs.items()
+        if all(k in a.attrs and _same(a.attrs[k], v) for a in arrays)
+    }
+    stacked.attrs = common
+    return stacked
 
 
 def unpack_dataset(
@@ -86,9 +101,22 @@ def unpack_dataset(
             f"unpack_dataset: dim {dim!r} has no coordinate of variable names."
         )
     names = [str(name) for name in da.coords[dim].values]
+    attrs = da.coords[dim].attrs.get("variable_attrs", {})
     return xr.Dataset(
-        {name: da.isel({dim: i}).drop_vars(dim) for i, name in enumerate(names)}
+        {
+            name: da.isel({dim: i})
+            .drop_vars(dim)
+            .assign_attrs(attrs.get(name, da.attrs))
+            for i, name in enumerate(names)
+        }
     )
+
+
+def _same(a: object, b: object) -> bool:
+    try:
+        return bool(np.all(a == b))
+    except (TypeError, ValueError):
+        return False
 
 
 __all__ = ["pack_dataset", "unpack_dataset"]
