@@ -129,6 +129,8 @@ dev = [
     "pyarrow>=24.0.0",
     "zarr>=3.1.6",
     "loguru>=0.7.3",
+    # For the tests of the [sklearn] extra (xrops.learn, presets, knn/KDE).
+    "scikit-learn>=1.4",
 ]
 lint = [
     "ruff>=0.15.10",

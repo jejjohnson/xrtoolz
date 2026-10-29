@@ -4223,6 +4223,7 @@ dev = [
     { name = "pyarrow" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "scikit-learn" },
     { name = "tzdata" },
     { name = "xrtoolz" },
     { name = "xrtoolz-core" },
@@ -4267,6 +4268,7 @@ dev = [
     { name = "pyarrow", specifier = ">=24.0.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "scikit-learn", specifier = ">=1.4" },
     { name = "tzdata", specifier = ">=2024.1" },
     { name = "xrtoolz", editable = "packages/xrtoolz" },
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
@@ -4350,6 +4352,7 @@ dev = [
     { name = "pyarrow" },
     { name = "pytest" },
     { name = "pytest-cov" },
+    { name = "scikit-learn" },
     { name = "zarr" },
 ]
 docs = [
@@ -4412,6 +4415,7 @@ dev = [
     { name = "pyarrow", specifier = ">=24.0.0" },
     { name = "pytest", specifier = ">=9.0.3" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
+    { name = "scikit-learn", specifier = ">=1.4" },
     { name = "zarr", specifier = ">=3.1.6" },
 ]
 docs = [
