@@ -31,9 +31,9 @@ jobs:
       - name: Typecheck xrtoolz-sklearn
         run: uv run --group typecheck ty check src/xrsklearn
         working-directory: packages/xrtoolz-sklearn
-      - name: Typecheck xrtoolz-reader
-        run: uv run --group typecheck ty check src/xrreader
-        working-directory: packages/xrtoolz-reader
+      - name: Typecheck xrtoolz-products
+        run: uv run --group typecheck ty check src/xrproducts
+        working-directory: packages/xrtoolz-products
       - name: Typecheck xrtoolz-ops
         run: uv run --group typecheck ty check src/xrops
         working-directory: packages/xrtoolz-ops

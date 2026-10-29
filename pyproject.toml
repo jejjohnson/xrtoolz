@@ -21,7 +21,7 @@ xrtoolz-core = { workspace = true }
 xrtoolz-grad = { workspace = true }
 xrtoolz-einx = { workspace = true }
 xrtoolz-sklearn = { workspace = true }
-xrtoolz-reader = { workspace = true }
+xrtoolz-products = { workspace = true }
 # The Operator / Sequential / Graph composition core lives in the pipekit
 # monorepo. Pull it from GitHub until the first PyPI release lands; the
 # published wheel metadata still carries the PyPI-flavoured `pipekit>=…`
@@ -50,11 +50,11 @@ dev = [
     "pyarrow>=24.0.0",
     "zarr>=3.1.6",
     "loguru>=0.7.3",
-    # NetCDF backend for xrtoolz-reader's CDS cache round-trip tests. At
+    # NetCDF backend for xrtoolz-products's CDS cache round-trip tests. At
     # runtime the cmems / cds extras pull this transitively via their
     # service client.
     "netcdf4>=1.6",
-    # zoneinfo data so xrtoolz-reader's tz-aware TimeRange tests resolve
+    # zoneinfo data so xrtoolz-products's tz-aware TimeRange tests resolve
     # named zones in minimal containers (Windows / slim Linux images lack
     # the system db).
     "tzdata>=2024.1",
@@ -65,7 +65,7 @@ dev = [
     "xrtoolz-grad",
     "xrtoolz-einx",
     "xrtoolz-sklearn",
-    "xrtoolz-reader",
+    "xrtoolz-products",
 ]
 lint = [
     "ruff>=0.15.10,<0.18",
@@ -81,7 +81,7 @@ docs = [
     "xrtoolz-grad",
     "xrtoolz-einx",
     "xrtoolz-sklearn",
-    "xrtoolz-reader",
+    "xrtoolz-products",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.6",
     "mkdocstrings[python]>=1.0.3",
@@ -120,7 +120,7 @@ combine-as-imports = true
 lines-after-imports = 2
 # The workspace sources live under packages/*/src, so root-level files
 # (docs notebooks) need the first-party classification made explicit.
-known-first-party = ["xrtoolz", "xrops", "xrcore", "xrgrad", "xreinx", "xrsklearn", "xrreader"]
+known-first-party = ["xrtoolz", "xrops", "xrcore", "xrgrad", "xreinx", "xrsklearn", "xrproducts"]
 
 [tool.ty.environment]
 python-version = "3.12"

@@ -82,15 +82,15 @@
         "src/xrsklearn/__init__.py"
       ]
     },
-    "packages/xrtoolz-reader": {
+    "packages/xrtoolz-products": {
       "release-type": "python",
-      "package-name": "xrtoolz-reader",
-      "component": "xrtoolz-reader",
+      "package-name": "xrtoolz-products",
+      "component": "xrtoolz-products",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true,
       "bump-patch-for-minor-pre-major": true,
       "extra-files": [
-        "src/xrreader/__init__.py"
+        "src/xrproducts/__init__.py"
       ]
     }
   }

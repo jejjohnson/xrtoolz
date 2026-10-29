@@ -75,8 +75,8 @@ re-exported from `pipekit` at the top level.
 | [`viz`](https://jejjohnson.github.io/xrtoolz/api/viz/) | Cartopy axes, colormap registry, V1–V5 validation panels |
 
 > **Data acquisition** (CMEMS / CDS / AEMET archive readers) lives in the
-> [`xrtoolz-reader`](packages/xrtoolz-reader) workspace member, which imports
-> as `xrreader`.
+> [`xrtoolz-products`](packages/xrtoolz-products) workspace member, which imports
+> as `xrproducts`.
 
 ## Install
 
@@ -97,7 +97,7 @@ uv pip install \
   "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
   "xrtoolz-einx @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-einx" \
   "xrtoolz-sklearn @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-sklearn" \
-  "xrtoolz-reader @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-reader" \
+  "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
   "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit"
 ```
 

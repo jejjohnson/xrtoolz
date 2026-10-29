@@ -24,7 +24,7 @@ members = [
     "xrtoolz-grad",
     "xrtoolz-monorepo",
     "xrtoolz-ops",
-    "xrtoolz-reader",
+    "xrtoolz-products",
     "xrtoolz-sklearn",
 ]
 
@@ -4121,14 +4121,14 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.0.6"
+version = "0.1.0"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "xrtoolz-core" },
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-ops" },
-    { name = "xrtoolz-reader" },
+    { name = "xrtoolz-products" },
     { name = "xrtoolz-sklearn" },
 ]
 
@@ -4156,14 +4156,14 @@ requires-dist = [
     { name = "xrtoolz-ops", extras = ["maps"], marker = "extra == 'maps'", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-ops", extras = ["vector"], marker = "extra == 'vector'", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-ops", extras = ["wavelets"], marker = "extra == 'wavelets'", editable = "packages/xrtoolz-ops" },
-    { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
+    { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
 ]
 provides-extras = ["wavelets", "image", "maps", "vector"]
 
 [[package]]
 name = "xrtoolz-core"
-version = "0.0.2"
+version = "0.1.0"
 source = { editable = "packages/xrtoolz-core" }
 dependencies = [
     { name = "numpy" },
@@ -4200,7 +4200,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-einx"
-version = "0.0.1"
+version = "0.1.0"
 source = { editable = "packages/xrtoolz-einx" }
 dependencies = [
     { name = "einx" },
@@ -4239,7 +4239,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-grad"
-version = "0.0.3"
+version = "0.1.0"
 source = { editable = "packages/xrtoolz-grad" }
 dependencies = [
     { name = "finitediffx" },
@@ -4298,7 +4298,7 @@ dev = [
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-ops" },
-    { name = "xrtoolz-reader" },
+    { name = "xrtoolz-products" },
     { name = "xrtoolz-sklearn" },
     { name = "zarr" },
 ]
@@ -4317,7 +4317,7 @@ docs = [
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-ops" },
-    { name = "xrtoolz-reader" },
+    { name = "xrtoolz-products" },
     { name = "xrtoolz-sklearn" },
 ]
 lint = [
@@ -4346,7 +4346,7 @@ dev = [
     { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
     { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
-    { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
+    { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
     { name = "zarr", specifier = ">=3.1.6" },
 ]
@@ -4365,7 +4365,7 @@ docs = [
     { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
     { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
-    { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
+    { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15.10,<0.18" }]
@@ -4373,7 +4373,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.90" }]
 
 [[package]]
 name = "xrtoolz-ops"
-version = "0.0.0"
+version = "0.1.0"
 source = { editable = "packages/xrtoolz-ops" }
 dependencies = [
     { name = "dask", extra = ["array"] },
@@ -4395,7 +4395,7 @@ dependencies = [
     { name = "xrtoolz-core" },
     { name = "xrtoolz-einx" },
     { name = "xrtoolz-grad" },
-    { name = "xrtoolz-reader" },
+    { name = "xrtoolz-products" },
     { name = "xrtoolz-sklearn" },
     { name = "xskillscore" },
 ]
@@ -4473,7 +4473,7 @@ requires-dist = [
     { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-einx", editable = "packages/xrtoolz-einx" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
-    { name = "xrtoolz-reader", editable = "packages/xrtoolz-reader" },
+    { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
     { name = "xrtoolz-sklearn", editable = "packages/xrtoolz-sklearn" },
     { name = "xskillscore", specifier = ">=0.0.26" },
 ]
@@ -4506,9 +4506,9 @@ lint = [{ name = "ruff", specifier = ">=0.15.10" }]
 typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
-name = "xrtoolz-reader"
-version = "0.0.5"
-source = { editable = "packages/xrtoolz-reader" }
+name = "xrtoolz-products"
+version = "0.1.0"
+source = { editable = "packages/xrtoolz-products" }
 dependencies = [
     { name = "numpy" },
     { name = "pandas" },
@@ -4589,7 +4589,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-sklearn"
-version = "0.0.2"
+version = "0.1.0"
 source = { editable = "packages/xrtoolz-sklearn" }
 dependencies = [
     { name = "numpy" },
