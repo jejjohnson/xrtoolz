@@ -86,14 +86,14 @@ uv add xrtoolz
 
 The repository is a uv workspace; the installable distributions live
 under `packages/*` (the repo root itself ships no code). `xrtoolz`
-depends on its three workspace siblings plus
+depends on its two workspace siblings plus
 [`pipekit`](https://github.com/jejjohnson/pipekit), pipekit-array and geotoolz-ops — all pre-PyPI —
 so a Git install must name each of them explicitly:
 
 ```bash
 uv pip install \
   "xrtoolz @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz" \
-  "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
+  "xrtoolz-ops @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-ops" \
   "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
   "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \
   "pipekit-array @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit-array" \
@@ -103,7 +103,7 @@ uv pip install \
 
 For development, clone and let the workspace resolve everything instead
 (see below). A scoped package installs on its own — e.g.
-`"xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad"`
+`"xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products"`
 needs nothing else from the stack.
 
 ### From source

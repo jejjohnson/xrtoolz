@@ -36,7 +36,7 @@ PKG_VERSION := $(shell grep -E '^version\s*=' packages/xrtoolz/pyproject.toml 2>
 # ---------------------------------------------------------------------------
 # Workspace members (packages/<distribution> -> src/<import name>)
 # ---------------------------------------------------------------------------
-PACKAGES := xrtoolz-grad xrtoolz-products xrtoolz-ops xrtoolz
+PACKAGES := xrtoolz-products xrtoolz-ops xrtoolz
 
 # ---------------------------------------------------------------------------
 # ANSI colours
@@ -121,7 +121,6 @@ format: ## 🖊️  Format code with ruff (format + auto-fix) — entire repo
 
 typecheck: ## 🔬 Type-check with ty (all packages)
 	@printf "$(YELLOW)>>> Running type checks...$(RESET)\n"
-	cd packages/xrtoolz-grad && uv run --group typecheck ty check src/xrgrad
 	cd packages/xrtoolz-products && uv run --group typecheck ty check src/xrproducts
 	cd packages/xrtoolz-ops && uv run --group typecheck ty check src/xrops
 	@printf "$(GREEN)>>> ✅ Type check passed!$(RESET)\n"
@@ -155,9 +154,8 @@ test-slow: ## 🐢 Run only the slow/integration tiers (no coverage)
 	@printf "$(GREEN)>>> ✅ Tests passed!$(RESET)\n"
 
 test-doctest: ## 📚 Run docstring examples (doctests) for the scoped packages
-	@printf "$(YELLOW)>>> Running doctests (xrgrad, xrops.Operator)...$(RESET)\n"
-	cd packages/xrtoolz-grad && uv run pytest --doctest-modules src --no-cov -q
-	cd packages/xrtoolz-ops && uv run pytest --doctest-modules src/xrops/_src --no-cov -q
+	@printf "$(YELLOW)>>> Running doctests (xrops.Operator, xrops.grad)...$(RESET)\n"
+	cd packages/xrtoolz-ops && uv run pytest --doctest-modules src/xrops/_src src/xrops/grad --no-cov -q
 	@printf "$(GREEN)>>> ✅ Doctests passed!$(RESET)\n"
 
 test-cov: ## 📊 Run fast-tier tests with coverage report

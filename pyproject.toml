@@ -25,7 +25,6 @@ override-dependencies = [
 [tool.uv.sources]
 xrtoolz = { workspace = true }
 xrtoolz-ops = { workspace = true }
-xrtoolz-grad = { workspace = true }
 xrtoolz-products = { workspace = true }
 # The Operator / Sequential / Graph composition core lives in the pipekit
 # monorepo. Pull it from GitHub until the first PyPI release lands; the
@@ -54,6 +53,9 @@ dev = [
     # gridding, which need the [sklearn] extra; the published base stays
     # without it.
     "scikit-learn>=1.4",
+    # tests/inference/test_jax.py exercises the JAX ModelOp adapter; JAX is
+    # not an xrops dependency.
+    "jax>=0.4",
     # xrtoolz test fixtures (HTTP mocks, vector IO, Zarr round-trips).
     "httpx>=0.28.1",
     "geopandas>=1.1.3",
@@ -74,7 +76,6 @@ dev = [
     # Workspace members are dev-installed so tests can import them.
     "xrtoolz",
     "xrtoolz-ops",
-    "xrtoolz-grad",
     "xrtoolz-products",
 ]
 lint = [
@@ -87,7 +88,6 @@ docs = [
     # mkdocstrings imports the packages to render API pages.
     "xrtoolz",
     "xrtoolz-ops",
-    "xrtoolz-grad",
     "xrtoolz-products",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.6",
@@ -127,7 +127,7 @@ combine-as-imports = true
 lines-after-imports = 2
 # The workspace sources live under packages/*/src, so root-level files
 # (docs notebooks) need the first-party classification made explicit.
-known-first-party = ["xrtoolz", "xrops", "xrgrad", "xrproducts"]
+known-first-party = ["xrtoolz", "xrops", "xrproducts"]
 
 [tool.ty.environment]
 python-version = "3.12"

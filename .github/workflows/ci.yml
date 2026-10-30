@@ -26,9 +26,6 @@ jobs:
       # via the "Extended Tests" workflow (tests-extended.yml). Each
       # package runs from its own directory so its pytest + coverage
       # config applies unchanged.
-      - name: Test xrtoolz-grad
-        run: uv run pytest -v -m "not slow and not integration"
-        working-directory: packages/xrtoolz-grad
       - name: Test xrtoolz-products
         run: uv run pytest -v -m "not slow and not integration"
         working-directory: packages/xrtoolz-products
@@ -40,10 +37,9 @@ jobs:
         working-directory: packages/xrtoolz
       # Docstring examples in the scoped packages are executable and
       # doctested, so the docs cannot rot silently.
-      - name: Doctests (xrgrad, xrops.Operator)
+      - name: Doctests (xrops.Operator, xrops.grad)
         run: |
-          (cd packages/xrtoolz-grad && uv run pytest --doctest-modules src --no-cov -q)
-          (cd packages/xrtoolz-ops && uv run pytest --doctest-modules src/xrops/_src --no-cov -q)
+          (cd packages/xrtoolz-ops && uv run pytest --doctest-modules src/xrops/_src src/xrops/grad --no-cov -q)
       - name: Upload coverage report
         if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@v7

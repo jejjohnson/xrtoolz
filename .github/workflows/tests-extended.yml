@@ -38,7 +38,7 @@ jobs:
       # stays green.
       - name: Run extended tests
         run: |
-          for pkg in xrtoolz-grad xrtoolz-products xrtoolz-ops xrtoolz; do
+          for pkg in xrtoolz-products xrtoolz-ops xrtoolz; do
             echo "--- $pkg ---"
             set +e
             (cd "packages/$pkg" && uv run pytest -v --no-cov -m "${{ inputs.marker }}")
