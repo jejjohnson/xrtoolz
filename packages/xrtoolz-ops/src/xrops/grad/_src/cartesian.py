@@ -80,6 +80,7 @@ def _blockwise(
     axis: int,
     depth: int,
     periodic: bool = False,
+    whole_axis: Callable[..., Any] | None = None,
 ) -> Any:
     """``kernel(*arrays)``, per chunk with a ``depth``-cell halo on ``axis`` for dask.
 
@@ -88,12 +89,26 @@ def _blockwise(
     edges (wrapped for a ``periodic`` axis), so a stencil at a chunk seam
     reads the same values as on the whole array, and one-sided stencils
     appear only at the array's own edges. The result stays lazy.
+
+    An axis no longer than ``depth`` cannot carry a halo: it becomes one
+    chunk and ``whole_axis`` (``kernel`` by default) runs on each block as
+    on the whole array, so a short axis keeps its in-memory behaviour (the
+    adaptive descent to a stencil that fits, a periodic wrap).
     """
     if not _is_dask(arrays[0]):
         return kernel(*(np.asarray(a) for a in arrays))
     import dask.array as dsa
 
     first = arrays[0]
+    dtype = np.result_type(first.dtype, np.float32)
+    if first.shape[axis] <= depth:
+        arrays = tuple(a.rechunk({axis: -1}) for a in arrays)
+        return dsa.map_blocks(
+            whole_axis or kernel,
+            *arrays,
+            dtype=dtype,
+            meta=np.empty((0,) * first.ndim, dtype=dtype),
+        )
     if min(first.chunks[axis]) < depth:
         # every chunk must hold its neighbour's halo
         size = max(depth, max(first.chunks[axis]))
@@ -103,7 +118,6 @@ def _blockwise(
     boundary = {
         i: "periodic" if (periodic and i == axis) else "none" for i in range(first.ndim)
     }
-    dtype = np.result_type(first.dtype, np.float32)
     return dsa.map_overlap(
         kernel,
         *arrays,
@@ -417,7 +431,9 @@ def _difference_dispatch(
     """Route to the plain, periodic, or NaN-adaptive stencil (lazily on dask)."""
     if _is_dask(values):
         # per chunk with a halo; the wrap of a periodic axis is the halo's
-        def kernel(block: Float[np.ndarray, "*shape"]) -> Float[np.ndarray, "*shape"]:
+        def kernel(
+            block: Float[np.ndarray, "*shape"], wrap: bool = False
+        ) -> Float[np.ndarray, "*shape"]:
             return _difference_dispatch(
                 block,
                 axis=axis,
@@ -425,7 +441,7 @@ def _difference_dispatch(
                 accuracy=accuracy,
                 method=method,
                 derivative=derivative,
-                periodic=False,
+                periodic=wrap,
                 nan_policy=nan_policy,
             )
 
@@ -435,6 +451,7 @@ def _difference_dispatch(
             axis=axis,
             depth=_reach(derivative=derivative, accuracy=accuracy),
             periodic=periodic,
+            whole_axis=lambda block: kernel(block, wrap=periodic),
         )
     if nan_policy == "adaptive":
         return _difference_adaptive(
@@ -724,10 +741,10 @@ def cartesian_partial(
         # The spherical backend has a hard check of its own (the grid must
         # span a full 360°), so this advisory only covers the cartesian and
         # uniform-rectilinear paths, where the period is implicit.
-        # on dask, the ends and one more sample stand in for the field, so
-        # the advisory check does not compute it
-        sample = da.isel({dim: [0, 1, -1]}) if _is_dask(da.data) else da
-        _warn_duplicate_endpoint(sample.values, axis=axis, dim=dim)
+        if not _is_dask(da.data):
+            # an advisory only: on dask it would compute the field, so it
+            # is skipped there
+            _warn_duplicate_endpoint(da.values, axis=axis, dim=dim)
     raw = _difference_dispatch(
         da.data,
         axis=axis,

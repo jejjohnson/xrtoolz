@@ -100,3 +100,18 @@ def test_vector_operators_stay_lazy(geometry) -> None:
     _same(curl, grad.curl(ds, ("u", "v"), dims=dims, **kw))
     _same(lap, grad.laplacian(ds["u"], dims=dims, **kw))
     _same(g, grad.Gradient(dims=dims[::-1], geometry=geometry)(ds["u"]))
+
+
+def test_periodic_cartesian_stays_lazy() -> None:
+    ds = _field("cartesian", masked=False)
+    with dask.config.set(scheduler=_no_compute):
+        out = grad.partial(_lazy(ds)["u"], "x", periodic=True, accuracy=2)
+    _same(out, grad.partial(ds["u"], "x", periodic=True, accuracy=2))
+
+
+@pytest.mark.parametrize("geometry", ["cartesian", "rectilinear"])
+def test_an_axis_shorter_than_the_halo_keeps_the_adaptive_descent(geometry) -> None:
+    ds = _field(geometry, masked=False).isel(x=slice(0, 2))
+    kw = dict(geometry=geometry, nan_policy="adaptive", accuracy=4)
+    lazy = ds.chunk({"y": 5, "x": 1})
+    _same(grad.partial(lazy["u"], "x", **kw), grad.partial(ds["u"], "x", **kw))
