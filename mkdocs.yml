@@ -130,7 +130,7 @@ nav:
           - Wavelet Analysis: api/geo/wavelet.md
           - Extremes: api/geo/extremes.md
       - Numerics:
-          - Calculus (xrgrad): api/calc.md
+          - Calculus (xrops.grad): api/calc.md
           - Transforms: api/transforms.md
           - Encoders: api/encoders.md
           - Interpolation: api/interpolate.md
