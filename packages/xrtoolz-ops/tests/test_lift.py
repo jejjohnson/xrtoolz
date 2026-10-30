@@ -96,3 +96,24 @@ def test_config_round_trip_and_bad_inputs() -> None:
         xrops.lift(gg.Gradient2D(), dim="member")(_cube(_items()))
     with pytest.raises(TypeError, match="DataArray"):
         xrops.lift(gg.Gradient2D(), dim="time")(_cube(_items()).to_dataset(name="v"))
+
+
+def test_building_a_long_lazy_lift_allocates_one_item_not_the_cube() -> None:
+    import tracemalloc
+
+    dask = pytest.importorskip("dask")
+    import dask.array as dsa
+
+    item = _items(1)[0].to_xarray()
+    n = 20_000  # the output would be 20_000 x 2 x 2 x 8 x 10 float64 = 51 MB
+    data = dsa.zeros((n, *item.shape), chunks=(500, *item.shape))
+    cube = xr.DataArray(
+        data, dims=("time", *item.dims), coords={**item.coords, "time": np.arange(n)}
+    )
+    tracemalloc.start()
+    with dask.config.set(scheduler=_no_compute):
+        out = xrops.lift(gg.Gradient2D(), dim="time")(cube)
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+    assert out.shape == (n, 2, 2, 8, 10) and out.chunks is not None
+    assert peak < 20e6, f"building the lift allocated {peak / 1e6:.0f} MB"

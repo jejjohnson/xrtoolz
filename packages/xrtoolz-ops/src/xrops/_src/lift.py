@@ -103,11 +103,13 @@ class Lift(Operator):
             name=first.name,
         )
         item = _one(self.op, dummy).drop_vars(self.dim, errors="ignore")
-        expanded = item.expand_dims({self.dim: cube.sizes[self.dim]})
-        if self.dim in cube.coords:
-            expanded = expanded.assign_coords({self.dim: cube[self.dim]})
         axis = cube.get_axis_num(self.dim)
         assert cube.chunks is not None
+        # dask before the expansion: a lazy broadcast of the one item, never
+        # an array the size of the whole output
+        expanded = item.chunk().expand_dims({self.dim: cube.sizes[self.dim]})
+        if self.dim in cube.coords:
+            expanded = expanded.assign_coords({self.dim: cube[self.dim]})
         return expanded.chunk({self.dim: cube.chunks[axis]})
 
 
