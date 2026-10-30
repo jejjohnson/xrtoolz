@@ -146,6 +146,7 @@ nav:
           - Inference: api/inference.md
           - Visualization: api/viz.md
           - Utilities: api/utils.md
+          - Families of geoops and xrops: api/families.md
   - Dask: dask.md
   - Contributing: contributing.md
   - Changelog: changelog.md

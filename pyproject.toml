@@ -59,12 +59,14 @@ dev = [
     # xrtoolz test fixtures (HTTP mocks, vector IO, Zarr round-trips).
     "httpx>=0.28.1",
     "geopandas>=1.1.3",
-    # Reference oracle for the xrops.geo vector↔raster bridge tests
+    # Reference oracle for the xrops.geom vector↔raster bridge tests
     # (vectorize / rasterize / footprint are cross-checked against georeader).
     "georeader-spaceml>=2.3",
     "pyarrow>=24.0.0",
     "zarr>=3.1.6",
     "loguru>=0.7.3",
+    # scripts/family_parity.py (the geoops/xrops family-name check, gate D1).
+    "cyclopts>=3",
     # NetCDF backend for xrtoolz-products's CDS cache round-trip tests. At
     # runtime the cmems / cds extras pull this transitively via their
     # service client.

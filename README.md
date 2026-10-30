@@ -28,7 +28,7 @@ xarray-specific operator families on top.
 
 ```python
 from pipekit import Sequential
-from xrops.geo import RemoveMean
+from xrops.anomaly import RemoveMean
 from xrops.ocn import Streamfunction, GeostrophicVelocities
 from xrops.viz.validation import SpatialMapPanel
 
@@ -62,7 +62,7 @@ re-exported from `pipekit` at the top level.
 
 | Module | Scope |
 |--------|-------|
-| [`geo`](https://jejjohnson.github.io/xrtoolz/api/geo/coords/) | Generic geoprocessing — validation, subsetting, regions, masks, CRS, climatology, wavelets, extremes |
+| [`geom`, `mask`, `anomaly`, `extremes`, `wavelets`, `cf`](https://jejjohnson.github.io/xrtoolz/api/geo/coords/) | Generic geoprocessing — validation, subsetting, regions, masks, CRS, climatology, wavelets, extremes |
 | [`calc`](https://jejjohnson.github.io/xrtoolz/api/calc/) | Finite-difference `gradient` / `divergence` / `curl` / `laplacian` |
 | [`transforms`](https://jejjohnson.github.io/xrtoolz/api/transforms/) | Fourier / wavelet / DCT spectra, spectral fluxes, decompositions, morphology |
 | [`interpolate`](https://jejjohnson.github.io/xrtoolz/api/interpolate/) | Regrid, coarsen, gap-fill, bin, smooth, point-sample |
