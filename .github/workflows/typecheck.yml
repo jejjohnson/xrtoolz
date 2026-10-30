@@ -19,9 +19,6 @@ jobs:
           python-version: "3.12"
       - name: Install typecheck dependencies
         run: uv sync --group typecheck
-      - name: Typecheck xrtoolz-grad
-        run: uv run --group typecheck ty check src/xrgrad
-        working-directory: packages/xrtoolz-grad
       - name: Typecheck xrtoolz-products
         run: uv run --group typecheck ty check src/xrproducts
         working-directory: packages/xrtoolz-products

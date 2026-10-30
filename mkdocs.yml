@@ -33,7 +33,6 @@ plugins:
         python:
           paths:
             - packages/xrtoolz-ops/src
-            - packages/xrtoolz-grad/src
             - packages/xrtoolz-products/src
           options:
             docstring_style: google
@@ -60,7 +59,7 @@ nav:
   - Home: index.md
   - Packages:
       - Overview: packages/index.md
-      - xrtoolz-grad (xrgrad): packages/grad.md
+      - Calculus (xrops.grad): packages/grad.md
       - xrtoolz-products (xrproducts): packages/reader.md
   - Design:
       - Overview: design/README.md
