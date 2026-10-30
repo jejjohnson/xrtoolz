@@ -37,6 +37,8 @@ jobs:
         working-directory: packages/xrtoolz
       # Docstring examples in the scoped packages are executable and
       # doctested, so the docs cannot rot silently.
+      - name: Family name parity with geoops (gate D1)
+        run: uv run python scripts/family_parity.py --check
       - name: Doctests (xrops.Operator, xrops.grad)
         run: |
           (cd packages/xrtoolz-ops && uv run pytest --doctest-modules src/xrops/_src src/xrops/grad --no-cov -q)
