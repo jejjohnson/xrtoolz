@@ -147,6 +147,7 @@ nav:
           - Visualization: api/viz.md
           - Utilities: api/utils.md
           - Families of geoops and xrops: api/families.md
+          - Lifting geoops operators (xrops.lift): api/lift.md
   - Dask: dask.md
   - Contributing: contributing.md
   - Changelog: changelog.md
