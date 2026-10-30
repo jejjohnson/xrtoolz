@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
@@ -2343,7 +2343,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -4157,7 +4157,7 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "xrtoolz-ops" },
@@ -4278,7 +4278,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.93" }]
 
 [[package]]
 name = "xrtoolz-ops"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/xrtoolz-ops" }
 dependencies = [
     { name = "dask", extra = ["array"] },
@@ -4412,7 +4412,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-products"
-version = "0.3.0"
+version = "0.4.0"
 source = { editable = "packages/xrtoolz-products" }
 dependencies = [
     { name = "numpy" },
