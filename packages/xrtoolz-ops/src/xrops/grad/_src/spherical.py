@@ -50,7 +50,7 @@ def _broadcast_along(
 def _radii(
     lat_rad: Float[np.ndarray, " n"], ellipsoid: str
 ) -> tuple[Float[np.ndarray, " n"], Float[np.ndarray, " n"]]:
-    """The meridional and prime-vertical radii of ``ellipsoid`` at ``lat_rad``.
+    r"""The meridional and prime-vertical radii of ``ellipsoid`` at ``lat_rad``.
 
     .. math::
 
@@ -127,8 +127,8 @@ def spherical_partial(
         radius: Earth radius in metres (the sphere, the default metric).
         ellipsoid: A pyproj ellipsoid name (``"WGS84"``); given, the metric
             is that ellipsoid's, as geoops's on a geographic CRS: the
-            meridional radius :math:`M(\varphi)` for ``∂/∂y`` and the
-            prime-vertical radius :math:`N(\varphi)\cos\varphi` for
+            meridional radius :math:`M(\\varphi)` for ``∂/∂y`` and the
+            prime-vertical radius :math:`N(\\varphi)\\cos\\varphi` for
             ``∂/∂x``, and ``radius`` is not used.
         uniform_rtol: Tolerance for the uniform-spacing check on each
             coordinate (in degrees).
