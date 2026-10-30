@@ -55,3 +55,15 @@ def test_config_round_trip_and_bad_arguments() -> None:
         xrops.Gradient(dims="lat")
     with pytest.raises(ValueError, match="geometry='spherical'"):
         xrops.Difference("x", ellipsoid="WGS84")
+
+
+def test_one_periodic_dim_may_be_a_string() -> None:
+    ssh = _ssh().assign_coords(lon=np.arange(0.0, 360.0, 18.0))
+    one = xrops.Gradient(dims=("lat", "lon"), geometry="spherical", periodic="lon")
+    many = xrops.Gradient(dims=("lat", "lon"), geometry="spherical", periodic=["lon"])
+    assert one.periodic == ("lon",)
+    xr.testing.assert_identical(one(ssh), many(ssh))
+    wrapped = grad.partial(ssh, "lon", geometry="spherical", periodic=True).rename(
+        "ssh"
+    )
+    xr.testing.assert_allclose(one(ssh).sel(component="d/dlon", drop=True), wrapped)

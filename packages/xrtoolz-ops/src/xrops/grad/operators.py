@@ -124,7 +124,7 @@ class Gradient(Operator):
         geometry: As for `Difference`.
         accuracy: The accuracy order of the one-sided stencils.
         method: ``"central"``, ``"forward"`` or ``"backward"``.
-        periodic: The dims that wrap (a global longitude).
+        periodic: The dim, or dims, that wrap (a global longitude).
         nan_policy: ``"propagate"`` or ``"adaptive"``.
         lon: Longitude coordinate name (spherical).
         lat: Latitude coordinate name (spherical).
@@ -151,7 +151,7 @@ class Gradient(Operator):
         geometry: Geometry = "cartesian",
         accuracy: int = 1,
         method: str = "central",
-        periodic: Sequence[str] = (),
+        periodic: str | Sequence[str] = (),
         nan_policy: NanPolicy = "propagate",
         lon: str = "lon",
         lat: str = "lat",
@@ -164,7 +164,7 @@ class Gradient(Operator):
         self.geometry = geometry
         self.accuracy = accuracy
         self.method = method
-        self.periodic = tuple(periodic)
+        self.periodic = (periodic,) if isinstance(periodic, str) else tuple(periodic)
         self.nan_policy = nan_policy
         self.lon = lon
         self.lat = lat
