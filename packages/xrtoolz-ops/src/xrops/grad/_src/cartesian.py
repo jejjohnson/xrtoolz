@@ -737,14 +737,12 @@ def cartesian_partial(
     _require_coord(da, dim)
     axis = da.get_axis_num(dim)
     step = _uniform_step(da[dim], rtol=uniform_rtol)
-    if periodic:
+    if periodic and not _is_dask(da.data):
         # The spherical backend has a hard check of its own (the grid must
         # span a full 360°), so this advisory only covers the cartesian and
-        # uniform-rectilinear paths, where the period is implicit.
-        if not _is_dask(da.data):
-            # an advisory only: on dask it would compute the field, so it
-            # is skipped there
-            _warn_duplicate_endpoint(da.values, axis=axis, dim=dim)
+        # uniform-rectilinear paths, where the period is implicit. It is
+        # skipped on dask, where reading the field would compute it.
+        _warn_duplicate_endpoint(da.values, axis=axis, dim=dim)
     raw = _difference_dispatch(
         da.data,
         axis=axis,
