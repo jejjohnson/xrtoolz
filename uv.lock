@@ -19,7 +19,6 @@ resolution-markers = [
 [manifest]
 members = [
     "xrtoolz",
-    "xrtoolz-core",
     "xrtoolz-grad",
     "xrtoolz-monorepo",
     "xrtoolz-ops",
@@ -4091,10 +4090,9 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
-    { name = "xrtoolz-core" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-ops" },
     { name = "xrtoolz-products" },
@@ -4119,7 +4117,6 @@ wavelets = [
 
 [package.metadata]
 requires-dist = [
-    { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
     { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-ops", extras = ["image"], marker = "extra == 'image'", editable = "packages/xrtoolz-ops" },
@@ -4132,45 +4129,8 @@ requires-dist = [
 provides-extras = ["wavelets", "image", "maps", "sklearn", "vector"]
 
 [[package]]
-name = "xrtoolz-core"
-version = "0.2.0"
-source = { editable = "packages/xrtoolz-core" }
-dependencies = [
-    { name = "numpy" },
-    { name = "pipekit" },
-    { name = "xarray" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "pytest-cov" },
-]
-lint = [
-    { name = "ruff" },
-]
-typecheck = [
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "numpy", specifier = ">=1.26" },
-    { name = "pipekit", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit" },
-    { name = "xarray", specifier = ">=2024.10" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=9.0.3" },
-    { name = "pytest-cov", specifier = ">=7.1.0" },
-]
-lint = [{ name = "ruff", specifier = ">=0.15.10,<0.16" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
-
-[[package]]
 name = "xrtoolz-grad"
-version = "0.1.0"
+version = "0.2.0"
 source = { editable = "packages/xrtoolz-grad" }
 dependencies = [
     { name = "finitediffx" },
@@ -4226,7 +4186,6 @@ dev = [
     { name = "scikit-learn" },
     { name = "tzdata" },
     { name = "xrtoolz" },
-    { name = "xrtoolz-core" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-ops" },
     { name = "xrtoolz-products" },
@@ -4243,7 +4202,6 @@ docs = [
     { name = "pygments" },
     { name = "watermark" },
     { name = "xrtoolz" },
-    { name = "xrtoolz-core" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-ops" },
     { name = "xrtoolz-products" },
@@ -4271,7 +4229,6 @@ dev = [
     { name = "scikit-learn", specifier = ">=1.4" },
     { name = "tzdata", specifier = ">=2024.1" },
     { name = "xrtoolz", editable = "packages/xrtoolz" },
-    { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
     { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
@@ -4288,17 +4245,16 @@ docs = [
     { name = "pygments", specifier = ">=2.19,<2.22" },
     { name = "watermark", specifier = ">=2.6.0" },
     { name = "xrtoolz", editable = "packages/xrtoolz" },
-    { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
     { name = "xrtoolz-ops", editable = "packages/xrtoolz-ops" },
     { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15.10,<0.18" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.90" }]
+typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.93" }]
 
 [[package]]
 name = "xrtoolz-ops"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/xrtoolz-ops" }
 dependencies = [
     { name = "dask", extra = ["array"] },
@@ -4316,7 +4272,6 @@ dependencies = [
     { name = "scipy" },
     { name = "xarray" },
     { name = "xrft" },
-    { name = "xrtoolz-core" },
     { name = "xrtoolz-grad" },
     { name = "xrtoolz-products" },
     { name = "xskillscore" },
@@ -4398,7 +4353,6 @@ requires-dist = [
     { name = "shapely", marker = "extra == 'vector'", specifier = ">=2.0" },
     { name = "xarray", specifier = ">=2024.10" },
     { name = "xrft", specifier = ">=1.0" },
-    { name = "xrtoolz-core", editable = "packages/xrtoolz-core" },
     { name = "xrtoolz-grad", editable = "packages/xrtoolz-grad" },
     { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
     { name = "xskillscore", specifier = ">=0.0.26" },
@@ -4434,7 +4388,7 @@ typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.32" }]
 
 [[package]]
 name = "xrtoolz-products"
-version = "0.2.0"
+version = "0.3.0"
 source = { editable = "packages/xrtoolz-products" }
 dependencies = [
     { name = "numpy" },
