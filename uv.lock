@@ -4334,6 +4334,7 @@ version = "0.4.0"
 source = { editable = "packages/xrtoolz-ops" }
 dependencies = [
     { name = "dask", extra = ["array"] },
+    { name = "geotoolz-array" },
     { name = "geotoolz-ops" },
     { name = "jaxtyping" },
     { name = "matplotlib" },
@@ -4409,6 +4410,7 @@ requires-dist = [
     { name = "cartopy", marker = "extra == 'maps'", specifier = ">=0.22" },
     { name = "dask", extras = ["array"], specifier = ">=2024.10" },
     { name = "geopandas", marker = "extra == 'vector'", specifier = ">=1.1.3" },
+    { name = "geotoolz-array", git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-array" },
     { name = "geotoolz-ops", git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-ops" },
     { name = "jaxtyping", specifier = ">=0.2.34" },
     { name = "matplotlib", specifier = ">=3.8" },
