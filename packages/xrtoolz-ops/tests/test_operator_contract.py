@@ -107,3 +107,21 @@ def test_a_geometry_operator_on_a_dataarray_names_lift_and_lift_runs_it() -> Non
         "y",
         "x",
     )
+
+
+def test_a_jax_backed_datatree_is_refused_too() -> None:
+    jnp = pytest.importorskip("jax.numpy")
+    field = _field()
+    ds = field.copy(data=jnp.asarray(field.values)).to_dataset()
+    tree = xr.DataTree.from_dict({"a": ds, "b": ds})
+    rmse = RMSE(variable="ssh", dims=("time",))
+    with pytest.raises(BackendError, match="not jax"):
+        rmse(tree, tree)  # the leaf-wise map
+    from xrops.learn import XarrayEstimator
+
+    sklearn = pytest.importorskip("sklearn")
+    est = XarrayEstimator(sklearn.preprocessing.StandardScaler(), sample_dims="time")
+    with pytest.raises(BackendError, match="not jax"):
+        est(tree)  # a whole-tree override
+    numpy_tree = xr.DataTree.from_dict({"a": field.to_dataset()})
+    assert isinstance(rmse(numpy_tree, numpy_tree), xr.DataTree)

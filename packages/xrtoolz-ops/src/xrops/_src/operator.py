@@ -44,6 +44,13 @@ from pipekit import Node, Operator as _PipekitOperator, backend_of
 from pipekit.adapters import BackendError
 
 
+def _leaves(value: Any) -> Any:
+    """A DataTree's data-bearing nodes as Datasets; anything else unchanged."""
+    if isinstance(value, xr.DataTree):
+        return [node.to_dataset() for node in value.subtree if node.data_vars]
+    return value
+
+
 class Operator(_PipekitOperator):
     """``pipekit.Operator`` plus xarray ``DataTree`` dispatch.
 
@@ -160,6 +167,8 @@ class Operator(_PipekitOperator):
         if any(isinstance(a, Node) for a in args):
             return super().__call__(*args, **kwargs)
         if any(isinstance(a, xr.DataTree) for a in args):
+            # the declared backends hold for a tree too: check every leaf
+            self._check_backends(tuple(_leaves(a) for a in args), kwargs)
             return self._apply_tree(*args, **kwargs)
         return super().__call__(*args, **kwargs)
 
