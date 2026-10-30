@@ -61,6 +61,8 @@ def _adaptive_chain(
         coord,
         axis=axis,
         depth=cartesian._reach(derivative=1, accuracy=accuracy),
+        # the quotient by the (float64) coordinate's derivative promotes
+        dtype=np.result_type(data.dtype, coord_values.dtype, np.float32),
     )
 
 

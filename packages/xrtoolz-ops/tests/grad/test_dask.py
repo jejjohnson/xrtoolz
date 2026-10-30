@@ -115,3 +115,13 @@ def test_an_axis_shorter_than_the_halo_keeps_the_adaptive_descent(geometry) -> N
     kw = dict(geometry=geometry, nan_policy="adaptive", accuracy=4)
     lazy = ds.chunk({"y": 5, "x": 1})
     _same(grad.partial(lazy["u"], "x", **kw), grad.partial(ds["u"], "x", **kw))
+
+
+@pytest.mark.parametrize("nan_policy", ["propagate", "adaptive"])
+def test_the_lazy_dtype_is_the_computed_one(nan_policy) -> None:
+    ds = _field("rectilinear", masked=True).astype("float32")
+    lazy = grad.partial(
+        _lazy(ds)["u"], "x", geometry="rectilinear", nan_policy=nan_policy
+    )
+    eager = grad.partial(ds["u"], "x", geometry="rectilinear", nan_policy=nan_policy)
+    assert lazy.dtype == lazy.compute().dtype == eager.dtype

@@ -81,6 +81,7 @@ def _blockwise(
     depth: int,
     periodic: bool = False,
     whole_axis: Callable[..., Any] | None = None,
+    dtype: Any = None,
 ) -> Any:
     """``kernel(*arrays)``, per chunk with a ``depth``-cell halo on ``axis`` for dask.
 
@@ -94,13 +95,18 @@ def _blockwise(
     chunk and ``whole_axis`` (``kernel`` by default) runs on each block as
     on the whole array, so a short axis keeps its in-memory behaviour (the
     adaptive descent to a stencil that fits, a periodic wrap).
+
+    ``dtype`` is the kernel's output dtype, for a kernel that promotes past
+    its first input's (``result_type(first, float32)`` by default).
     """
     if not _is_dask(arrays[0]):
         return kernel(*(np.asarray(a) for a in arrays))
     import dask.array as dsa
 
     first = arrays[0]
-    dtype = np.result_type(first.dtype, np.float32)
+    dtype = (
+        np.result_type(first.dtype, np.float32) if dtype is None else np.dtype(dtype)
+    )
     if first.shape[axis] <= depth:
         arrays = tuple(a.rechunk({axis: -1}) for a in arrays)
         return dsa.map_blocks(
