@@ -76,8 +76,8 @@ jobs:
   minimal-install:
     # `pip install xrtoolz-ops` with no extras: viz / metrics / ocn must import
     # without cartopy, which ships in the optional `[maps]` extra, and the
-    # base must not pull einx or scikit-learn (geostack gate B1). JAX still
-    # arrives through xrtoolz-grad until xrops.Gradient replaces it (#364).
+    # base must not pull JAX or scikit-learn (geostack gate B1; einx is
+    # allowed, as geoops's kernels under xrops.grad need it).
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -90,7 +90,7 @@ jobs:
         run: >-
           uv run --no-sync python -c "import importlib.util as u;
           assert u.find_spec('cartopy') is None, 'cartopy leaked into the base install';
-          leaked = [m for m in ('einx', 'sklearn') if u.find_spec(m) is not None];
+          leaked = [m for m in ('jax', 'sklearn', 'finitediffx') if u.find_spec(m) is not None];
           assert not leaked, f'{leaked} leaked into the base install';
           import xrops.viz, xrops.viz.validation, xrops.metrics, xrops.ocn,
-          xrops.interpolate, xrops.transforms, xrops.learn, xrops.utils"
+          xrops.interpolate, xrops.transforms, xrops.learn, xrops.utils, xrops.grad"

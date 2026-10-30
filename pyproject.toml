@@ -14,6 +14,14 @@ dependencies = []
 [tool.uv.workspace]
 members = ["packages/*"]
 
+[tool.uv]
+# geotoolz pins pipekit to its own git rev; built from git, geotoolz-ops
+# carries that pin. One URL per package for the whole resolution: ours.
+override-dependencies = [
+    "pipekit @ git+https://github.com/jejjohnson/pipekit#subdirectory=packages/pipekit",
+    "pipekit-array @ git+https://github.com/jejjohnson/pipekit#subdirectory=packages/pipekit-array",
+]
+
 [tool.uv.sources]
 xrtoolz = { workspace = true }
 xrtoolz-ops = { workspace = true }
@@ -25,6 +33,9 @@ xrtoolz-products = { workspace = true }
 # requirement from each member's [project] table.
 pipekit = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit" }
 pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array" }
+# geoops's diagnostic difference kernels back xrops.grad (geostack OP-O7).
+geotoolz-ops = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-ops" }
+geotoolz-array = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-array" }
 
 [build-system]
 requires = ["hatchling"]

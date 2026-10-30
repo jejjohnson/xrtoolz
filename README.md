@@ -87,7 +87,7 @@ uv add xrtoolz
 The repository is a uv workspace; the installable distributions live
 under `packages/*` (the repo root itself ships no code). `xrtoolz`
 depends on its three workspace siblings plus
-[`pipekit`](https://github.com/jejjohnson/pipekit) and pipekit-array — all pre-PyPI —
+[`pipekit`](https://github.com/jejjohnson/pipekit), pipekit-array and geotoolz-ops — all pre-PyPI —
 so a Git install must name each of them explicitly:
 
 ```bash
@@ -96,7 +96,9 @@ uv pip install \
   "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
   "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
   "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \
-  "pipekit-array @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit-array"
+  "pipekit-array @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit-array" \
+  "geotoolz-ops @ git+https://github.com/jejjohnson/geotoolz@main#subdirectory=packages/geotoolz-ops" \
+  "geotoolz-array @ git+https://github.com/jejjohnson/geotoolz@main#subdirectory=packages/geotoolz-array"
 ```
 
 For development, clone and let the workspace resolve everything instead
