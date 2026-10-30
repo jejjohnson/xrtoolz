@@ -86,14 +86,13 @@ uv add xrtoolz
 
 The repository is a uv workspace; the installable distributions live
 under `packages/*` (the repo root itself ships no code). `xrtoolz`
-depends on its four workspace siblings plus
+depends on its three workspace siblings plus
 [`pipekit`](https://github.com/jejjohnson/pipekit) and pipekit-array — all pre-PyPI —
 so a Git install must name each of them explicitly:
 
 ```bash
 uv pip install \
   "xrtoolz @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz" \
-  "xrtoolz-core @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-core" \
   "xrtoolz-grad @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-grad" \
   "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
   "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \

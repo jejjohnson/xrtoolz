@@ -17,7 +17,6 @@ members = ["packages/*"]
 [tool.uv.sources]
 xrtoolz = { workspace = true }
 xrtoolz-ops = { workspace = true }
-xrtoolz-core = { workspace = true }
 xrtoolz-grad = { workspace = true }
 xrtoolz-products = { workspace = true }
 # The Operator / Sequential / Graph composition core lives in the pipekit
@@ -64,7 +63,6 @@ dev = [
     # Workspace members are dev-installed so tests can import them.
     "xrtoolz",
     "xrtoolz-ops",
-    "xrtoolz-core",
     "xrtoolz-grad",
     "xrtoolz-products",
 ]
@@ -78,7 +76,6 @@ docs = [
     # mkdocstrings imports the packages to render API pages.
     "xrtoolz",
     "xrtoolz-ops",
-    "xrtoolz-core",
     "xrtoolz-grad",
     "xrtoolz-products",
     "mkdocs>=1.6.1",
@@ -119,7 +116,7 @@ combine-as-imports = true
 lines-after-imports = 2
 # The workspace sources live under packages/*/src, so root-level files
 # (docs notebooks) need the first-party classification made explicit.
-known-first-party = ["xrtoolz", "xrops", "xrcore", "xrgrad", "xrproducts"]
+known-first-party = ["xrtoolz", "xrops", "xrgrad", "xrproducts"]
 
 [tool.ty.environment]
 python-version = "3.12"
