@@ -9,53 +9,151 @@ on:
 permissions:
   contents: read
 
+# A new push to a pull request cancels the run for its previous commit; runs on
+# main are never cancelled, so every merged commit is tested.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Decide which packages' tests to run, and on which Python versions.
+  #
+  # On main every package runs on 3.12 and 3.13. On a pull request only the
+  # packages its changes can affect run, on 3.13:
+  #   - shared config (pyproject.toml, uv.lock, conftest.py, .python-version,
+  #     this workflow) runs every package;
+  #   - a package runs with every package that depends on it (xrtoolz-products
+  #     is used by xrtoolz-ops, and both by the xrtoolz umbrella);
+  #   - any package change, scripts/ or docs/api/families.md also runs
+  #     xrtoolz-ops, whose dependency-rule and family-parity tests scan every
+  #     package;
+  #   - other docs and notebooks run no tests.
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.select.outputs.matrix }}
+      any: ${{ steps.select.outputs.any }}
+      ops: ${{ steps.select.outputs.ops }}
+    steps:
+      - name: Classify changed paths
+        id: filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            shared:
+              - pyproject.toml
+              - uv.lock
+              - conftest.py
+              - .python-version
+              - .github/workflows/ci.yml
+            scans:
+              - scripts/**
+              - docs/api/families.md
+            products:
+              - packages/xrtoolz-products/**
+            ops:
+              - packages/xrtoolz-ops/**
+            umbrella:
+              - packages/xrtoolz/**
+      - name: Select packages and Python versions
+        id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          SHARED: ${{ steps.filter.outputs.shared }}
+          SCANS: ${{ steps.filter.outputs.scans }}
+          PRODUCTS: ${{ steps.filter.outputs.products }}
+          OPS: ${{ steps.filter.outputs.ops }}
+          UMBRELLA: ${{ steps.filter.outputs.umbrella }}
+        run: |
+          all="xrtoolz-products xrtoolz-ops xrtoolz"
+          if [[ "$EVENT" != "pull_request" ]]; then
+            packages="$all"
+            pythons="3.12 3.13"
+          elif [[ "$SHARED" == "true" ]]; then
+            packages="$all"
+            pythons="3.13"
+          else
+            packages=""
+            # xrtoolz-ops imports xrproducts; the umbrella depends on both.
+            [[ "$PRODUCTS" == "true" ]] && packages+=" xrtoolz-products xrtoolz-ops xrtoolz"
+            [[ "$OPS" == "true" ]] && packages+=" xrtoolz-ops xrtoolz"
+            [[ "$UMBRELLA" == "true" ]] && packages+=" xrtoolz"
+            # xrtoolz-ops's tests scan every package and scripts/family_parity.py.
+            if [[ -n "$packages" || "$SCANS" == "true" ]]; then
+              packages+=" xrtoolz-ops"
+            fi
+            pythons="3.13"
+          fi
+          matrix=$(jq -cn --arg pkgs "$packages" --arg pys "$pythons" '
+            ($pkgs | split(" ") | map(select(length > 0)) | unique) as $p
+            | ($pys | split(" ")) as $v
+            | {include: [$p[] as $pkg | $v[] as $py | {package: $pkg, python: $py}]}')
+          echo "matrix=$matrix" >> "$GITHUB_OUTPUT"
+          if [[ $(jq '.include | length' <<< "$matrix") -gt 0 ]]; then
+            echo "any=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "any=false" >> "$GITHUB_OUTPUT"
+          fi
+          if [[ $(jq '[.include[] | select(.package == "xrtoolz-ops")] | length' <<< "$matrix") -gt 0 ]]; then
+            echo "ops=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ops=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Selected: $matrix"
+
+  # One job per package and Python version, in parallel. Fast tier only: the
+  # `slow` and `integration` tiers run manually via the "Extended Tests"
+  # workflow (tests-extended.yml). Each job runs from its package directory so
+  # that package's own pytest, marker and coverage config (80 % floor on its own
+  # source) applies unchanged.
   test:
+    name: test (${{ matrix.package }}, ${{ matrix.python }})
+    needs: changes
+    if: needs.changes.outputs.any == 'true'
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        python-version: ["3.12", "3.13"]
+      fail-fast: false
+      matrix: ${{ fromJSON(needs.changes.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v7
       - uses: astral-sh/setup-uv@v7
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ matrix.python }}
       - name: Install dependencies
         run: uv sync --all-packages --group dev --all-extras
-      # Fast tier only. The `slow` and `integration` tiers run manually
-      # via the "Extended Tests" workflow (tests-extended.yml). Each
-      # package runs from its own directory so its pytest + coverage
-      # config applies unchanged.
-      - name: Test xrtoolz-products
+      - name: Test ${{ matrix.package }}
         run: uv run pytest -v -m "not slow and not integration"
-        working-directory: packages/xrtoolz-products
-      - name: Test xrtoolz-ops
-        run: uv run pytest -v -m "not slow and not integration"
-        working-directory: packages/xrtoolz-ops
-      - name: Test xrtoolz (umbrella)
-        run: uv run pytest -v
-        working-directory: packages/xrtoolz
+        working-directory: packages/${{ matrix.package }}
       # Docstring examples in the scoped packages are executable and
       # doctested, so the docs cannot rot silently.
       - name: Family name parity with geoops (gate D1)
+        if: matrix.package == 'xrtoolz-ops'
         run: uv run python scripts/family_parity.py --check
       - name: Doctests (xrops.Operator, xrops.grad)
-        run: |
-          (cd packages/xrtoolz-ops && uv run pytest --doctest-modules src/xrops/_src src/xrops/grad --no-cov -q)
+        if: matrix.package == 'xrtoolz-ops'
+        run: uv run pytest --doctest-modules src/xrops/_src src/xrops/grad --no-cov -q
+        working-directory: packages/xrtoolz-ops
       - name: Upload coverage report
-        if: matrix.python-version == '3.12'
+        if: matrix.python == '3.13' && matrix.package != 'xrtoolz'
         uses: actions/upload-artifact@v7
         with:
-          name: coverage-report
-          path: packages/xrtoolz-ops/coverage.xml
+          name: coverage-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/coverage.xml
       - name: Upload coverage to Codecov
-        if: matrix.python-version == '3.12'
+        if: matrix.python == '3.13' && matrix.package != 'xrtoolz'
         uses: codecov/codecov-action@v7
         with:
-          files: packages/xrtoolz-ops/coverage.xml
+          files: packages/${{ matrix.package }}/coverage.xml
+          flags: ${{ matrix.package }}
           fail_ci_if_error: false
 
   dask:
+    needs: changes
+    if: needs.changes.outputs.ops == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -76,6 +174,8 @@ jobs:
     # without cartopy, which ships in the optional `[maps]` extra, and the
     # base must not pull JAX or scikit-learn (geostack gate B1; einx is
     # allowed, as geoops's kernels under xrops.grad need it).
+    needs: changes
+    if: needs.changes.outputs.ops == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -92,3 +192,24 @@ jobs:
           assert not leaked, f'{leaked} leaked into the base install';
           import xrops.viz, xrops.viz.validation, xrops.metrics, xrops.ocn,
           xrops.interpolate, xrops.transforms, xrops.learn, xrops.utils, xrops.grad"
+
+  tests-passed:
+    # One stable check that summarises every test job: it passes when each ran
+    # and passed, or was skipped because the change needed no tests.
+    name: Tests passed
+    if: always()
+    needs: [changes, test, dask, minimal-install]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check the test jobs
+        env:
+          CHANGES: ${{ needs.changes.result }}
+          TEST: ${{ needs.test.result }}
+          DASK: ${{ needs.dask.result }}
+          MINIMAL: ${{ needs.minimal-install.result }}
+        run: |
+          echo "changes: $CHANGES, test: $TEST, dask: $DASK, minimal-install: $MINIMAL"
+          [[ "$CHANGES" == "success" ]] || exit 1
+          for r in "$TEST" "$DASK" "$MINIMAL"; do
+            [[ "$r" == "success" || "$r" == "skipped" ]] || exit 1
+          done
