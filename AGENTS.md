@@ -71,6 +71,18 @@ For multi-step tasks, state a brief plan:
 
 ---
 
+## JAX and `jax.jit`
+
+xrtoolz's base installs carry no JAX; JAX arrives only through an extra (today `xrtoolz-ops[functax]`) and is imported inside the function that needs it.
+
+The stack's rule is that library code stays un-jitted and the caller jits once, around a whole step. xrops is the one exception it allows: a function that takes NumPy or xarray and returns NumPy, so no caller can trace through it, may keep one cached `jax.jit` around its JAX core. xrops operators are routinely mixed with NumPy, SciPy and xarray code, so nobody upstream can jit them, and an eager JAX solve re-traces on every call (about 1 s per slice for `functax.project.fill_gaps`, 0.2 ms compiled).
+
+- Keep that jit in the private bridge (`xrops/interpolate/_src/_functax.py` for functax), built once per process with `functools.cache`, with string options as `static_argnames`.
+- Check the extra on every call, so a missing install still names itself once the compiled function is cached.
+- Never jit a function that accepts or returns JAX arrays; that is the caller's job.
+
+---
+
 ## Before Every Commit
 
 **All agents must** verify that every one of the following passes before creating a commit or reporting progress. No exceptions.

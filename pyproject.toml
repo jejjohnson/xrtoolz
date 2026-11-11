@@ -35,6 +35,9 @@ pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = 
 # geoops's diagnostic difference kernels back xrops.grad (geostack OP-O7).
 geotoolz-ops = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-ops" }
 geotoolz-array = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-array" }
+# functax plans back the gap fills and IDW in xrops.interpolate (the
+# [functax] extra of xrtoolz-ops); not on PyPI, so pinned by release tag.
+functax = { git = "https://github.com/jejjohnson/functax", tag = "v0.0.6" }
 
 [build-system]
 requires = ["hatchling"]
@@ -56,6 +59,9 @@ dev = [
     # tests/inference/test_jax.py exercises the JAX ModelOp adapter; JAX is
     # not an xrops dependency.
     "jax>=0.4",
+    # The gap fills and IDW in xrops.interpolate run on functax, the
+    # [functax] extra of xrtoolz-ops; the published base stays without it.
+    "functax[jax,scipy]>=0.0.6",
     # xrtoolz test fixtures (HTTP mocks, vector IO, Zarr round-trips).
     "httpx>=0.28.1",
     "geopandas>=1.1.3",
