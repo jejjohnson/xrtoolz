@@ -101,6 +101,14 @@ uv pip install \
   "geotoolz-array @ git+https://github.com/jejjohnson/geotoolz@main#subdirectory=packages/geotoolz-array"
 ```
 
+The `functax` extra needs functax, also pre-PyPI, named the same way at its release tag:
+
+```bash
+uv pip install \
+  "xrtoolz-ops[functax] @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-ops" \
+  "functax[jax,scipy] @ git+https://github.com/jejjohnson/functax.git@v0.0.6"
+```
+
 For development, clone and let the workspace resolve everything instead
 (see below). A scoped package installs on its own — e.g.
 `"xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products"`

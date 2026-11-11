@@ -92,7 +92,8 @@ image = [
 # ``fillnan_idw``, ``idw_to_points``, ``idw_to_grid``). functax runs on JAX
 # and builds its neighbour trees with SciPy, so the extra brings both;
 # imported when used, so the base install stays without JAX (geostack gate
-# B1). See [tool.uv.sources] in the workspace root for the git pin.
+# B1). functax is pre-PyPI: uv resolves it from the git tag in the root
+# [tool.uv.sources], and a pip install names that git URL as well (README).
 functax = [
     "functax[jax,scipy]>=0.0.6",
 ]
