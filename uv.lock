@@ -1,5 +1,5 @@
 version = 1
-revision = 5
+revision = 3
 requires-python = ">=3.12"
 resolution-markers = [
     "python_full_version >= '3.14' and platform_machine == 'ARM64' and sys_platform == 'win32'",
@@ -24,8 +24,8 @@ members = [
     "xrtoolz-products",
 ]
 overrides = [
-    { name = "pipekit", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit" },
-    { name = "pipekit-array", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array" },
+    { name = "pipekit-array", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-ops-v0.2.1" },
+    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-ops-v0.2.1" },
 ]
 
 [[package]]
@@ -1056,20 +1056,21 @@ wheels = [
 
 [[package]]
 name = "geotoolz-array"
-version = "0.3.2"
-source = { git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-array#9e9212087eb67f8ecf16913d55bb801f6bd778be" }
+version = "0.4.1"
+source = { git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-array&tag=geotoolz-ops-v0.18.1#640670cab9e3697c61dd3912c2da953c89d2ff11" }
 dependencies = [
     { name = "affine" },
+    { name = "functax" },
     { name = "numpy" },
-    { name = "pipekit" },
     { name = "pipekit-array" },
+    { name = "pipekit-ops" },
     { name = "pyproj" },
 ]
 
 [[package]]
 name = "geotoolz-ops"
-version = "0.17.0"
-source = { git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-ops#9e9212087eb67f8ecf16913d55bb801f6bd778be" }
+version = "0.18.1"
+source = { git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-ops&tag=geotoolz-ops-v0.18.1#640670cab9e3697c61dd3912c2da953c89d2ff11" }
 dependencies = [
     { name = "affine" },
     { name = "einx" },
@@ -1077,8 +1078,8 @@ dependencies = [
     { name = "jaxtyping" },
     { name = "numpy" },
     { name = "pandas" },
-    { name = "pipekit" },
     { name = "pipekit-array" },
+    { name = "pipekit-ops" },
     { name = "pyproj" },
     { name = "scipy" },
 ]
@@ -2417,7 +2418,7 @@ name = "pexpect"
 version = "4.9.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "ptyprocess" },
+    { name = "ptyprocess", marker = "sys_platform != 'emscripten' and sys_platform != 'win32'" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/42/92/cc564bf6381ff43ce1f4d06852fc19a2f11d180f23dc32d9588bee2f149d/pexpect-4.9.0.tar.gz", hash = "sha256:ee7d41123f3c9911050ea2c2dac107568dc43b2d3b0c7557a33212c398ead30f", size = 166450, upload-time = "2023-11-25T09:07:26.339Z" }
 wheels = [
@@ -2496,17 +2497,17 @@ wheels = [
 ]
 
 [[package]]
-name = "pipekit"
-version = "0.1.4"
-source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit#e6ee61d5b9d0a295e494d5a6e68782349999f2a8" }
+name = "pipekit-array"
+version = "0.1.1"
+source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-ops-v0.2.1#8e357a1f3eb82b15e15bf18be4de04d4d9535855" }
+dependencies = [
+    { name = "pipekit-ops" },
+]
 
 [[package]]
-name = "pipekit-array"
-version = "0.0.7"
-source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array#e6ee61d5b9d0a295e494d5a6e68782349999f2a8" }
-dependencies = [
-    { name = "pipekit" },
-]
+name = "pipekit-ops"
+version = "0.2.1"
+source = { git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-ops-v0.2.1#8e357a1f3eb82b15e15bf18be4de04d4d9535855" }
 
 [[package]]
 name = "platformdirs"
@@ -4257,7 +4258,7 @@ wheels = [
 
 [[package]]
 name = "xrtoolz"
-version = "0.4.0"
+version = "0.4.1"
 source = { editable = "packages/xrtoolz" }
 dependencies = [
     { name = "xrtoolz-ops" },
@@ -4382,11 +4383,11 @@ docs = [
     { name = "xrtoolz-products", editable = "packages/xrtoolz-products" },
 ]
 lint = [{ name = "ruff", specifier = ">=0.15.10,<0.18" }]
-typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.93" }]
+typecheck = [{ name = "ty", specifier = ">=0.0.30,<0.0.96" }]
 
 [[package]]
 name = "xrtoolz-ops"
-version = "0.5.0"
+version = "0.5.1"
 source = { editable = "packages/xrtoolz-ops" }
 dependencies = [
     { name = "dask", extra = ["array"] },
@@ -4398,8 +4399,8 @@ dependencies = [
     { name = "numpy" },
     { name = "numpy-groupies" },
     { name = "pandas" },
-    { name = "pipekit" },
     { name = "pipekit-array" },
+    { name = "pipekit-ops" },
     { name = "pyproj" },
     { name = "regionmask" },
     { name = "rioxarray" },
@@ -4471,17 +4472,17 @@ requires-dist = [
     { name = "dask", extras = ["array"], specifier = ">=2024.10" },
     { name = "functax", extras = ["jax", "scipy"], marker = "extra == 'functax'", git = "https://github.com/jejjohnson/functax?tag=v0.0.6" },
     { name = "geopandas", marker = "extra == 'vector'", specifier = ">=1.1.3" },
-    { name = "geotoolz-array", git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-array" },
-    { name = "geotoolz-ops", git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-ops" },
+    { name = "geotoolz-array", git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-array&tag=geotoolz-ops-v0.18.1" },
+    { name = "geotoolz-ops", git = "https://github.com/jejjohnson/geotoolz?subdirectory=packages%2Fgeotoolz-ops&tag=geotoolz-ops-v0.18.1" },
     { name = "jaxtyping", specifier = ">=0.2.34" },
     { name = "matplotlib", specifier = ">=3.8" },
     { name = "netcdf4", specifier = ">=1.6" },
     { name = "numpy", specifier = ">=1.26" },
     { name = "numpy-groupies", specifier = ">=0.11" },
     { name = "pandas", specifier = ">=2.1" },
-    { name = "pipekit", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit" },
-    { name = "pipekit-array", extras = ["sklearn"], marker = "extra == 'sklearn'", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array" },
-    { name = "pipekit-array", extras = ["xarray"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array" },
+    { name = "pipekit-array", extras = ["sklearn"], marker = "extra == 'sklearn'", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-ops-v0.2.1" },
+    { name = "pipekit-array", extras = ["xarray"], git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-array&tag=pipekit-ops-v0.2.1" },
+    { name = "pipekit-ops", git = "https://github.com/jejjohnson/pipekit?subdirectory=packages%2Fpipekit-ops&tag=pipekit-ops-v0.2.1" },
     { name = "pyproj", specifier = ">=3.6" },
     { name = "pywavelets", marker = "extra == 'wavelets'", specifier = ">=1.4" },
     { name = "rasterio", marker = "extra == 'vector'", specifier = ">=1.3" },
