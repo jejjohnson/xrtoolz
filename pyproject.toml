@@ -18,8 +18,8 @@ members = ["packages/*"]
 # geotoolz pins pipekit to its own git rev; built from git, geotoolz-ops
 # carries that pin. One URL per package for the whole resolution: ours.
 override-dependencies = [
-    "pipekit @ git+https://github.com/jejjohnson/pipekit#subdirectory=packages/pipekit",
-    "pipekit-array @ git+https://github.com/jejjohnson/pipekit#subdirectory=packages/pipekit-array",
+    "pipekit-ops @ git+https://github.com/jejjohnson/pipekit@pipekit-ops-v0.2.1#subdirectory=packages/pipekit-ops",
+    "pipekit-array @ git+https://github.com/jejjohnson/pipekit@pipekit-ops-v0.2.1#subdirectory=packages/pipekit-array",
 ]
 
 [tool.uv.sources]
@@ -27,14 +27,21 @@ xrtoolz = { workspace = true }
 xrtoolz-ops = { workspace = true }
 xrtoolz-products = { workspace = true }
 # The Operator / Sequential / Graph composition core lives in the pipekit
-# monorepo. Pull it from GitHub until the first PyPI release lands; the
-# published wheel metadata still carries the PyPI-flavoured `pipekit>=…`
-# requirement from each member's [project] table.
-pipekit = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit" }
-pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array" }
+# monorepo as `pipekit-ops` (import `pipekit_ops`, since pipekit 0.2.0).
+# Pull it from GitHub until the first PyPI release lands; the published
+# wheel metadata still carries the PyPI-flavoured `pipekit-ops>=…`
+# requirement from each member's [project] table. pipekit's members point
+# at each other at the same commit, so both come from the one tag
+# `pipekit-ops-v0.2.1` (8e357a1, ops 0.2.1 and array 0.1.1); per-package
+# tags make uv report conflicting URLs for pipekit-ops.
+pipekit-ops = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-ops", tag = "pipekit-ops-v0.2.1" }
+pipekit-array = { git = "https://github.com/jejjohnson/pipekit", subdirectory = "packages/pipekit-array", tag = "pipekit-ops-v0.2.1" }
 # geoops's diagnostic difference kernels back xrops.grad (geostack OP-O7).
-geotoolz-ops = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-ops" }
-geotoolz-array = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-array" }
+# Both come from one geotoolz commit for the same reason: the tag
+# `geotoolz-ops-v0.18.1` (640670c) also carries geotoolz-array 0.4.1, and
+# is the first release on pipekit-ops (jejjohnson/geotoolz#652).
+geotoolz-ops = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-ops", tag = "geotoolz-ops-v0.18.1" }
+geotoolz-array = { git = "https://github.com/jejjohnson/geotoolz", subdirectory = "packages/geotoolz-array", tag = "geotoolz-ops-v0.18.1" }
 # functax plans back the gap fills and IDW in xrops.interpolate (the
 # [functax] extra of xrtoolz-ops); not on PyPI, so pinned by release tag.
 functax = { git = "https://github.com/jejjohnson/functax", tag = "v0.0.6" }

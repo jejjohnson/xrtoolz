@@ -27,7 +27,7 @@ xarray-specific operator families on top.
 ## Quick start
 
 ```python
-from pipekit import Sequential
+from pipekit_ops import Sequential
 from xrops.anomaly import RemoveMean
 from xrops.ocn import Streamfunction, GeostrophicVelocities
 from xrops.viz.validation import SpatialMapPanel
@@ -56,7 +56,7 @@ with `Graph(inputs=…, outputs=…)`.
 
 Drop to Layer 0 when you want the raw function; stay at Layer 1–2 to
 compose. `Operator`, `Sequential`, `Graph`, `Input`, `Node`, `Tap` are
-re-exported from `pipekit` at the top level.
+re-exported from `pipekit_ops` at the top level.
 
 ## Module map
 
@@ -87,7 +87,7 @@ uv add xrtoolz
 The repository is a uv workspace; the installable distributions live
 under `packages/*` (the repo root itself ships no code). `xrtoolz`
 depends on its two workspace siblings plus
-[`pipekit`](https://github.com/jejjohnson/pipekit), pipekit-array and geotoolz-ops — all pre-PyPI —
+[`pipekit-ops`](https://github.com/jejjohnson/pipekit), pipekit-array, geotoolz-ops and geotoolz-array — all pre-PyPI —
 so a Git install must name each of them explicitly:
 
 ```bash
@@ -95,10 +95,10 @@ uv pip install \
   "xrtoolz @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz" \
   "xrtoolz-ops @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-ops" \
   "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
-  "pipekit @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit" \
-  "pipekit-array @ git+https://github.com/jejjohnson/pipekit@main#subdirectory=packages/pipekit-array" \
-  "geotoolz-ops @ git+https://github.com/jejjohnson/geotoolz@main#subdirectory=packages/geotoolz-ops" \
-  "geotoolz-array @ git+https://github.com/jejjohnson/geotoolz@main#subdirectory=packages/geotoolz-array"
+  "pipekit-ops @ git+https://github.com/jejjohnson/pipekit@pipekit-ops-v0.2.1#subdirectory=packages/pipekit-ops" \
+  "pipekit-array @ git+https://github.com/jejjohnson/pipekit@pipekit-ops-v0.2.1#subdirectory=packages/pipekit-array" \
+  "geotoolz-ops @ git+https://github.com/jejjohnson/geotoolz@geotoolz-ops-v0.18.1#subdirectory=packages/geotoolz-ops" \
+  "geotoolz-array @ git+https://github.com/jejjohnson/geotoolz@geotoolz-ops-v0.18.1#subdirectory=packages/geotoolz-array"
 ```
 
 The `functax` extra needs functax, also pre-PyPI, named the same way at its release tag:
