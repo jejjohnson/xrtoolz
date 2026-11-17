@@ -1,135 +1,17 @@
-# xrtoolz
+# xrtoolz has moved to geotoolz
 
-[![Tests](https://github.com/jejjohnson/xrtoolz/actions/workflows/ci.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/ci.yml)
-[![Lint](https://github.com/jejjohnson/xrtoolz/actions/workflows/lint.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/lint.yml)
-[![Type Check](https://github.com/jejjohnson/xrtoolz/actions/workflows/typecheck.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/typecheck.yml)
-[![Deploy Docs](https://github.com/jejjohnson/xrtoolz/actions/workflows/pages.yml/badge.svg)](https://github.com/jejjohnson/xrtoolz/actions/workflows/pages.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
-[![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
+xrtoolz's three packages, their history and their open issues now live in [geotoolz](https://github.com/jejjohnson/geotoolz), and this repository is read-only.
 
-**Composable operators for geoprocessing Earth System Data Cubes.**
+| Package | Import | In geotoolz |
+|---|---|---|
+| `xrtoolz` | `xrtoolz` | [`packages/xrtoolz`](https://github.com/jejjohnson/geotoolz/tree/main/packages/xrtoolz) |
+| `xrtoolz-ops` | `xrops` | [`packages/xrtoolz-ops`](https://github.com/jejjohnson/geotoolz/tree/main/packages/xrtoolz-ops) |
+| `xrtoolz-products` | `xrproducts` | [`packages/xrtoolz-products`](https://github.com/jejjohnson/geotoolz/tree/main/packages/xrtoolz-products) |
 
-`xrtoolz` gives every preprocessing, physics, inference, and evaluation step
-a single shape — an **`Operator`**: a callable that maps `xarray` in to
-`xarray` out, carries its configuration, and reports its shape signature.
-Operators chain linearly via `Sequential` or wire into a DAG via the
-functional `Graph` API — *the same operator works in both*.
+The documentation is the [xarray lane section](https://jejjohnson.github.io/geotoolz/xarray/) of the geotoolz site. Releases continue from geotoolz under the same tags (`xrtoolz-ops-vX.Y.Z`, …), and issues are filed on [geotoolz](https://github.com/jejjohnson/geotoolz/issues). Old issue links redirect there.
 
-The carrier-agnostic composition core lives in
-[`pipekit`](https://github.com/jejjohnson/pipekit); `xrtoolz` adds the
-xarray-specific operator families on top.
-
-📖 **[Documentation](https://jejjohnson.github.io/xrtoolz)** ·
-🧩 **[API Reference](https://jejjohnson.github.io/xrtoolz/api/)** ·
-🧪 **[Tutorials](https://jejjohnson.github.io/xrtoolz/notebooks/operators_pipeline_demo/)**
-
-## Quick start
-
-```python
-from pipekit_ops import Sequential
-from xrops.anomaly import RemoveMean
-from xrops.ocn import Streamfunction, GeostrophicVelocities
-from xrops.viz.validation import SpatialMapPanel
-
-# Geostrophic surface currents from sea-surface height, as one pipeline
-pipeline = Sequential(
-    RemoveMean(dim=("lat", "lon")),  # subtract the spatial mean
-    Streamfunction(),            # ψ = g·η / f
-    GeostrophicVelocities(),     # (u_g, v_g) from ψ
-)
-
-currents = pipeline(ds)          # xr.Dataset in → xr.Dataset out
-fig = SpatialMapPanel(variable="u")(currents)
-```
-
-Need branching or shared intermediates? Wire the *same* operators as a DAG
-with `Graph(inputs=…, outputs=…)`.
-
-## Architecture — three layers
-
-| Layer | Name | What it is |
-|-------|------|------------|
-| 0 | **Primitives** | Pure functions `(xr.Dataset, …) → xr.Dataset`. Backed by jaxtyped numpy kernels. |
-| 1 | **Operators** | `Operator` subclasses with a uniform `__call__` / `get_config` / `__repr__`; compose with `Sequential`. |
-| 2 | **Graph** | `Input` / `Node` / `Graph` DAG API and `ModelOp` inference wrappers. |
-
-Drop to Layer 0 when you want the raw function; stay at Layer 1–2 to
-compose. `Operator`, `Sequential`, `Graph`, `Input`, `Node`, `Tap` are
-re-exported from `pipekit_ops` at the top level.
-
-## Module map
-
-| Module | Scope |
-|--------|-------|
-| [`geom`, `mask`, `anomaly`, `extremes`, `wavelets`, `cf`](https://jejjohnson.github.io/xrtoolz/api/geo/coords/) | Generic geoprocessing — validation, subsetting, regions, masks, CRS, climatology, wavelets, extremes |
-| [`calc`](https://jejjohnson.github.io/xrtoolz/api/calc/) | Finite-difference `gradient` / `divergence` / `curl` / `laplacian` |
-| [`transforms`](https://jejjohnson.github.io/xrtoolz/api/transforms/) | Fourier / wavelet / DCT spectra, spectral fluxes, decompositions, morphology |
-| [`interpolate`](https://jejjohnson.github.io/xrtoolz/api/interpolate/) | Regrid, coarsen, gap-fill, bin, smooth, point-sample |
-| [`ocn`](https://jejjohnson.github.io/xrtoolz/api/ocn/) | Ocean physics — geostrophy, vorticity, KE, stratification, SSH |
-| `atm` · `rs` | Atmospheric & remote-sensing physics (reserved; planned) |
-| [`metrics`](https://jejjohnson.github.io/xrtoolz/api/metrics/) | Pixel, spectral, multiscale, physical, masked, distributional evaluation |
-| [`budgets`](https://jejjohnson.github.io/xrtoolz/api/budgets/) | Conservation-budget residuals (heat, salt, volume, KE) |
-| [`learn`](https://jejjohnson.github.io/xrtoolz/api/learn/) | scikit-learn on DataArrays, Datasets and DataTrees, and the `.sklearn` accessor |
-| [`inference`](https://jejjohnson.github.io/xrtoolz/api/inference/) | `ModelOp` wrappers for sklearn / JAX / framework-agnostic models |
-| [`viz`](https://jejjohnson.github.io/xrtoolz/api/viz/) | Cartopy axes, colormap registry, V1–V5 validation panels |
-
-> **Data acquisition** (CMEMS / CDS / AEMET archive readers) lives in the
-> [`xrtoolz-products`](packages/xrtoolz-products) workspace member, which imports
-> as `xrproducts`.
-
-## Install
+Install from geotoolz:
 
 ```bash
-uv add xrtoolz
+uv pip install "xrtoolz-ops @ git+https://github.com/jejjohnson/geotoolz@main#subdirectory=packages/xrtoolz-ops"
 ```
-
-The repository is a uv workspace; the installable distributions live
-under `packages/*` (the repo root itself ships no code). `xrtoolz`
-depends on its two workspace siblings plus
-[`pipekit-ops`](https://github.com/jejjohnson/pipekit), pipekit-array, geotoolz-ops and geotoolz-array — all pre-PyPI —
-so a Git install must name each of them explicitly:
-
-```bash
-uv pip install \
-  "xrtoolz @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz" \
-  "xrtoolz-ops @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-ops" \
-  "xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products" \
-  "pipekit-ops @ git+https://github.com/jejjohnson/pipekit@pipekit-ops-v0.2.1#subdirectory=packages/pipekit-ops" \
-  "pipekit-array @ git+https://github.com/jejjohnson/pipekit@pipekit-ops-v0.2.1#subdirectory=packages/pipekit-array" \
-  "geotoolz-ops @ git+https://github.com/jejjohnson/geotoolz@geotoolz-ops-v0.18.1#subdirectory=packages/geotoolz-ops" \
-  "geotoolz-array @ git+https://github.com/jejjohnson/geotoolz@geotoolz-ops-v0.18.1#subdirectory=packages/geotoolz-array"
-```
-
-The `functax` extra needs functax, also pre-PyPI, named the same way at its release tag:
-
-```bash
-uv pip install \
-  "xrtoolz-ops[functax] @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-ops" \
-  "functax[jax,scipy] @ git+https://github.com/jejjohnson/functax.git@v0.0.6"
-```
-
-For development, clone and let the workspace resolve everything instead
-(see below). A scoped package installs on its own — e.g.
-`"xrtoolz-products @ git+https://github.com/jejjohnson/xrtoolz@main#subdirectory=packages/xrtoolz-products"`
-needs nothing else from the stack.
-
-### From source
-
-```bash
-git clone https://github.com/jejjohnson/xrtoolz.git
-cd xrtoolz
-make install      # install all dependency groups (resolves pipekit from GitHub)
-make test         # run the test suite
-make docs-serve   # preview the docs locally
-```
-
-## Status
-
-Pre-alpha. The API is stabilising domain by domain — see the full
-[design documentation](https://jejjohnson.github.io/xrtoolz/design/) for
-motivation, architecture, boundaries, conventions, and roadmap.
-
-## License
-
-MIT. See [LICENSE](LICENSE).
